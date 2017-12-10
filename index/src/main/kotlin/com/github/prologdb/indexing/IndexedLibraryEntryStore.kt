@@ -4,10 +4,9 @@ import com.github.prologdb.runtime.ArityMap
 import com.github.prologdb.runtime.knowledge.library.*
 import com.github.prologdb.runtime.term.Predicate
 
-/** Maps functor names to `T`s */
-private typealias FunctorMap<T> = MutableMap<String,T>
-
-class IndexedLibraryEntryStore : MutableLibraryEntryStore {
+class IndexedLibraryEntryStore(
+    private val indexFactory: IndexedPartialLibraryEntryStoreFactory
+) : MutableLibraryEntryStore {
     private val indexedItems: FunctorMap<ArityMap<IndexedPartialLibraryEntryStore>> = HashMap()
 
     override val exports: Iterable<LibraryEntry>
@@ -33,17 +32,21 @@ class IndexedLibraryEntryStore : MutableLibraryEntryStore {
             }
         }
 
-        indexSet ?: TODO("Fall back to table scan")
-
-        return object : Iterable<LibraryEntry> {
-            override fun iterator(): Iterator<LibraryEntry> {
-                val indexIterator = indexSet.iterator()
-                return object : Iterator<LibraryEntry> {
-                    override fun hasNext(): Boolean = indexIterator.hasNext()
-                    override fun next(): LibraryEntry = partialStore.exports[indexIterator.next()]
+        if (indexSet != null) {
+            return object : Iterable<LibraryEntry> {
+                override fun iterator(): Iterator<LibraryEntry> {
+                    val indexIterator = indexSet.iterator()
+                    return object : Iterator<LibraryEntry> {
+                        override fun hasNext(): Boolean = indexIterator.hasNext()
+                        override fun next(): LibraryEntry = partialStore.exports[indexIterator.next()]
+                    }
                 }
             }
         }
+
+        // index is null; this means that the partialStore has no indexes defined.
+        // no index means full table scan
+        return partialStore.exports
     }
 
     private fun getPartialStoreFor(prototype: PredicatePrototype): IndexedPartialLibraryEntryStore {
@@ -55,10 +58,13 @@ class IndexedLibraryEntryStore : MutableLibraryEntryStore {
 
         var partialStore = arityMap[prototype.arity]
         if (partialStore == null) {
-            partialStore = TODO()
+            partialStore = indexFactory.createEntryStoreFor(prototype)
             arityMap[prototype.arity] = partialStore
         }
 
         return partialStore
     }
 }
+
+/** Maps functor names to `T`s */
+private typealias FunctorMap<T> = MutableMap<String,T>
