@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.github.prologdb</groupId>
-    <artifactId>prologdb</artifactId>
+    <artifactId>prologdb-parent</artifactId>
     <packaging>pom</packaging>
 
     <!--
@@ -19,4 +19,42 @@
         <module>io</module>
         <module>socket-interface</module>
     </modules>
+
+    <properties>
+        <kotlin.version>1.2.0</kotlin.version>
+        <kotlin.plugin.version>${kotlin.version}</kotlin.plugin.version>
+        <prolog.runtime.version>1.0.0-SNAPSHOT</prolog.runtime.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib</artifactId>
+                <version>${kotlin.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-test</artifactId>
+                <version>${kotlin.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.prologdb</groupId>
+                <artifactId>runtime-core-jvm</artifactId>
+                <version>${prolog.runtime.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.jetbrains.kotlin</groupId>
+                    <artifactId>kotlin-maven-plugin</artifactId>
+                    <version>${kotlin.plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>
