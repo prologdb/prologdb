@@ -14,4 +14,14 @@ interface IndexSet : Iterable<Int> {
      * @return the union set of this [IndexSet] and the given [IndexSet]
      */
     infix fun union(other: IndexSet): IndexSet
+
+    companion object {
+        /**
+         * An empty [IndexSet]
+         */
+        val NONE: IndexSet = object : IndexSet {
+            override fun iterator(): IntIterator = IntRange.EMPTY.iterator()
+            override fun union(other: IndexSet): IndexSet = this
+        }
+    }
 }

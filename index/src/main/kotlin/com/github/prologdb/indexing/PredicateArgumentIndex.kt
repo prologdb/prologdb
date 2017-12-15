@@ -1,6 +1,5 @@
 package com.github.prologdb.indexing
 
-import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.term.Term
 
 /**
@@ -10,28 +9,26 @@ import com.github.prologdb.runtime.term.Term
  */
 interface PredicateArgumentIndex {
     /**
-     * The predicate functor this index applies to
-     */
-    val functor: String
-
-    /**
-     * The argument index being indexed by this index
-     */
-    val argumentIndex: Int
-
-    /**
-     * @return the indexes in the source list at which the entry's [argumentIndex]th argument is likely to unify with
+     * @return the indexes in the source list at which the entry's argument is likely to unify with
      *         the given term
      */
     fun find(argument: Term): IndexSet
 
     /**
-     * To be called when a predicate is added to the underlying list. Updates the index accordingly.
+     * To be called when a predicate is inserted into the underlying list. Updates the index accordingly.
+     * @param argumentValue The value of the argument in the added predicate
+     * @param atIndex Index in the source list of predicates where the new predicate is being inserted to. All entries
+     *                after the given index will move right by one (increment index by 1) to make room for the to-be-inserted
+     *                entry.
      */
-    fun onAdded(predicate: Predicate, atIndex: Int)
+    fun onInserted(argumentValue: Term, atIndex: Int)
 
     /**
      * To be called when a predicate is removed from the underlying list. Updates the index accordingly.
+     * @param argumentValue The value of the argument in the removed predicate
+     * @param fromIndex Index in the source list of predicates from which the term is being removed. All entries
+     *                  after the given index will move left by one (decrement index by 1) to close the gap that
+     *                  removing the entry left.
      */
-    fun onRemoved(predicate: Predicate, fromIndex: Int)
+    fun onRemoved(argumentValue: Term, fromIndex: Int)
 }
