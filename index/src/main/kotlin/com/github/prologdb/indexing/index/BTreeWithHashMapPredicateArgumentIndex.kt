@@ -19,6 +19,18 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
     private val rootNodeLock = Any()
 
     /**
+     * The highest source index stored in the tree. Is used to determine whether stored indexes need to be adjusted
+     * on inserts and removals in between
+     */
+    private var highestIndex: Int = 0
+
+    /**
+     * The lowest source index stored in the tree. Is used to determine whether stored indexes need to be adjusted
+     * on inserts and removals in between
+     */
+    private var lowestIndex: Int = Int.MAX_VALUE
+
+    /**
      * @return The maximum number of levels the given value can be separated into, e.g. for a string `"foobar"` that
      * can be split at every character, this method should return `6`.
      */
@@ -78,7 +90,9 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
         synchronized(rootNodeLock) {
             if (rootNode == null) {
                 rootNode = Node()
-            } else {
+            }
+
+            if (atIndex <= highestIndex) {
                 rootNode!!.incrementSourceIndexesFromOnwards(atIndex)
             }
 
@@ -100,6 +114,8 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
                     node.directReferences[element] = indexList
                 }
                 indexList.add(atIndex)
+                if (atIndex > highestIndex) highestIndex = atIndex
+                if (atIndex < lowestIndex) lowestIndex = atIndex
                 return
             }
             else
@@ -126,7 +142,12 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
             if (rootNode != null) {
                 remove(argumentValue, fromIndex, rootNode!!, 0, getNumberOfElementsIn(argumentValue) - 1)
 
-                rootNode!!.decrementSourceIndexesFromOnwards(fromIndex)
+                if (fromIndex < highestIndex) {
+                    rootNode!!.decrementSourceIndexesFromOnwards(fromIndex)
+                }
+
+                // in either way, the highest index decreases at least by 1
+                highestIndex--
             }
         }
     }
@@ -184,8 +205,6 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
     }
 }
 
-private typealias ElementOrLeaf = Any
-private typealias NodeOrListOfIndexes = Any
 private fun MutableCollection<Int>.incrementAllFromOnwards(value: Int) {
     val affectedValues = filter { it >= value }
     removeAll(affectedValues)
