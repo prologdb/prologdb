@@ -37,16 +37,20 @@
     </dependencies>
 
     <build>
+        <sourceDirectory>src/main/kotlin</sourceDirectory>
+        <testSourceDirectory>src/test/kotlin</testSourceDirectory>
         <plugins>
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
                 <executions>
                     <execution>
+                        <id>compile</id>
                         <phase>compile</phase>
                         <goals><goal>compile</goal></goals>
                     </execution>
                     <execution>
+                        <id>test-compile</id>
                         <phase>test-compile</phase>
                         <goals><goal>test-compile</goal></goals>
                     </execution>
