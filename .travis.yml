@@ -1,0 +1,11 @@
+language: java
+jdk:
+  - oraclejdk8
+
+dist: trusty
+
+install:
+  - mvn dependency:go-offline
+
+script:
+  - mvn clean install -Dgpg.skip=true
