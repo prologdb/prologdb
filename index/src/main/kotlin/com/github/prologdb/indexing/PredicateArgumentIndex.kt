@@ -8,6 +8,9 @@ import com.github.prologdb.runtime.term.Term
  */
 interface PredicateArgumentIndex {
     /**
+     * If the same table index (`atIndex`) is inserted multiple
+     * times without being removed in between insertions the behaviour of the entire index (all methods) is undefined.
+     *
      * @return the indexes in the source list at which the entry's argument is likely to unify with
      *         the given term
      */
@@ -16,6 +19,10 @@ interface PredicateArgumentIndex {
     /**
      * To be called when a predicate is inserted into the underlying list. Updates the index accordingly. Other rows
      * in the table and index are not affected by this operation.
+     *
+     * If the same table index (`atIndex`) is inserted multiple
+     * times without being removed in between insertions the behaviour of the entire index (all methods) is undefined.
+     *
      * @param argumentValue The value of the argument in the added predicate
      * @param atIndex Index in the source list of predicates where the new predicate is being inserted to.
      */
@@ -24,6 +31,10 @@ interface PredicateArgumentIndex {
     /**
      * To be called when a predicate is removed from the underlying list. Updates the index accordingly. Other rows
      * in the table and index are not affected by this operation.
+     *
+     * If the same table index (`atIndex`) is inserted multiple
+     * times without being removed in between insertions the behaviour of the entire index (all methods) is undefined.
+     *
      * @param argumentValue The value of the argument in the removed predicate
      * @param fromIndex Index in the source list of predicates from which the term is being removed.
      */
