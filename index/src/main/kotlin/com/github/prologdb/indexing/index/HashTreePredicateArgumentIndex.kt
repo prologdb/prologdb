@@ -7,7 +7,7 @@ import com.github.prologdb.indexing.PredicateArgumentIndex
 import com.github.prologdb.runtime.term.Term
 import kotlin.reflect.KClass
 
-abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(private val valueTypeClass: KClass<Value>) : PredicateArgumentIndex {
+abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val valueTypeClass: KClass<Value>) : PredicateArgumentIndex {
     /**
      * The root node; if null, the index is empty
      */
@@ -17,18 +17,6 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
      * Used to lock the entire rootNode (instead of locking onto the node itself, works for null values, too)
      */
     private val rootNodeLock = Any()
-
-    /**
-     * The highest source index stored in the tree. Is used to determine whether stored indexes need to be adjusted
-     * on inserts and removals in between
-     */
-    private var highestIndex: Int = 0
-
-    /**
-     * The lowest source index stored in the tree. Is used to determine whether stored indexes need to be adjusted
-     * on inserts and removals in between
-     */
-    private var lowestIndex: Int = Int.MAX_VALUE
 
     /**
      * @return The maximum number of levels the given value can be separated into, e.g. for a string `"foobar"` that
@@ -72,8 +60,9 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
         val element = getElementAt(argument, nestingLevel) ?: throw IndexingException("Index handled its data improperly", IndexOutOfBoundsException())
 
         if (nestingLevel == maxNestingLevel) {
-            val indexList = node.directReferences[element]
-            return if (indexList == null) IndexSet.NONE else ListIndexSet(indexList)
+            val targetNode = node.children[element]
+
+            return if (targetNode == null) IndexSet.NONE else ListIndexSet(targetNode.sourceTableIndexes)
         }
 
         val childNode = node.children[element] ?: return IndexSet.NONE
@@ -92,10 +81,6 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
                 rootNode = Node()
             }
 
-            if (atIndex <= highestIndex) {
-                rootNode!!.incrementSourceIndexesFromOnwards(atIndex)
-            }
-
             insert(argumentValue, atIndex, rootNode!!, 0, getNumberOfElementsIn(argumentValue) - 1)
         }
     }
@@ -108,14 +93,13 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
 
         synchronized(node) {
             if (nestingLevel == maxNestingLevel) {
-                var indexList = node.directReferences[element]
-                if (indexList == null) {
-                    indexList = ArrayList(4)
-                    node.directReferences[element] = indexList
+                var targetNode = node.children[element]
+                if (targetNode == null) {
+                    targetNode = Node()
+                    node.children[element] = targetNode
                 }
-                indexList.add(atIndex)
-                if (atIndex > highestIndex) highestIndex = atIndex
-                if (atIndex < lowestIndex) lowestIndex = atIndex
+
+                targetNode.sourceTableIndexes.add(atIndex)
                 return
             }
             else
@@ -141,13 +125,6 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
         synchronized(rootNodeLock) {
             if (rootNode != null) {
                 remove(argumentValue, fromIndex, rootNode!!, 0, getNumberOfElementsIn(argumentValue) - 1)
-
-                if (fromIndex < highestIndex) {
-                    rootNode!!.decrementSourceIndexesFromOnwards(fromIndex)
-                }
-
-                // in either way, the highest index decreases at least by 1
-                highestIndex--
             }
         }
     }
@@ -156,7 +133,11 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
         val element = getElementAt(argumentValue, nestingLevel) ?: throw IndexingException("Index handled its data improperly", IndexOutOfBoundsException())
 
         if (nestingLevel == maxNestingLevel) {
-            node.directReferences[element]?.remove(fromIndex)
+            val targetNode = node.children[element]
+            if (targetNode != null) {
+                targetNode.sourceTableIndexes.remove(fromIndex)
+            }
+
             return
         }
 
@@ -174,44 +155,9 @@ abstract class BTreeWithHashMapPredicateArgumentIndex<Value : Term, Element>(pri
         val children: HashMap<Element,Node> = HashMap(4)
 
         /**
-         * If this is a branch node, contains references to those entries that end on this branch (have fewer
-         * elements than other entries)
+         * Contains the table positions where elements can be found whose last element was a key of this' nodes
+         * parents [children] map.
          */
-        val directReferences: MutableMap<Element,MutableList<Int>> = HashMap(4)
-
-        /**
-         * Increments all source list references / indexes by 1 which are equal to or greater than the given
-         * index by 1.
-         */
-        fun incrementSourceIndexesFromOnwards(sourceIndex: Int) {
-            synchronized(this) {
-                for (childNode in children.values) {
-                    childNode.incrementSourceIndexesFromOnwards(sourceIndex)
-                }
-
-                directReferences.values.forEach { it.incrementAllFromOnwards(sourceIndex) }
-            }
-        }
-
-        fun decrementSourceIndexesFromOnwards(sourceIndex: Int) {
-            synchronized(this) {
-                for (childNode in children.values) {
-                    childNode.decrementSourceIndexesFromOnwards(sourceIndex)
-                }
-
-                directReferences.values.forEach { it.decrementAllFromOnwards(sourceIndex) }
-            }
-        }
+        val sourceTableIndexes: MutableList<Int> = ArrayList(4)
     }
-}
-
-private fun MutableCollection<Int>.incrementAllFromOnwards(value: Int) {
-    val affectedValues = filter { it >= value }
-    removeAll(affectedValues)
-    addAll(affectedValues.map { it + 1 })
-}
-private fun MutableCollection<Int>.decrementAllFromOnwards(value: Int) {
-    val affectedValues = filter { it >= value }
-    removeAll(affectedValues)
-    addAll(affectedValues.map { it - 1 })
 }

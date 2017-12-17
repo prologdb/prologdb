@@ -3,16 +3,14 @@ package com.github.prologdb.indexing.index
 import com.github.prologdb.LongRunning
 import com.github.prologdb.Performance
 import com.github.prologdb.indexing.standardDeviation
-import com.github.prologdb.indexing.variance
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.term.Atom
 import io.kotlintest.matchers.*
 import io.kotlintest.specs.FreeSpec
 import java.math.BigInteger
 import java.util.*
-import kotlin.math.sqrt
 
-class BTreeWithHashMapPredicateArgumentIndexTest : FreeSpec() {
+class HashTreePredicateArgumentIndexTest : FreeSpec() {
     override val oneInstancePerTest = true
 init {
     val index = AtomIndex()
@@ -49,18 +47,6 @@ init {
 
                 foundIndexes shouldEqual setOf(97612, 1252, 924, 45621, 22792)
             }
-
-            "index correction on insertion before" {
-                index.onInserted(Atom("foo"), 0)
-                index.onInserted(Atom("bar"), 1)
-                index.onInserted(Atom("peter"), 1)
-
-                val indexesForBar = index.find(Atom("bar")).toSet()
-                val indexesForPeter = index.find(Atom("peter")).toSet()
-
-                indexesForBar shouldEqual setOf(2)
-                indexesForPeter shouldEqual setOf(1)
-            }
         }
 
         "removal" - {
@@ -83,18 +69,6 @@ init {
                 index.onRemoved(Atom("foo"), 5222)
 
                 index.find(Atom("foo")).toSet() shouldEqual setOf(1222)
-            }
-
-            "index correction on remove" {
-                index.onInserted(Atom("bar"), 1222)
-                index.onInserted(Atom("foo"), 5222)
-
-                index.find(Atom("bar")).toSet() shouldEqual setOf(1222)
-                index.find(Atom("foo")).toSet() shouldEqual setOf(5222)
-
-                index.onRemoved(Atom("bar"), 1222)
-
-                index.find(Atom("foo")).toSet() shouldEqual setOf(5221)
             }
         }
     }
@@ -215,7 +189,7 @@ init {
     }
 }}
 
-private class AtomIndex : BTreeWithHashMapPredicateArgumentIndex<Atom, Char>(Atom::class) {
+private class AtomIndex : HashTreePredicateArgumentIndex<Atom, Char>(Atom::class) {
     override fun getNumberOfElementsIn(value: Atom): Int = value.name.length
 
     override fun getElementAt(value: Atom, index: Int): Char = value.name[index]
