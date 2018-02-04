@@ -10,7 +10,7 @@ import kotlin.reflect.KClass
 /**
  * See [http://www.geeksforgeeks.org/b-tree-set-1-insert-2/]
  */
-abstract class BTreePredicateArgumentIndex<Value : Term>(private val valueClass: KClass<Value>, private val comparator: Comparator<in Value>, private val valuesPerNode: Int = 4) : PredicateArgumentIndex {
+class BTreePredicateArgumentIndex<Value : Term>(private val valueClass: KClass<Value>, private val comparator: Comparator<in Value>, private val valuesPerNode: Int = 5) : PredicateArgumentIndex {
 
     private var rootNode = Node()
 
@@ -52,7 +52,7 @@ abstract class BTreePredicateArgumentIndex<Value : Term>(private val valueClass:
          */
         private val values: Array<ElementWrapper?> = Array(valuesPerNode, { null })
 
-        /** The number of non-null elements in [values]; maintained by the [insert] and [remove] methods */
+        /** The number of non-null elements in [values]; maintained by the methods [insert], [remove] and [split] */
         private var nValues = 0
 
         /**
@@ -68,56 +68,118 @@ abstract class BTreePredicateArgumentIndex<Value : Term>(private val valueClass:
         fun insert(value: Value, payload: Int) {
             if (nValues == values.size) {
                 split()
+                parent!!.insert(value, payload)
+                return
             }
 
-
+            var targetValuesIndex = binarySearch(value)
+            if (targetValuesIndex >= 0) {
+                values[targetValuesIndex]!!.tablePositions.add(payload)
+            } else {
+                targetValuesIndex = -(targetValuesIndex + 1) // is now the index of the first element in values greater than value
+                if (targetValuesIndex == nValues) {
+                    if (rightEdgeNode == null) {
+                        val newWrapper = ElementWrapper(value)
+                        newWrapper.tablePositions.add(payload)
+                        values[targetValuesIndex] = newWrapper
+                        nValues++
+                    } else {
+                        rightEdgeNode!!.insert(value, payload)
+                    }
+                } else {
+                    val targetWrapper = values[targetValuesIndex]!!
+                    if (targetWrapper.nodeWithLesserValues != null) {
+                        targetWrapper.nodeWithLesserValues!!.insert(value, payload)
+                    } else {
+                        // move the wrappers to make room for the new value
+                        System.arraycopy(values, targetValuesIndex, values, targetValuesIndex + 1, nValues - targetValuesIndex)
+                        val newWrapper = ElementWrapper(value)
+                        newWrapper.tablePositions.add(payload)
+                        values[targetValuesIndex] = newWrapper
+                    }
+                }
+            }
         }
 
         /**
-         * Split as defined on [http://www.geeksforgeeks.org/b-tree-set-1-insert-2/]
+         * Split as defined on [http://www.geeksforgeeks.org/b-tree-set-1-insert-2/].
          */
         fun split() {
-            val splitIndex = nValues / 2
+            assert(nValues == valuesPerNode)
+            assert(parent == null || parent!!.nValues < valuesPerNode)
 
+            val splitIndex = nValues / 2 // index of the value that will move to the parent
+
+            /*
+             order of operations:
+             1. prepare the new left & right nodes with their correct values
+             2. move the split value to the parent
+             3. link everything up properly
+             */
+
+            // New right Node
             val newRightNode = Node()
-            newRightNode.parent = this.parent
             newRightNode.rightEdgeNode = this.rightEdgeNode
-
-            // this node will be the "left" node / the new node with lesser values than the split point
-            // move the values greater than the split value to the new right node
-            for (i in splitIndex + 1 .. nValues) {
+            for (i in splitIndex + 1 until nValues) {
                 newRightNode.values[i - splitIndex - 1] = values[i]
-                values[i] = null
             }
             newRightNode.nValues = nValues - splitIndex - 1
 
-            // the new right node is done here; now set this node up to be the "left" one
-            val splitWrapper = values[splitIndex]!!
-            this.rightEdgeNode = splitWrapper.nodeWithLesserValues
-            splitWrapper.nodeWithLesserValues = this
-            values[splitIndex] = null
-            nValues = splitIndex
+            // New left node
+            val newLeftNode = Node()
+            for (i in 0 until splitIndex) {
+                newLeftNode.values[i] = values[i]
+            }
+            newLeftNode.nValues = splitIndex
 
-            // finally, insert the splitWrapper into the parent
+            // wrapper for the split value
+            val oldSplitWrapper = values[splitIndex]!!
+
+            // insert the splitWrapper into the parent
             if (parent == null) {
                 parent = Node()
             }
             val parent = parent!!
-            val searchResult = parent.binarySearch(splitWrapper.value)
-            if (searchResult > 0) throw IndexingException("This BTree should never have been in this state")
-            // make room for the splitWrapper
-            val insertionIndex = - searchResult - 1
-            System.arraycopy(parent.values, insertionIndex, parent.values, insertionIndex + 1, parent.nValues - insertionIndex)
-            parent.values[insertionIndex] = splitWrapper
+            val newSplitWrapper = ElementWrapper(oldSplitWrapper.value) // to be inserted into the parent
+            val parentSearchResult = parent.binarySearch(newSplitWrapper.value)
+            if (parentSearchResult >= 0) throw IndexingException("This BTree should never have been in this state")
+            val insertionPoint = -(parentSearchResult + 1)
+            System.arraycopy(parent.values, insertionPoint, parent.values, insertionPoint + 1, parent.nValues - insertionPoint)
+            parent.values[insertionPoint] = newSplitWrapper
             parent.nValues++
+
+            // link everything up
+            newLeftNode.rightEdgeNode = oldSplitWrapper.nodeWithLesserValues
+            newLeftNode.parent = parent
+            newSplitWrapper.nodeWithLesserValues = newLeftNode
+            // find the place to link newRightNode to
+            if (insertionPoint == parent.nValues - 1) {
+                assert(parent.rightEdgeNode == null || parent.rightEdgeNode == this)
+                parent.rightEdgeNode = newRightNode
+            } else {
+                val nextLargerElementInParentThanSplitValue = parent.values[insertionPoint + 1]!!
+                assert(nextLargerElementInParentThanSplitValue.nodeWithLesserValues == this)
+                parent.values[insertionPoint + 1]!!.nodeWithLesserValues = newRightNode
+            }
+            newRightNode.parent = parent
         }
 
         fun remove(value: Value, payload: Int) {
-
+            TODO()
         }
 
         fun find(value: Value): List<Int>? {
-
+            var wrapperIndex = binarySearch(value)
+            if (wrapperIndex >= 0) {
+                return values[wrapperIndex]!!.tablePositions
+            } else {
+                wrapperIndex = -(wrapperIndex + 1)
+                if (wrapperIndex == nValues) {
+                    return rightEdgeNode?.find(value)
+                }
+                val wrapper = values[wrapperIndex]!!
+                return wrapper.nodeWithLesserValues?.find(value)
+            }
         }
 
         /**
@@ -126,18 +188,17 @@ abstract class BTreePredicateArgumentIndex<Value : Term>(private val valueClass:
          */
         private fun binarySearch(keyValue: Value): Int {
             var low = 0
-            var high = nValues
-            while (low < high) {
-                val mid = (low + high) ushr 1
-                val cmp = comparator.compare(keyValue, values[mid]!!.value)
+            var high = nValues - 1
 
+            while (low <= high) {
+                val mid = (low + high).ushr(1)
+                val midVal = values[mid]!!
+                val cmp = comparator.compare(midVal.value, keyValue)
                 if (cmp < 0) {
                     low = mid + 1
-                }
-                else if (cmp > 0) {
+                } else if (cmp > 0) {
                     high = mid - 1
-                }
-                else {
+                } else {
                     return mid // key found
                 }
             }
