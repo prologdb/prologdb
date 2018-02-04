@@ -18,6 +18,7 @@
         <module>index</module>
         <module>io</module>
         <module>socket-interface</module>
+        <module>transactions</module>
     </modules>
 
     <properties>
