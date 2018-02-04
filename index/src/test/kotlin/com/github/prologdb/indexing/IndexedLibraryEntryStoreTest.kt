@@ -2,8 +2,10 @@ package com.github.prologdb.indexing
 
 import com.github.prologdb.runtime.knowledge.library.LibraryEntry
 import com.github.prologdb.runtime.knowledge.library.PredicatePrototype
+import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.unification.Unification
 import io.kotlintest.matchers.shouldEqual
 import io.kotlintest.mock.`when`
 import io.kotlintest.mock.mock
@@ -47,6 +49,10 @@ class IndexedLibraryEntryStoreTest : FreeSpec() {
                 override fun getIndexForArgument(argumentIndex: Int): PredicateArgumentIndex? = null
 
                 override fun add(entry: LibraryEntry) {}
+
+                override fun retract(unifiesWith: Predicate): LazySequence<Unification> = LazySequence.empty()
+
+                override fun retractFact(fact: Predicate): LazySequence<Unification> = LazySequence.empty()
             }
 
             val factory = object : IndexedPartialLibraryEntryStoreFactory {
@@ -94,6 +100,10 @@ class IndexedLibraryEntryStoreTest : FreeSpec() {
                 override fun getIndexForArgument(index: Int): PredicateArgumentIndex? = if (index == 0) firstArgumentIndex else secondArgumentIndex
 
                 override fun add(entry: LibraryEntry) {}
+
+                override fun retract(unifiesWith: Predicate): LazySequence<Unification> = LazySequence.empty()
+
+                override fun retractFact(fact: Predicate): LazySequence<Unification> = LazySequence.empty()
             }
 
             val factory = object : IndexedPartialLibraryEntryStoreFactory {

@@ -2,7 +2,9 @@ package com.github.prologdb.indexing
 
 import com.github.prologdb.runtime.ArityMap
 import com.github.prologdb.runtime.knowledge.library.*
+import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.unification.Unification
 
 class IndexedLibraryEntryStore(
     private val indexFactory: IndexedPartialLibraryEntryStoreFactory
@@ -63,6 +65,14 @@ class IndexedLibraryEntryStore(
         }
 
         return partialStore
+    }
+
+    override fun retract(unifiesWith: Predicate): LazySequence<Unification> {
+        TODO()
+    }
+
+    override fun retractFact(fact: Predicate): LazySequence<Unification> {
+        TODO()
     }
 }
 
