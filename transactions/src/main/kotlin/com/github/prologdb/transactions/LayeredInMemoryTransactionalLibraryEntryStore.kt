@@ -9,6 +9,13 @@ import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 
+/**
+ * Implements a [Transactional] [LibraryEntryStore] by wrapping the [underlying] entry store in another implementation
+ * of [MutableLibraryEntryStore] whenever a new transaction starts. That wrapper shields the writing changes and
+ * incorporates the changes into reads, effectively acting as if the changes had been applied. When commiting the
+ * transactions, the changes are forwarded to the [underlying] entry store. On rollback, the wrapper (and with it
+ * the changes during the transaction) are simply discarded. This allows for arbitrarily many transaction levels.
+ */
 class LayeredInMemoryTransactionalLibraryEntryStore(val underlying: MutableLibraryEntryStore) : TransactionalLibraryEntryStore {
 
     /**
