@@ -40,3 +40,17 @@ interface PredicateArgumentIndex {
      */
     fun onRemoved(argumentValue: Term, fromIndex: Int)
 }
+
+/**
+ * A [PredicateArgumentIndex] that supports efficient range-queries (faster than O(n) where n is the number of rows
+ * over which to query).
+ */
+interface RangeQueryPredicateArgumentIndex : PredicateArgumentIndex {
+    /**
+     * @param lowerBound the lower bound. If null, there is no lower bound (query for lessThan / lessThanOrEqualTo)
+     * @param upperBound the upper bound. If null, there is no upper bound (query for greaterThan / greaterThanOrEqualTo)
+     * @return the indexes in the source list at which the entry's argument is between lowerBound and upper bound
+     * @throws IllegalArgumentException If both `lowerBound` and `upperBound` are `null`
+     */
+    fun findBetween(lowerBound: Term?, lowerInclusive: Boolean, upperBound: Term?, upperInclusive: Boolean): IndexSet
+}

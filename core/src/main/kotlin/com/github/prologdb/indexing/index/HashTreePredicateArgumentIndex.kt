@@ -2,7 +2,7 @@ package com.github.prologdb.indexing.index
 
 import com.github.prologdb.indexing.IndexSet
 import com.github.prologdb.indexing.IndexingException
-import com.github.prologdb.indexing.ListIndexSet
+import com.github.prologdb.indexing.ArrayIndexSet
 import com.github.prologdb.indexing.PredicateArgumentIndex
 import com.github.prologdb.runtime.term.Term
 import kotlin.reflect.KClass
@@ -62,7 +62,7 @@ abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val
         if (nestingLevel == maxNestingLevel) {
             val targetNode = node.children[element]
 
-            return if (targetNode == null) IndexSet.NONE else ListIndexSet(targetNode.sourceTableIndexes)
+            return if (targetNode == null) IndexSet.NONE else ArrayIndexSet(targetNode.sourceTableIndexes)
         }
 
         val childNode = node.children[element] ?: return IndexSet.NONE

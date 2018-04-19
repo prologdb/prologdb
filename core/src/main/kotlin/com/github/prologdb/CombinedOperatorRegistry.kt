@@ -1,4 +1,4 @@
-package com.github.prologdb.indexing
+package com.github.prologdb
 
 import com.github.prologdb.runtime.knowledge.library.DefaultOperatorRegistry
 import com.github.prologdb.runtime.knowledge.library.MutableOperatorRegistry
@@ -8,6 +8,7 @@ import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
 /**
  * An [OperatorRegistry] that is split into an immutable part (= the ISO ops) and a mutable part (= user defined
  * and persisted).
+ * TODO: why is this class defined in the indexing module????
  */
 class CombinedOperatorRegistry : MutableOperatorRegistry {
     private val immutableRegistry: OperatorRegistry = DefaultOperatorRegistry(true)
