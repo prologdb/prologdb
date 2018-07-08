@@ -19,7 +19,7 @@
         </dependency>
         <dependency>
             <groupId>com.github.prologdb</groupId>
-            <artifactId>runtime-core-jvm</artifactId>
+            <artifactId>runtime-core</artifactId>
         </dependency>
         <dependency>
             <groupId>io.kotlintest</groupId>
