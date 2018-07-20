@@ -6,18 +6,17 @@ do. To get the execution plan of a query, wrap it into `pdb_explain/1`:
     ?- pdb_explain(foo(X), bar(a, Y), Y > 5; z(Y)).
     
 The result will have exactly one solution with exactly one random variable.
-That variable is instantiated to a a predicate the models the execution plan,
+That variable is instantiated to a a predicate that models the execution plan,
 e.g. something like this:
 
     _G1 = union(
         join(
             prove(foo(X)),
             lookup(
-                bar(_G2, Y),
-                Y,
+                bar(a, _G2),
+                _G2 = Y,
                 range(gt(5))
-            ),
-            prove(_G2 = A)
+            )
         ),
         prove(z(Y))                    
     ).
@@ -58,20 +57,22 @@ to unify. This is closely to a table scan in RDBMs.
 Utilizes an index to read only a subset of all known predicate instances. Rules
 are not part of that lookup and are run separately.
 
-The first argument is the predicate similar to how it was given
-in the original query. Un-Instantiated variables and wildcards (`_`)
-are kept as they are. Terms that the index does not utilize are 
-replaced with random variables for later use.  
+The first argument is the predicate as it was given in the original query with
+one change: the argument that is used for the lookup is replaced by a random
+variable.
 
-The part being used to lookup the index is also replaced with a random
-variable. The second argument of `lookup/3` is that very same variable,
-for reference.
+The second argument makes the replacement transparent. Is an instance of `=/2`
+where the first argument is the random variable and the second argument is the
+term it replaces.
+
+The third argument is the strategy being used to look things up in the index (see
+below).
 
 E.g. a query `bar(a, Y), Y > 5` with an execution plan
 
     lookup(
-        bar(_G2, Y),
-        Y,
+        bar(a, _G6),
+        _G6 = Y,
         range(gt(5))
     )
     
@@ -80,20 +81,23 @@ will do this:
 1. use the index on the second argument of `bar/2` with the constraint
 `range(gt(5))` (see below) to obtain all instances of `bar/2` where
 the second argument is a number and is greater than 5.
-2. unify each of the found predicates with `bar(_G2, Y)`
+2. unify each of the found predicates with `bar(a, _G6)`
+3. run `_G6 = Y` as a regular goal in **conjunction** with the results from
+   step 2, effectively reversing the random variable replacement
+   
 
 ### Index lookup types
-
-The third argument of `lookup/3` shows the kind of index lookup.
 
 #### `unifies(:Term)`
 
 All entries from the index are used where the indexed term unifies
-with `:Term`.
+with `:Term`. This does not promise any optimizations compared to a
+separate `prove/1` step; but optimizations may be applied where the
+database implementation sees fit.
 
-#### `kind(:kind)`
+#### `kind(:Kind)`
 
-All entries from the indexed where the indexed term is of a specific kind. This
+All entries from the indexed where the indexed term is of the specified `:Kind`. This
 is used when an indexed predicate appears in conjunction with a type check on
 an uninstantiated, indexed argument to that predicate.
 
@@ -106,11 +110,12 @@ an uninstantiated, indexed argument to that predicate.
 |`number/1`               |`kind(number)`   |
 |`string/1`               |`kind(string)`   |
 |`atom/1`                 |`kind(atom)`     |
+|`is_list/1`              |`kind(list)`     |
+|`is_dict/1`              |`kind(dict)`     |
 |`nonvar/1`               |not available    |
 |`blob/2`                 |not available    |
 |`atomic/1`               |not available    |
 |`compound/1`             |not available    |
-
 
 
 ##### Examples

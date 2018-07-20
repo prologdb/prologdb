@@ -1,17 +1,17 @@
 package com.github.prologdb.indexing
 
 import com.github.prologdb.indexing.index.IndexFeature
-import com.github.prologdb.runtime.knowledge.library.PredicatePrototype
+import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.runtime.term.Term
 import kotlin.reflect.KClass
 
 /**
- * For a particular [PredicatePrototype] and argument index, describes
+ * For a particular [PredicateIndicator] and argument index, describes
  * the [PredicateArgumentIndex] available for that argument, by type
  * of the indexed argument.
  */
 interface IndexByTypeMap {
-    val prototype: PredicatePrototype
+    val prototype: PredicateIndicator
 
     val argumentIndex: Int
 
