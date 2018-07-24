@@ -8,7 +8,7 @@ import com.github.prologdb.runtime.term.Term
 /**
  * [IndexLookupStep] uses the strategy pattern to support the different ways of looking things up from an index
  */
-interface IndexLookupStepStrategy {
+interface IndexLookupStrategy {
     /**
      * An explanation of this strategy in the official format; is used as the third argument to the lookup/3
      * step explanation (e.g. `range(gt(10))`)

@@ -20,7 +20,7 @@ class IndexLookupStep private constructor(
     /** The index of the argument in the query whichs index is to be used */
     protected val targetArgumentIndex: Int,
 
-    protected val strategy: IndexLookupStepStrategy,
+    protected val strategy: IndexLookupStrategy,
 
     /** Used to create random variables and avoid collisions */
     randomVariableScope: RandomVariableScope
