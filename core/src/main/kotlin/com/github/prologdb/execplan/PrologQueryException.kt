@@ -3,6 +3,6 @@ package com.github.prologdb.execplan
 import com.github.prologdb.runtime.PrologRuntimeException
 
 /**
- * Thrown when an execution plan does not match the schema it is executed against.
+ * Thrown when an error occcurs during the execution of a query (-plan)
  */
-class PrologQueryException(message: String, cause: Throwable? = null) : PrologRuntimeException(message, cause)
+open class PrologQueryException(message: String, cause: Throwable? = null) : PrologRuntimeException(message, cause)

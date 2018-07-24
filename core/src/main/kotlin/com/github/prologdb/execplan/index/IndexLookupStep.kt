@@ -2,7 +2,7 @@ package com.github.prologdb.execplan.index
 
 import com.github.prologdb.PrologDatabase
 import com.github.prologdb.execplan.PlanStep
-import com.github.prologdb.execplan.PrologQueryException
+import com.github.prologdb.execplan.PlanStepInappropriateException
 import com.github.prologdb.execplan.toLazySequence
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
@@ -62,12 +62,15 @@ class IndexLookupStep private constructor(
 
     override fun execute(db: PrologDatabase, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
         val indicesByIndicator = db.indexes[targetPredicateIndicator]
-            ?: throw PrologQueryException("Internal error: index lookup step configured for non-existent index")
+            ?: throw PlanStepInappropriateException("Internal error: index lookup step configured for non-existent index")
         val indicesForArgument = indicesByIndicator[targetArgumentIndex]
+        if (indicesForArgument.isEmpty())
+            throw PlanStepInappropriateException("No indices defined for argument #$targetArgumentIndex of $targetPredicateIndicator")
+
         val originalValueForArgument = predicateAsInQuery.arguments[targetArgumentIndex]
 
         val predicateStore = db.predicateStores[targetPredicateIndicator]
-            ?: throw PrologQueryException("Internal error: index lookup step configured for non-existent predicate-store")
+            ?: throw PlanStepInappropriateException("Internal error: index lookup step configured for non-existent predicate-store")
 
         return strategy.execute(
             randomVariableScope = randomVarsScope,
