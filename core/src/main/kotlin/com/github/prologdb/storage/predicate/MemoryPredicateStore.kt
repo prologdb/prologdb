@@ -11,11 +11,14 @@ class MemoryPredicateStore(override val indicator: PredicateIndicator) : Predica
     /** Stores predicates gets resized throughout the lifetime */
     private var store = Array<Predicate?>(100, { null })
 
-    /** The number of non-null predicates in [store] */
-    private val nPredicates: Int = 0
-
     /** To be [synchronized] on when mutating [store] and/or [nPredicates] */
     private val storeMutationMutex = Any()
+
+    /**
+     * When running out of space in [store], [store] will be enlarged by
+     * this factor
+     */
+    private val upscalingFactor = 1.5
 
     override fun store(item: Predicate): PersistenceID {
         if (item.arity != indicator.arity || item.name != indicator.name) {
@@ -31,7 +34,7 @@ class MemoryPredicateStore(override val indicator: PredicateIndicator) : Predica
             }
 
             // store is too small, enlarge
-            val newStore = Array<Predicate?>(Math.floor(store.size.toDouble() * 1.5).toInt(), {
+            val newStore = Array<Predicate?>(Math.floor(store.size.toDouble() * upscalingFactor).toInt(), {
                 i -> if (i <= store.lastIndex) store[i] else null
             })
 
@@ -66,7 +69,8 @@ class MemoryPredicateStore(override val indicator: PredicateIndicator) : Predica
             }
 
             val wasThere = store[idAsInt] != null
-            store[idAsInt]
+            store[idAsInt] = null
+
             return wasThere
         }
     }
