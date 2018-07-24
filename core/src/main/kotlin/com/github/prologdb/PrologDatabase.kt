@@ -13,6 +13,6 @@ import com.github.prologdb.storage.predicate.PredicateStore
  */
 interface PrologDatabase {
     val predicateStores: Map<PredicateIndicator, PredicateStore>
-    val rules: Map<PredicateIndicator, Rule>
+    val rules: Map<PredicateIndicator, Set<Rule>>
     val indexes: Map<PredicateIndicator, IndexByArgumentMap>
 }
