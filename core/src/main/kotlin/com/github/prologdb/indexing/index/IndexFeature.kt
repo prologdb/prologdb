@@ -17,7 +17,7 @@ enum class IndexFeature(val predicate: (KClass<out PredicateArgumentIndex>) -> B
     /** The index can write entries in O(1) time */
     CONSTANT_TIME_WRITE(hasAnnotation(ConstantTimeWrite::class)),
 
-    /** The index' data structure allows for range-queries that are not table-scans */
+    /** The index' data structure allows for range-queries that are not index scans */
     EFFICIENT_RANGE_QUERIES(implementsInterface(RangeQueryPredicateArgumentIndex::class));
 }
 

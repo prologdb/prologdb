@@ -8,6 +8,8 @@ import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.predicate.PersistenceID
 import kotlin.reflect.KClass
 
+@ConstantTimeRead
+@ConstantTimeWrite
 abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val valueTypeClass: KClass<Value>) : PredicateArgumentIndex {
     /**
      * The root node; if null, the index is empty
