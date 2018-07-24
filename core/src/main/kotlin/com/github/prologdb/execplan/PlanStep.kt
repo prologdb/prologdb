@@ -2,7 +2,7 @@ package com.github.prologdb.execplan
 
 import com.github.prologdb.PredicateStore
 import com.github.prologdb.PrologDatabase
-import com.github.prologdb.indexing.IndexSet
+import com.github.prologdb.indexing.PersistenceIDSet
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.lazysequence.*
 import com.github.prologdb.runtime.term.Predicate
@@ -27,7 +27,7 @@ interface PlanStep {
     val explanation: Predicate
 }
 
-internal fun IndexSet.toLazySequence(store: PredicateStore): LazySequence<Predicate> {
+internal fun PersistenceIDSet.toLazySequence(store: PredicateStore): LazySequence<Predicate> {
     val indexIt = iterator()
 
     return LazySequence.fromGenerator {

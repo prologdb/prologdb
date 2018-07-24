@@ -1,6 +1,7 @@
 package com.github.prologdb.indexing
 
 import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.storage.predicate.PersistenceID
 
 /**
  * Indexes an argument of a predicate, e.g. indexes the 2nd argument to `likes/2`. Given any term, finds the indexes
@@ -14,7 +15,7 @@ interface PredicateArgumentIndex {
      * @return the indexes in the source list at which the entry's argument is likely to unify with
      *         the given term
      */
-    fun find(argument: Term): IndexSet
+    fun find(argument: Term): PersistenceIDSet
 
     /**
      * To be called when a predicate is inserted into the underlying list. Updates the index accordingly. Other rows
@@ -24,9 +25,9 @@ interface PredicateArgumentIndex {
      * times without being removed in between insertions the behaviour of the entire index (all methods) is undefined.
      *
      * @param argumentValue The value of the argument in the added predicate
-     * @param atIndex Index in the source list of predicates where the new predicate is being inserted to.
+     * @param atPersistenceID Index in the source list of predicates where the new predicate is being inserted to.
      */
-    fun onInserted(argumentValue: Term, atIndex: Int)
+    fun onInserted(argumentValue: Term, atPersistenceID: PersistenceID)
 
     /**
      * To be called when a predicate is removed from the underlying list. Updates the index accordingly. Other rows
@@ -36,9 +37,9 @@ interface PredicateArgumentIndex {
      * times without being removed in between insertions the behaviour of the entire index (all methods) is undefined.
      *
      * @param argumentValue The value of the argument in the removed predicate
-     * @param fromIndex Index in the source list of predicates from which the term is being removed.
+     * @param fromPersistenceID Index in the source list of predicates from which the term is being removed.
      */
-    fun onRemoved(argumentValue: Term, fromIndex: Int)
+    fun onRemoved(argumentValue: Term, fromPersistenceID: PersistenceID)
 }
 
 /**
@@ -52,5 +53,5 @@ interface RangeQueryPredicateArgumentIndex : PredicateArgumentIndex {
      * @return the indexes in the source list at which the entry's argument is between lowerBound and upper bound
      * @throws IllegalArgumentException If both `lowerBound` and `upperBound` are `null`
      */
-    fun findBetween(lowerBound: Term?, lowerInclusive: Boolean, upperBound: Term?, upperInclusive: Boolean): IndexSet
+    fun findBetween(lowerBound: Term?, lowerInclusive: Boolean, upperBound: Term?, upperInclusive: Boolean): PersistenceIDSet
 }

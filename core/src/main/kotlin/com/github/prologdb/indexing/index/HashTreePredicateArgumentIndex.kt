@@ -1,10 +1,11 @@
 package com.github.prologdb.indexing.index
 
-import com.github.prologdb.indexing.IndexSet
+import com.github.prologdb.indexing.PersistenceIDSet
 import com.github.prologdb.indexing.IndexingException
-import com.github.prologdb.indexing.ArrayIndexSet
+import com.github.prologdb.indexing.ArrayPersistenceIDSet
 import com.github.prologdb.indexing.PredicateArgumentIndex
 import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.storage.predicate.PersistenceID
 import kotlin.reflect.KClass
 
 abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val valueTypeClass: KClass<Value>) : PredicateArgumentIndex {
@@ -41,8 +42,8 @@ abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val
      */
     protected abstract fun elementsEqual(a: Element, b: Element): Boolean
 
-    override fun find(argument: Term): IndexSet {
-        if (rootNode == null) return IndexSet.NONE
+    override fun find(argument: Term): PersistenceIDSet {
+        if (rootNode == null) return PersistenceIDSet.NONE
 
         if (!valueTypeClass.isInstance(argument)) {
             throw IllegalArgumentException("The given argument is not an instance of ${valueTypeClass.qualifiedName}")
@@ -56,21 +57,21 @@ abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val
      * @param node The node to look within; is trusted to contain only compatible types
      * @param maxNestingLevel [getNumberOfElementsIn]`(argument) - 1`; is passed around as a value to avoid re-calculating
      */
-    private fun find(argument: Value, node: Node, nestingLevel: Int, maxNestingLevel: Int): IndexSet {
+    private fun find(argument: Value, node: Node, nestingLevel: Int, maxNestingLevel: Int): PersistenceIDSet {
         val element = getElementAt(argument, nestingLevel) ?: throw IndexingException("Index handled its data improperly", IndexOutOfBoundsException())
 
         if (nestingLevel == maxNestingLevel) {
             val targetNode = node.children[element]
 
-            return if (targetNode == null) IndexSet.NONE else ArrayIndexSet(targetNode.sourceTableIndexes)
+            return if (targetNode == null) PersistenceIDSet.NONE else ArrayPersistenceIDSet(targetNode.persistenceIDs)
         }
 
-        val childNode = node.children[element] ?: return IndexSet.NONE
+        val childNode = node.children[element] ?: return PersistenceIDSet.NONE
 
         return find(argument, childNode, nestingLevel + 1, maxNestingLevel)
     }
 
-    override fun onInserted(argumentValue: Term, atIndex: Int) {
+    override fun onInserted(argumentValue: Term, persistenceID: PersistenceID) {
         if (!valueTypeClass.isInstance(argumentValue)) {
             throw IllegalArgumentException("This index can only hold values of type ${valueTypeClass.qualifiedName}")
         }
@@ -81,14 +82,14 @@ abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val
                 rootNode = Node()
             }
 
-            insert(argumentValue, atIndex, rootNode!!, 0, getNumberOfElementsIn(argumentValue) - 1)
+            insert(argumentValue, persistenceID, rootNode!!, 0, getNumberOfElementsIn(argumentValue) - 1)
         }
     }
 
     /**
      * Like [find]; inserts the term where needed
      */
-    private fun insert(argumentValue: Value, atIndex: Int, node: Node, nestingLevel: Int, maxNestingLevel: Int) {
+    private fun insert(argumentValue: Value, persistenceID: PersistenceID, node: Node, nestingLevel: Int, maxNestingLevel: Int) {
         val element = getElementAt(argumentValue, nestingLevel)
 
         synchronized(node) {
@@ -99,7 +100,7 @@ abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val
                     node.children[element] = targetNode
                 }
 
-                targetNode.sourceTableIndexes.add(atIndex)
+                targetNode.persistenceIDs.add(persistenceID)
                 return
             }
             else
@@ -110,12 +111,12 @@ abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val
                     node.children[element] = branch
                 }
 
-                insert(argumentValue, atIndex, branch, nestingLevel + 1, maxNestingLevel)
+                insert(argumentValue, persistenceID, branch, nestingLevel + 1, maxNestingLevel)
             }
         }
     }
 
-    override fun onRemoved(argumentValue: Term, fromIndex: Int) {
+    override fun onRemoved(argumentValue: Term, fromPersistenceID: PersistenceID) {
         if (!valueTypeClass.isInstance(argumentValue)) {
             return
         }
@@ -124,18 +125,18 @@ abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val
 
         synchronized(rootNodeLock) {
             if (rootNode != null) {
-                remove(argumentValue, fromIndex, rootNode!!, 0, getNumberOfElementsIn(argumentValue) - 1)
+                remove(argumentValue, fromPersistenceID, rootNode!!, 0, getNumberOfElementsIn(argumentValue) - 1)
             }
         }
     }
 
-    private fun remove(argumentValue: Value, fromIndex: Int, node: Node, nestingLevel: Int, maxNestingLevel: Int) {
+    private fun remove(argumentValue: Value, fromPersistenceID: PersistenceID, node: Node, nestingLevel: Int, maxNestingLevel: Int) {
         val element = getElementAt(argumentValue, nestingLevel) ?: throw IndexingException("Index handled its data improperly", IndexOutOfBoundsException())
 
         if (nestingLevel == maxNestingLevel) {
             val targetNode = node.children[element]
             if (targetNode != null) {
-                targetNode.sourceTableIndexes.remove(fromIndex)
+                targetNode.persistenceIDs.remove(fromPersistenceID)
             }
 
             return
@@ -143,7 +144,7 @@ abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val
 
         val childNode = node.children[element] ?: return
 
-        remove(argumentValue, fromIndex, childNode, nestingLevel + 1, maxNestingLevel)
+        remove(argumentValue, fromPersistenceID, childNode, nestingLevel + 1, maxNestingLevel)
     }
 
     /**
@@ -155,9 +156,9 @@ abstract class HashTreePredicateArgumentIndex<Value : Term, Element>(private val
         val children: HashMap<Element,Node> = HashMap(4)
 
         /**
-         * Contains the table positions where elements can be found whose last element was a key of this' nodes
+         * The [PersistenceID]s where elements can be found whose last element was a key of this' nodes
          * parents [children] map.
          */
-        val sourceTableIndexes: MutableList<Int> = ArrayList(4)
+        val persistenceIDs: MutableList<PersistenceID> = ArrayList(4)
     }
 }
