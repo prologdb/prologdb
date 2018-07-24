@@ -11,46 +11,55 @@ e.g. something like this:
 
     _G1 = union(
         join(
-            prove(foo(X)),
+            scan(foo(X)),
             lookup(
                 bar(a, _G2),
                 _G2 = Y,
                 range(gt(5))
             )
         ),
-        prove(z(Y))                    
+        scan(z(Y))                    
     ).
     
 -----  
 
-Beyond the simple prove search (which is `prove` in the plan) there are
-two very basic building blocks in prolog queries - and so are in
-the execution plan: conjunction and disjunction. In queries, these are
-`,/2` and `;/2`, respectively. In the execution plan, these show up as
-`join/_` and `union/_`:
+Beyond the simple prove search there are two very basic building blocks
+in prolog queries - and so are in the execution plan:
+conjunction and disjunction. In queries, these are `,/2` and `;/2`, respectively.
+In the execution plan, these show up as `join/_` and `union/_`:
 
     % without any indexes
     
     ?- pdb_explain(foo(X), bar(X)).
-    _G1 = join(prove(foo(X)), prove(bar(X)))
+    _G1 = join(scan(foo(X)), scan(bar(X)))
     
     ?- pdb_explain(foo(X); bar(X)).
-    _G1 = union(prove(foo(X)), prove(bar(X)))
+    _G1 = union(scan(foo(X)), scan(bar(X)))
     
 The arguments to the `join` and `union` predicates an be anything, also nested
 `join` and `union`. What follows is a list of the other possible predicates
 and the querying strategy they represent:
 
-## `prove/1`
+## `scan/1`
 
 Reads every known instance of the predicate from the data store and attempts
 to unify. This is closely to a table scan in RDBMs.
 
 ### Example
 
-`prove(foo(a))` will read every stored instance of `foo/1` and unify with
+`scan(foo(a))` will read every stored instance of `foo/1` and unify with
 `foo(a)`.
-    
+
+## `deduce_from/1`
+
+Runs all the rules known for the given predicate. These are essentially
+sub-queries.
+
+### Example
+
+`deduce_from(foo(a))` will try to run all rules with the indicator `foo/1` against
+the goal `foo(a)`; of course, as with regular prolog, rule heads that do not unify
+with `foo(a)` will not be run.
     
 ## `lookup/3`
 
@@ -90,7 +99,7 @@ the second argument is a number and is greater than 5.
 
 All entries from the index are used where the indexed term unifies
 with `:Term`. This does not promise any optimizations compared to a
-separate `prove/1` step; but optimizations may be applied where the
+separate `scan/1` step; but optimizations may be applied where the
 database implementation sees fit.
 
 #### `kind(:Kind)`

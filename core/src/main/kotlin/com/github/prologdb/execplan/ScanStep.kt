@@ -13,7 +13,7 @@ import com.github.prologdb.runtime.unification.VariableBucket
 /**
  * Most simple plan: scan all known predicates of a given [PredicateIndicator]
  */
-class ProveStep(
+class ScanStep(
     val goal: Predicate
 ) : PlanStep {
 

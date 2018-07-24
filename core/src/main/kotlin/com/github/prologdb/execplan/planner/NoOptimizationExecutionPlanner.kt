@@ -16,7 +16,7 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
         return when(query) {
             is OrQuery -> UnionStep(query.goals.map { this.planExecution(it, database)})
             is AndQuery -> JoinStep(query.goals.map { this.planExecution(it, database) })
-            is PredicateQuery -> ProveStep(query.predicate)
+            is PredicateQuery -> UnionStep(listOf(ScanStep(query.predicate), DeductionStep(query.predicate)))
             else -> throw PrologQueryException("Unsupported query type ${query::class.simpleName}")
         }
     }
