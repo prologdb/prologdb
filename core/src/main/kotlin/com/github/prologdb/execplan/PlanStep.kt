@@ -1,6 +1,5 @@
 package com.github.prologdb.execplan
 
-import com.github.prologdb.PredicateStore
 import com.github.prologdb.PrologDatabase
 import com.github.prologdb.indexing.PersistenceIDSet
 import com.github.prologdb.runtime.RandomVariableScope
@@ -8,6 +7,7 @@ import com.github.prologdb.runtime.lazysequence.*
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
+import com.github.prologdb.storage.predicate.PredicateStore
 
 /**
  * An element of an execution plan. Instances serve two purposes:
@@ -32,7 +32,7 @@ internal fun PersistenceIDSet.toLazySequence(store: PredicateStore): LazySequenc
 
     return LazySequence.fromGenerator {
         while (indexIt.hasNext()) {
-            return@fromGenerator store.getByIndex(indexIt.next()) ?: continue
+            return@fromGenerator store.retrieve(indexIt.next()) ?: continue
         }
         null
     }

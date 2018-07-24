@@ -2,6 +2,7 @@ package com.github.prologdb
 
 import com.github.prologdb.indexing.IndexByArgumentMap
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.storage.predicate.PredicateStore
 
 /**
  * Groups everything that belongs to one database. One server process can host multiple databases (just like
