@@ -11,7 +11,7 @@ import kotlin.reflect.KClass
  * of the indexed argument.
  */
 interface IndexByTypeMap {
-    val prototype: PredicateIndicator
+    val indicator: PredicateIndicator
 
     val argumentIndex: Int
 

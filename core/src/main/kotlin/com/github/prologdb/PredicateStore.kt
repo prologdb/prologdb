@@ -11,7 +11,7 @@ import com.github.prologdb.runtime.term.Predicate
  */
 interface PredicateStore {
     /** The type of predicate stored in this object */
-    val prototype: PredicateIndicator
+    val indicator: PredicateIndicator
 
     /** @return all indexes that are valid to query from [getByIndex] */
     fun all(): PersistenceIDSet
