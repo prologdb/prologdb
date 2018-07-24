@@ -36,13 +36,12 @@ interface IndexByTypeMap {
     fun isEmpty(): Boolean
 }
 
-class DefaultIndeyByTypeMap(override val indicator: PredicateIndicator, override val argumentIndex: Int) : IndexByTypeMap {
+internal class DefaultIndeyByTypeMap(
+    override val indicator: PredicateIndicator,
+    override val argumentIndex: Int,
+    private val factories: Set<PredicateArgumentIndexFactory<out PredicateArgumentIndex>>
+) : IndexByTypeMap {
     private val indices = mutableSetOf<IndexRegistration>()
-    private val factories = mutableSetOf<PredicateArgumentIndexFactory<out PredicateArgumentIndex>>()
-
-    fun registerFactory(factory: PredicateArgumentIndexFactory<out PredicateArgumentIndex>) {
-        factories.add(factory)
-    }
 
     fun registerExistingIndex(index: PredicateArgumentIndex, forValueType: KClass<out Term>) {
         indices.add(IndexRegistration(index, forValueType))
