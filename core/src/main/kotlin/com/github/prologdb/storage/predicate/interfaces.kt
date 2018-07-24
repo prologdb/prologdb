@@ -1,6 +1,7 @@
 package com.github.prologdb.storage.predicate
 
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.term.Predicate
 
 /**
@@ -43,11 +44,9 @@ interface PredicateStore {
     fun delete(id: PersistenceID): Boolean
 
     /**
-     * For each predicate in this store, invokes the given function.
-     * As soon as the function returns `false`, aborts the process
-     * and this method returns.
+     * @return A lazy sequence of all the predicates stored in this store.
      */
-    fun scan(consumer: (Predicate, PersistenceID) -> Boolean)
+    fun all(): LazySequence<Pair<PersistenceID, Predicate>>
 }
 
 /**

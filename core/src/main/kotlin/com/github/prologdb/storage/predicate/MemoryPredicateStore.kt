@@ -1,6 +1,8 @@
 package com.github.prologdb.storage.predicate
 
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.lazysequence.LazySequence
+import com.github.prologdb.runtime.lazysequence.buildLazySequence
 import com.github.prologdb.runtime.term.Predicate
 
 /**
@@ -75,8 +77,13 @@ class MemoryPredicateStore(override val indicator: PredicateIndicator) : Predica
         }
     }
 
-    override fun scan(consumer: (Predicate, PersistenceID) -> Boolean) {
+    override fun all(): LazySequence<Pair<PersistenceID, Predicate>> {
         val _store = store
-        _store.forEachIndexed { index, predicate -> if (predicate != null) consumer(predicate, index.toLong()) }
+        return buildLazySequence {
+            _store.forEachIndexed { persistenceIDAsInt, predicate ->
+                if (predicate == null) return@forEachIndexed
+                yield(Pair(persistenceIDAsInt.toLong(), predicate))
+            }
+        }
     }
 }
