@@ -1,6 +1,7 @@
 package com.github.prologdb.execplan.index
 
 import com.github.prologdb.indexing.IndexByTypeMap
+import com.github.prologdb.indexing.PersistenceIDSet
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.runtime.term.Term
@@ -24,11 +25,12 @@ interface IndexLookupStepStrategy {
      *                             later be unified with this term. This **can** be used to avoid
      *                             returning values that won't make it into the further query
      *                             process anyways.
+     * @return The [PersistenceIDSet] which is affected, according to the consulted index.
      */
     fun execute(
         randomVariableScope: RandomVariableScope,
         subjectPredicate: PredicateIndicator,
         indexMap: IndexByTypeMap,
         valueToBeUnifiedWith: Term?
-    ) // TODO: what to return here?
+    ) : PersistenceIDSet
 }
