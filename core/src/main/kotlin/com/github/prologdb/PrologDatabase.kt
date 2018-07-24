@@ -1,6 +1,7 @@
 package com.github.prologdb
 
 import com.github.prologdb.indexing.IndexByArgumentMap
+import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.storage.predicate.PredicateStore
 
@@ -12,6 +13,6 @@ import com.github.prologdb.storage.predicate.PredicateStore
  */
 interface PrologDatabase {
     val predicateStores: Map<PredicateIndicator, PredicateStore>
-
+    val rules: Map<PredicateIndicator, Rule>
     val indexes: Map<PredicateIndicator, IndexByArgumentMap>
 }
