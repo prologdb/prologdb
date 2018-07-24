@@ -2,6 +2,7 @@ package com.github.prologdb.execplan.planner
 
 import com.github.prologdb.PrologDatabase
 import com.github.prologdb.execplan.*
+import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateQuery
@@ -12,7 +13,7 @@ import com.github.prologdb.runtime.query.Query
  * classic prolog system, no indices are utilized.
  */
 class NoOptimizationExecutionPlanner : ExecutionPlanner {
-    override fun planExecution(query: Query, database: PrologDatabase): PlanStep {
+    override fun planExecution(query: Query, database: PrologDatabase, randomVariableScope: RandomVariableScope): PlanStep {
         return when(query) {
             is OrQuery -> UnionStep(query.goals.map { this.planExecution(it, database)})
             is AndQuery -> JoinStep(query.goals.map { this.planExecution(it, database) })
