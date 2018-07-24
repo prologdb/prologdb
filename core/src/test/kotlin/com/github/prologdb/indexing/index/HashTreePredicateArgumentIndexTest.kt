@@ -88,7 +88,7 @@ init {
             val index = AtomIndex()
             val allData = Array(50000, { Atom(randomString()) })
             for (i in 0 .. allData.lastIndex) {
-                index.onInserted(allData[i], i)
+                index.onInserted(allData[i], i.toLong())
             }
 
             // ACT
@@ -102,7 +102,7 @@ init {
                 val indexStartedAt = System.nanoTime()
                 for (atomToRead in atomsToRead) {
                     for (atomIndex in index.find(atomToRead)) {
-                        atomToRead.unify(allData[atomIndex])
+                        atomToRead.unify(allData[atomIndex.toInt()])
                     }
                 }
                 val indexDurationNanos = System.nanoTime() - indexStartedAt
@@ -135,7 +135,7 @@ init {
             val index = AtomIndex()
             val allData = Array(50000, { Atom(randomString()) })
             for (i in 0 .. allData.lastIndex) {
-                index.onInserted(allData[i], i)
+                index.onInserted(allData[i], i.toLong())
             }
 
             // ACT
@@ -174,7 +174,7 @@ init {
             for (nBatch in 1 .. nBatches + nWarumpBatches) {
                 val batchStartedAt = System.nanoTime()
                 for (nItemInBatch in 1 .. batchSize) {
-                    index.onInserted(Atom(randomString()), nItem++)
+                    index.onInserted(Atom(randomString()), nItem++.toLong())
                 }
 
                 if (nBatch > nWarumpBatches) {
