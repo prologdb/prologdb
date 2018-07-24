@@ -81,9 +81,7 @@ will do this:
 1. use the index on the second argument of `bar/2` with the constraint
 `range(gt(5))` (see below) to obtain all instances of `bar/2` where
 the second argument is a number and is greater than 5.
-2. unify each of the found predicates with `bar(a, _G6)`
-3. run `_G6 = Y` as a regular goal in **conjunction** with the results from
-   step 2, effectively reversing the random variable replacement
+2. unify each of the found predicates with `bar(a, Y)`
    
 
 ### Index lookup types
