@@ -35,6 +35,24 @@ private constructor(
         offsetToFirstPage = randomAccessFile.filePointer + header.alignmentPaddingSize
     }
 
+    /** Amount of data that fits onto one page, in bytes */
+    private val dataPerPage = pageSize - 1 // -1 byte for the flags
+
+    /** Used to synchronize the [close] operation */
+    private val closingMutex = Any()
+    override fun close() {
+        if (closed) return
+        synchronized(closingMutex) {
+            if (closed) return
+
+            // this blocks any new operation from starting
+            closed = true
+        }
+
+        TODO("wait for the ongoing operations to stop")
+        randomAccessFile.close()
+    }
+
     companion object {
         fun forExistingFile(file: Path, indicator: PredicateIndicator): HeapFile {
             return forExistingFile(file, indicator)
@@ -63,19 +81,17 @@ private constructor(
             return initializeForContiguousDevice(file)
         }
     }
-
-    /** Used to synchronize the [close] operation */
-    private val closingMutex = Any()
-    override fun close() {
-        if (closed) return
-        synchronized(closingMutex) {
-            if (closed) return
-
-            // this blocks any new operation from starting
-            closed = true
-        }
-
-        TODO("wait for the ongoing operations to stop")
-        randomAccessFile.close()
-    }
 }
+
+/** Prepended to every page */
+private typealias PageFlags = Byte
+
+/** Whether this page is marked as deleted */
+private const val PAGE_FLAG_DELETED = 0b00000001
+
+/** Whether this page contains continuation data from the previous page */
+private const val PAGE_FLAG_CONTINUATION = 0b00000001
+
+private infix fun PageFlags.plusFlag(flag: Int): PageFlags = (this.toInt() or flag).toByte()
+private infix fun PageFlags.hasFlag(flag: Int): Boolean = this.toInt() and flag == flag
+private infix fun PageFlags.minusFlag(flag: Int): PageFlags = (this.toInt() and (flag.inv())).toByte()
