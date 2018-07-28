@@ -35,7 +35,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     private val lockRequestQueue: LinkedBlockingDeque<LockRequest> = LinkedBlockingDeque()
 
     /**
-     * For every invocation of [Lock.unlock], the range to be unlocked is put onto this
+     * For every invocation of [Lock.unlock], the region to be unlocked is put onto this
      * queue for the [lockGrantThread] to pick it up and free the lock.
      *
      * When the manager is closed it is the responsibility of the manager (as opposed to the [lockGrantThread])
@@ -65,18 +65,18 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     /**
      * @throws ClosedException If this manager has been closed, see [close]
      */
-    operator fun get(range: LongRange): ReadWriteLock {
-        if (range.first > range.last) throw IllegalArgumentException("The given range must be ascending")
-        if (range.isEmpty()) throw IllegalArgumentException("Given range is empty, cannot be locked.")
+    operator fun get(region: LongRange): ReadWriteLock {
+        if (region.first > region.last) throw IllegalArgumentException("The given region must be ascending")
+        if (region.isEmpty()) throw IllegalArgumentException("Given region is empty, cannot be locked.")
 
         if (closed) throw ClosedException("This manager has been closed.")
 
-        val cached = readWriteLockCache[range]
+        val cached = readWriteLockCache[region]
         if (cached != null) return cached
 
-        val lock = ReadWriteLockHandle(range)
+        val lock = ReadWriteLockHandle(region)
         synchronized(readWriteLockCache) {
-            readWriteLockCache[range] = lock
+            readWriteLockCache[region] = lock
         }
 
         return lock
@@ -85,7 +85,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     /**
      * See `get(LongRange)`
      */
-    operator fun get(range: IntRange): ReadWriteLock = get(LongRange(range.start.toLong(), range.last.toLong()))
+    operator fun get(region: IntRange): ReadWriteLock = get(LongRange(region.start.toLong(), region.last.toLong()))
 
     /**
      * Closes this manager, with the following effects:
@@ -148,7 +148,14 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
                 else
                 {
                     // cannot acquire; wait for more frees to become available
-                    doUnlock(unlockRequestQueue.take())
+                    val newUnlockRequest = try {
+                        unlockRequestQueue.take()
+                    } catch (ex: InterruptedException) {
+                        // more frees may be available or the manager might have been closed
+                        continue
+                    }
+
+                    doUnlock(newUnlockRequest)
                 }
             }
 
@@ -158,18 +165,20 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         }
 
         /**
-         * Assures the range associated with the given request is not locked.
+         * Assures the region associated with the given request is not locked.
          */
         private fun doUnlock(request: UnlockRequest) {
             when (request.mode) {
                 LockMode.READ -> activeReadLocks.removeIf { it.first == request.thread && it.second == request.region }
                 LockMode.READ_WRITE -> activeWriteLocks.removeIf { it.first == request.thread && it.second == request.region }
             }
+
+            request.onReleaseComplete.complete(Unit)
         }
 
         /**
-         * Tries to lock the range of the given request in the given mode.
-         * @return Whether the range was available in the given mode and thus the locking succeeded
+         * Tries to lock the region of the given request in the given mode.
+         * @return Whether the region was available in the given mode and thus the locking succeeded
          */
         private fun tryLock(request: LockRequest): Boolean {
             val collidingWriteLocksExist = activeWriteLocks
@@ -202,15 +211,15 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         }
     }
 
-    private inner class ReadWriteLockHandle(range: LongRange) : ReadWriteLock {
-        private val readHandle = LockHandle(range, LockMode.READ)
-        private val writeHandle = LockHandle(range, LockMode.READ_WRITE)
+    private inner class ReadWriteLockHandle(region: LongRange) : ReadWriteLock {
+        private val readHandle = LockHandle(region, LockMode.READ)
+        private val writeHandle = LockHandle(region, LockMode.READ_WRITE)
 
         override fun writeLock(): Lock = writeHandle
         override fun readLock(): Lock = readHandle
     }
 
-    private inner class LockHandle(val range: LongRange, val mode: LockMode) : Lock {
+    private inner class LockHandle(val region: LongRange, val mode: LockMode) : Lock {
         override fun lock() {
             if (closed) throw ClosedException("The manager has already been closed - cannot acquire lock")
 
@@ -239,7 +248,8 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
             if (closed) throw ClosedException("The manager has already been closed - cannot acquire lock")
 
             val freed = CompletableFuture<Unit>()
-            unlockRequestQueue.put(UnlockRequest(range, mode, Thread.currentThread(), freed))
+            unlockRequestQueue.put(UnlockRequest(region, mode, Thread.currentThread(), freed))
+            lockGrantThread.interrupt()
 
             freed.join()
         }
@@ -264,7 +274,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
          */
         private fun lock(canBeInterrupted: Boolean, timeoutAmount: Long = 0, timeoutUnit: TimeUnit = TimeUnit.MILLISECONDS): Boolean {
             val granted = CompletableFuture<Unit>()
-            lockRequestQueue.put(LockRequest(range, mode, Thread.currentThread(), granted))
+            lockRequestQueue.put(LockRequest(region, mode, Thread.currentThread(), granted))
 
             // completable future join() cannot be interrupted
             try {
