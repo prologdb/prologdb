@@ -22,30 +22,30 @@ init {
 
                 val foundIndexes = index.find(Atom("atom")).toList()
 
-                foundIndexes shouldEqual listOf(152)
+                foundIndexes shouldEqual listOf(152L)
             }
 
             "multiple items - disjoint at first element" {
-                index.onInserted(Atom("atom"), 152)
-                index.onInserted(Atom("foobar"), 7781)
+                index.onInserted(Atom("atom"), 152L)
+                index.onInserted(Atom("foobar"), 7781L)
 
                 val indexesForAtom = index.find(Atom("atom")).toList()
                 val indexesForFoobar = index.find(Atom("foobar")).toList()
 
-                indexesForAtom shouldEqual listOf(152)
-                indexesForFoobar shouldEqual listOf(7781)
+                indexesForAtom shouldEqual listOf(152L)
+                indexesForFoobar shouldEqual listOf(7781L)
             }
 
             "same item at different indexes" {
-                index.onInserted(Atom("foo"), 924)
-                index.onInserted(Atom("foo"), 1252)
-                index.onInserted(Atom("foo"), 22792)
-                index.onInserted(Atom("foo"), 45621)
-                index.onInserted(Atom("foo"), 97612)
+                index.onInserted(Atom("foo"), 924L)
+                index.onInserted(Atom("foo"), 1252L)
+                index.onInserted(Atom("foo"), 22792L)
+                index.onInserted(Atom("foo"), 45621L)
+                index.onInserted(Atom("foo"), 97612L)
 
                 val foundIndexes = index.find(Atom("foo")).toSet()
 
-                foundIndexes shouldEqual setOf(97612, 1252, 924, 45621, 22792)
+                foundIndexes shouldEqual setOf(97612L, 1252L, 924L, 45621L, 22792L)
             }
         }
 
@@ -61,14 +61,14 @@ init {
             }
 
             "add and remove - same item on different indexes" {
-                index.onInserted(Atom("foo"), 1222)
-                index.onInserted(Atom("foo"), 5222)
+                index.onInserted(Atom("foo"), 1222L)
+                index.onInserted(Atom("foo"), 5222L)
 
                 index.find(Atom("foo")).toSet().size shouldEqual 2
 
-                index.onRemoved(Atom("foo"), 5222)
+                index.onRemoved(Atom("foo"), 5222L)
 
-                index.find(Atom("foo")).toSet() shouldEqual setOf(1222)
+                index.find(Atom("foo")).toSet() shouldEqual setOf(1222L)
             }
         }
     }
