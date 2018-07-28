@@ -81,55 +81,6 @@ init {
             return BigInteger(buffer).toString(36)
         }
 
-        "reading versus table scan" {
-            // compare indexing against table scans - performance improvement is measured relatively
-
-            // SETUP
-            val index = AtomIndex()
-            val allData = Array(50000, { Atom(randomString()) })
-            for (i in 0 .. allData.lastIndex) {
-                index.onInserted(allData[i], i.toLong())
-            }
-
-            // ACT
-            val nMeasures = 15
-            val nMeasuresAsWarmup = 2
-            val nReadsPerMeasure = 300
-            val randomVarsScope = RandomVariableScope()
-            val measures = Array<Pair<Long,Long>?>(nMeasures, { null })
-            for (iMeasure in 0 until nMeasures + nMeasuresAsWarmup) {
-                val atomsToRead = Array<Atom>(nReadsPerMeasure, { allData[random.nextInt(allData.lastIndex)] })
-                val indexStartedAt = System.nanoTime()
-                for (atomToRead in atomsToRead) {
-                    for (atomIndex in index.find(atomToRead)) {
-                        atomToRead.unify(allData[atomIndex.toInt()])
-                    }
-                }
-                val indexDurationNanos = System.nanoTime() - indexStartedAt
-
-                val scanStartedAt = System.nanoTime()
-                for (atomToRead in atomsToRead) {
-                    for (atomInData in allData) {
-                        atomToRead.unify(atomInData, randomVarsScope)
-                    }
-                }
-                val scanDurationNanos = System.nanoTime() - scanStartedAt
-
-                if (iMeasure >= nMeasuresAsWarmup) {
-                    measures[iMeasure - nMeasuresAsWarmup] = Pair(indexDurationNanos, scanDurationNanos)
-                }
-            }
-
-            // ASSERT
-            val averageIndexDurationNanos = measures.filterNotNull().map { it.first }.average()
-            val averageScanDurationNanos = measures.filterNotNull().map { it.second }.average()
-
-            val speedRatio = averageScanDurationNanos / averageIndexDurationNanos
-
-            assert(speedRatio >= (allData.size.toDouble() / nReadsPerMeasure.toDouble()) * 0.7, { "btree index lookups are too slow for ${allData.size} data items; was only $speedRatio times faster than a table scan" })
-            assert(speedRatio <= (allData.size.toDouble() / nReadsPerMeasure.toDouble()) * 2, { "btree index lookups for ${allData.size} data items are way faster than expected in the test (speed ratio = $speedRatio) - adjust test expectation?"})
-        }.config(tags = setOf(LongRunning, Performance))
-
         "reading should be constant time" {
             // SETUP
             val index = AtomIndex()
