@@ -50,9 +50,9 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     private var closed = false
 
     /**
-     * Grants the locks; doing this in a background thread assures order
-     * Must be interrupted when
-     * * new free requests are available (to speed them up)
+     * Grants the locks; doing this in a background thread assures order of grants.
+     * Must be [Thread.interrupt]ed when
+     * * new free requests are available
      * * the manager is closed (to quit loops)
      */
     private val lockGrantThread: Thread
@@ -74,12 +74,11 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         val cached = readWriteLockCache[region]
         if (cached != null) return cached
 
-        val lock = ReadWriteLockHandle(region)
         synchronized(readWriteLockCache) {
+            val lock = ReadWriteLockHandle(region)
             readWriteLockCache[region] = lock
+            return lock
         }
-
-        return lock
     }
 
     /**
@@ -101,7 +100,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
 
         val closedException = ClosedException("The manager has been closed while you were waiting for the lock.")
         lockRequestQueue.forEach { it.onGrantComplete.completeExceptionally(closedException) }
-        unlockRequestQueue.forEach { it.onReleaseComplete.complete(Unit) }
+        unlockRequestQueue.clear()
     }
 
     /**
@@ -172,8 +171,6 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
                 LockMode.READ -> activeReadLocks.removeIf { it.first == request.thread && it.second == request.region }
                 LockMode.READ_WRITE -> activeWriteLocks.removeIf { it.first == request.thread && it.second == request.region }
             }
-
-            request.onReleaseComplete.complete(Unit)
         }
 
         /**
@@ -203,7 +200,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
                     return true
                 }
                 LockMode.READ -> {
-                    // no more checks necessary, read locks may overlap
+                    // no more cheitgcks necessary, read locks may overlap
                     activeReadLocks.add(Pair(request.thread, request.region))
                     return true
                 }
@@ -247,11 +244,8 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         override fun unlock() {
             if (closed) throw ClosedException("The manager has already been closed - cannot acquire lock")
 
-            val freed = CompletableFuture<Unit>()
-            unlockRequestQueue.put(UnlockRequest(region, mode, Thread.currentThread(), freed))
+            unlockRequestQueue.put(UnlockRequest(region, mode, Thread.currentThread()))
             lockGrantThread.interrupt()
-
-            freed.join()
         }
 
         @Synchronized override fun lockInterruptibly() {
@@ -342,9 +336,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         val region: LongRange,
         val mode: LockMode,
         /** The thread releasing the lock */
-        val thread: Thread,
-        /** When the lock is freed, this future is to be completed */
-        val onReleaseComplete: CompletableFuture<Unit>
+        val thread: Thread
     )
 
     private enum class LockMode {
