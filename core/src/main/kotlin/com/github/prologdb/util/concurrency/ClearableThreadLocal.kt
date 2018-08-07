@@ -1,4 +1,4 @@
-package com.github.prologdb.concurrency
+package com.github.prologdb.util.concurrency
 
 import java.util.concurrent.ConcurrentHashMap
 

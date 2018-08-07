@@ -1,6 +1,5 @@
-package com.github.prologdb.storage.predicate.heapfile
+package com.github.prologdb.util.concurrency
 
-import com.github.prologdb.concurrency.RegionReadWriteLockManager
 import io.kotlintest.matchers.shouldBe
 import io.kotlintest.specs.FreeSpec
 import java.util.concurrent.CompletableFuture
@@ -52,22 +51,22 @@ class RegionReadWriteLockManagerTest : FreeSpec() { init {
             val tAStep3Completed = CompletableFuture<Unit>()
 
             val tA = testingThread {
-                manager[0 .. 10].readLock().lock()
+                manager[0..10].readLock().lock()
                 tAStep1Completed.complete(Unit)
 
                 tBStep2Completed.join()
-                manager[0 .. 10].readLock().unlock()
+                manager[0..10].readLock().unlock()
                 tAStep3Completed.complete(Unit)
             }
 
             val tB = testingThread {
                 tAStep1Completed.join()
-                var success = manager[5 .. 15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
+                var success = manager[5..15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
                 success shouldBe false
                 tBStep2Completed.complete(Unit)
 
                 tAStep3Completed.join()
-                success = manager[5 .. 15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
+                success = manager[5..15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
                 success shouldBe true
             }
 
@@ -85,22 +84,22 @@ class RegionReadWriteLockManagerTest : FreeSpec() { init {
             val tAStep3Completed = CompletableFuture<Unit>()
 
             val tA = testingThread {
-                manager[0 .. 10].writeLock().lock()
+                manager[0..10].writeLock().lock()
                 tAStep1Completed.complete(Unit)
 
                 tBStep2Completed.join()
-                manager[0 .. 10].writeLock().unlock()
+                manager[0..10].writeLock().unlock()
                 tAStep3Completed.complete(Unit)
             }
 
             val tB = testingThread {
                 tAStep1Completed.join()
-                var success = manager[5 .. 15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
+                var success = manager[5..15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
                 success shouldBe false
                 tBStep2Completed.complete(Unit)
 
                 tAStep3Completed.join()
-                success = manager[5 .. 15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
+                success = manager[5..15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
                 success shouldBe true
             }
 
@@ -127,7 +126,7 @@ class RegionReadWriteLockManagerTest : FreeSpec() { init {
 
             var success = false
             val tA = testingThread {
-                success = manager[5 .. 15].writeLock().tryLock()
+                success = manager[5..15].writeLock().tryLock()
             }
             tA.join()
             tA.propagateUncaughtExceptionIfPresent()
@@ -145,7 +144,7 @@ class RegionReadWriteLockManagerTest : FreeSpec() { init {
 
             var success = false
             val tA = testingThread {
-                success = manager[5 .. 10].writeLock().tryLock()
+                success = manager[5..10].writeLock().tryLock()
             }
             tA.join()
             tA.propagateUncaughtExceptionIfPresent()
