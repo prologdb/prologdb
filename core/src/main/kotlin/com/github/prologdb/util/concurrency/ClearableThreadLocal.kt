@@ -5,15 +5,7 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Very much like [ThreadLocal] except that the [clear] method has been added.
  */
-class ClearableThreadLocal<T> {
-    fun get(): T {
-        val thread = Thread.currentThread()
-        val map = perThread[thread] ?: throw IllegalStateException("Not initialized yet for thread $thread")
-        val o = map[this] ?: throw IllegalStateException("Not initialized yet for thread $thread")
-
-        @Suppress("uncheckedCast") return o as T
-    }
-
+class ClearableThreadLocal<T>(val defaultValue: () -> T) {
     fun set(o: T) {
         val thread = Thread.currentThread()
         @Suppress("uncheckedCast") val map = perThread.getOrPut(thread) { HashMap<ClearableThreadLocal<*>, Any>() } as MutableMap<ClearableThreadLocal<T>, T>
@@ -21,7 +13,7 @@ class ClearableThreadLocal<T> {
         map[this] = o
     }
 
-    fun getOrSet(calc: () -> T): T {
+    fun get(): T {
         val thread = Thread.currentThread()
         @Suppress("uncheckedCast") val map = perThread.getOrPut(thread) { HashMap<ClearableThreadLocal<*>, Any>() } as MutableMap<ClearableThreadLocal<T>, T>
 
@@ -30,7 +22,7 @@ class ClearableThreadLocal<T> {
             return o
         }
 
-        val no = calc()
+        val no = defaultValue()
         map[this] = no
         return no
     }
