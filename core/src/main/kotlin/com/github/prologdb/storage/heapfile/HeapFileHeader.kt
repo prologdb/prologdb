@@ -1,4 +1,4 @@
-package com.github.prologdb.storage.predicate.heapfile
+package com.github.prologdb.storage.heapfile
 
 data class HeapFileHeader(
     /** Size of the individual pages, in bytes */

@@ -1,4 +1,4 @@
-package com.github.prologdb.storage.predicate.heapfile
+package com.github.prologdb.storage.heapfile
 
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.storage.readStruct
