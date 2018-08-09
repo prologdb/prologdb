@@ -126,4 +126,40 @@ class FirstFitHeapManagerTest : FreeSpec({
             }
         }
     }
+
+    "builder" - {
+        "without spec all allocated" {
+            val builder = FirstFitHeapManager.fromExistingLayoutSubtractiveBuilder(1, 0f)
+            val heap = builder.build(1024)
+
+            heap.freeSpaceAmount shouldBe 0L
+            heap.allocate(10, false) shouldBe null
+        }
+
+        "free space can be allocated" {
+            val builder = FirstFitHeapManager.fromExistingLayoutSubtractiveBuilder(1, 0f)
+            builder.markAreaFree(0L..63L)
+            builder.markAreaFree(103L..120L)
+            val heap = builder.build(1024)
+
+            val allocatedA = heap.allocate(50, false)
+            val allocatedB = heap.allocate(17, false)
+
+            allocatedA!!
+            allocatedA.last - allocatedA.first should beGreaterThanOrEqualTo(49L)
+
+            allocatedB!!
+            allocatedB.last - allocatedB.first should beGreaterThanOrEqualTo(17L)
+        }
+
+        "overlaps are handled gracefully" {
+            val builder = FirstFitHeapManager.fromExistingLayoutSubtractiveBuilder(1, 0f)
+
+            builder.markAreaFree(15L..70L)
+            builder.markAreaFree(40L..98L)
+            val heap = builder.build(100)
+
+            heap.freeSpaceAmount shouldBe 84L
+        }
+    }
 })

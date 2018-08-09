@@ -3,11 +3,6 @@ package com.github.prologdb.util.memory
 import java.util.SortedSet
 import java.util.TreeSet
 import kotlin.collections.ArrayList
-import kotlin.collections.any
-import kotlin.collections.first
-import kotlin.collections.firstOrNull
-import kotlin.collections.forEach
-import kotlin.collections.lastIndex
 import kotlin.math.max
 import kotlin.math.min
 
@@ -173,5 +168,57 @@ class FirstFitHeapManager(
 
         freeChunksSorted.add(chunk)
         freeSpaceAmount += chunk.size
+    }
+
+    companion object {
+        /**
+         * @param minimumViableChunkSize is passed through to the constructor
+         * @param defragEffortFactor is passed through to the constructor
+         */
+        fun fromExistingLayoutSubtractiveBuilder(minimumViableChunkSize: Long, defragEffortFactor: Float): HeapManagerFromExistingLayoutSubtractiveBuilder<FirstFitHeapManager> {
+            return FromExistingLayoutSubtractiveBuilder(minimumViableChunkSize, defragEffortFactor)
+        }
+
+        private class FromExistingLayoutSubtractiveBuilder(private val minimumViableChunkSize: Long, private val defragEffortFactor: Float) : HeapManagerFromExistingLayoutSubtractiveBuilder<FirstFitHeapManager> {
+            private val freeChunks: MutableSet<LongRange> = mutableSetOf()
+
+            /**
+             * Is kept at the maximum [LongRange.last] value passed to [markAreaFree].
+             * Is used to sanity-check the `size` parameter to [build].
+             */
+            private var minimumSize: Long = 0
+
+            override fun markAreaFree(range: LongRange) {
+                if (!range.isAscending || range.first < 0 || range.last < 0) {
+                    throw IllegalArgumentException()
+                }
+
+                minimumSize = max(minimumSize, range.last + 1)
+
+                val overlaps = freeChunks.filter { it.overlapsWith(range) }
+                if (overlaps.isEmpty()) {
+                    freeChunks += range
+                } else {
+                    // merge
+                    overlaps.forEach { freeChunks.remove(it) }
+                    val minFirst = min(range.first, overlaps.minBy { it.first }!!.first)
+                    val maxLast = max(range.last, overlaps.maxBy { it.last }!!.last)
+                    freeChunks.add(minFirst..maxLast)
+                }
+            }
+
+            override fun build(size: Long): FirstFitHeapManager {
+                if (size < minimumSize) {
+                    throw IllegalArgumentException("Final size too small, areas outside have been marked free")
+                }
+
+                val manager = FirstFitHeapManager(size, minimumViableChunkSize, defragEffortFactor)
+                manager.freeChunksSorted.clear()
+                manager.freeChunksSorted.addAll(freeChunks)
+                manager.freeSpaceAmount = freeChunks.map { it.size }.sum()
+
+                return manager
+            }
+        }
     }
 }

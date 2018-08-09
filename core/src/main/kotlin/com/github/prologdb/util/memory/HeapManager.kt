@@ -28,6 +28,25 @@ interface HeapManager {
     fun free(chunk: LongRange)
 }
 
+/**
+ * Builds a certain kind of [HeapManager] from an existing layout (e.g. when the heap is persisted and
+ * then read back in). At first, the builder will consider the entire heap to be occupied/allocated.
+ * Areas/ranges can then be marked free (hence the name subtractive).
+ */
+interface HeapManagerFromExistingLayoutSubtractiveBuilder<out T : HeapManager> {
+    /**
+     * The [T] returned from [build] will consider this area to be free.
+     */
+    fun markAreaFree(range: LongRange)
+
+    /**
+     * Builds a new [HeapManager] from the specifications about the layout expressed
+     * through prior calls to [markAreaFree].
+     * @param size The size of the final heap.
+     */
+    fun build(size: Long): T
+}
+
 internal infix fun LongRange.overlapsWith(other: LongRange): Boolean {
     // thanks to https://stackoverflow.com/questions/3269434/whats-the-most-efficient-way-to-test-two-integer-ranges-for-overlap/3269471
 
