@@ -3,6 +3,8 @@ package com.github.prologdb.storage.heapfile
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.storage.readStruct
 import com.github.prologdb.storage.writeStruct
+import com.github.prologdb.util.memory.FirstFitHeapManager
+import com.github.prologdb.util.memory.HeapManager
 import java.io.RandomAccessFile
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,6 +22,11 @@ private constructor(
     private val pageSize: Int
     private val offsetToFirstPage: Long
 
+    /**
+     * Manages the heap. One unit in this manager corresponds to one page (as opposed to one byte).
+     */
+    private val heapManager: HeapManager
+
     /** Is set to true when closed */
     private var closed = false
 
@@ -33,6 +40,7 @@ private constructor(
         val header = randomAccessFile.readStruct(HeapFileHeader::class)
         pageSize = header.pageSize
         offsetToFirstPage = randomAccessFile.filePointer + header.alignmentPaddingSize
+        heapManager = initializeHeapManagerFromFile()
     }
 
     /** Amount of data that fits onto one page, in bytes */
@@ -51,6 +59,42 @@ private constructor(
 
         TODO("wait for the ongoing operations to stop")
         randomAccessFile.close()
+    }
+
+    /**
+     * Scans through the entire file and [HeapManager.allocate]s all areas that contain data. Assumes
+     * exclusive access to [randomAccessFile] and [heapManager].
+     */
+    private fun initializeHeapManagerFromFile(): HeapManager {
+        val builder = FirstFitHeapManager.fromExistingLayoutSubtractiveBuilder(1, 0.2f)
+
+        randomAccessFile.seek(offsetToFirstPage)
+        var currentPageIndex: Long = 0
+        val pageBuffer = ByteArray(pageSize)
+
+        // index of the first deleted page in the current succession
+        var currentSectionStart: Long? = null
+        var nPagesFound: Long = 0
+
+        while (randomAccessFile.read(pageBuffer) == pageSize) {
+            val flags = pageBuffer[0] as PageFlags
+            nPagesFound++
+
+            if (flags hasFlag PAGE_FLAG_DELETED) {
+                if (currentSectionStart != null) {
+                    currentSectionStart = currentPageIndex
+                }
+            }
+            else {
+                if (currentSectionStart != null) {
+                    val section = currentSectionStart..currentPageIndex
+                    builder.markAreaFree(section)
+                    currentSectionStart = null
+                }
+            }
+        }
+
+        return builder.build(nPagesFound)
     }
 
     companion object {
@@ -87,10 +131,10 @@ private constructor(
 private typealias PageFlags = Byte
 
 /** Whether this page is marked as deleted */
-private const val PAGE_FLAG_DELETED = 0b00000001
+private const val PAGE_FLAG_DELETED = 0b00_00_00_01
 
 /** Whether this page contains continuation data from the previous page */
-private const val PAGE_FLAG_CONTINUATION = 0b00000001
+private const val PAGE_FLAG_CONTINUATION = 0b00_00_00_10
 
 private infix fun PageFlags.plusFlag(flag: Int): PageFlags = (this.toInt() or flag).toByte()
 private infix fun PageFlags.hasFlag(flag: Int): Boolean = this.toInt() and flag == flag
