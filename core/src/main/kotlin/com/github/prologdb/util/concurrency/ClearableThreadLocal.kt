@@ -5,7 +5,13 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Very much like [ThreadLocal] except that the [clear] method has been added.
  */
-class ClearableThreadLocal<T>(val defaultValue: () -> T) {
+class ClearableThreadLocal<T>(
+    /** Calculates and returns a new default value */
+    val defaultValue: () -> T,
+
+    /** When [clear] is called, this is invoked for all cleared values */
+    private val teardown: (T) -> Unit = {}
+) {
     fun set(o: T) {
         val thread = Thread.currentThread()
         @Suppress("uncheckedCast") val map = perThread.getOrPut(thread) { HashMap<ClearableThreadLocal<*>, Any>() } as MutableMap<ClearableThreadLocal<T>, T>
@@ -31,8 +37,11 @@ class ClearableThreadLocal<T>(val defaultValue: () -> T) {
         /**
          * For all threads, clears the data associated with the given [threadLocal]
          */
-        fun clearForAllThreads(threadLocal: ClearableThreadLocal<*>) {
-            perThread.values.forEach { it.remove(threadLocal) }
+        fun <T> clearForAllThreads(threadLocal: ClearableThreadLocal<T>) {
+            perThread.values.forEach {
+                val value = it.remove(threadLocal)
+                if (value != null) threadLocal.teardown(value as T)
+            }
         }
 
         @JvmStatic
