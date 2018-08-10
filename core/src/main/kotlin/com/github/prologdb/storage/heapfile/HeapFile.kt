@@ -31,6 +31,11 @@ private constructor(
 ) : AutoCloseable
 {
     private var randomAccessFile = RandomAccessFile(existingFile.toFile(), "rwd")
+
+    /**
+     * Manages read and write locks on the file. One unit in the ranges of the manager
+     * corresponds to one page (as opposed to one byte).
+     */
     private val readWriteLockManager = RegionReadWriteLockManager("HeapFile $existingFile")
 
     private val pageSize: Int
@@ -134,16 +139,15 @@ private constructor(
      * way after the action has returned.
      */
     fun <T> useRecord(persistenceID: PersistenceID, action: (ByteBuffer) -> T): T {
-        val firstPageOffset = offsetToFirstPage + persistenceID * pageSize
         val (bufferArr, bufferObj) = onePageBuffer.get()
+        val channel = fileChannel.get()
 
         // read the first page, then decide if we need more
-        readWriteLockManager[firstPageOffset..(firstPageOffset + pageSize - 1)].readLock().withLock {
-            val channel = fileChannel.get()
+        bufferObj.clear()
+        val firstPageOffset = offsetToFirstPage + persistenceID * pageSize
+        readWriteLockManager[persistenceID..persistenceID].readLock().withLock {
             channel.position(firstPageOffset)
-
-            bufferObj.clear()
-                channel.read(bufferObj)
+            channel.read(bufferObj)
         }
 
         val flags = bufferArr[0]
@@ -167,9 +171,8 @@ private constructor(
             fullRecordBuffer.put(bufferObj)
 
             // read the other pages
-            val secondPageOffset = firstPageOffset + pageSize
             var bytesOfRecordRemaining = recordSize - (pageSize - 5)
-            readWriteLockManager[secondPageOffset..(secondPageOffset + pageSize * additionalPages)].readLock().withLock {
+            readWriteLockManager[persistenceID..(persistenceID + additionalPages)].readLock().withLock {
                 val channel = fileChannel.get()
 
                 while (bytesOfRecordRemaining > 0) {
@@ -178,7 +181,7 @@ private constructor(
 
                     val pageFlags = bufferArr[0]
                     if (!(pageFlags hasFlag PAGE_FLAG_CONTINUATION)) {
-                        throw StorageException("Invalid internal state - record contains non-continuation flagged page (page offset $secondPageOffset")
+                        throw StorageException("Invalid internal state - record contains non-continuation flagged page (offset of first page in record: $firstPageOffset)")
                     }
 
                     bufferObj.flip()
@@ -189,6 +192,81 @@ private constructor(
 
             return action(fullRecordBuffer)
         }
+    }
+
+    /**
+     * Reads the records for the given [PersistenceID]s from this file and invokes the given
+     * action with the data of each record. The byte buffer given to the action **MUST NOT** be used in any
+     * way after the action has returned.
+     */
+    fun <T> useRecords(persistenceIDs: Collection<out PersistenceID>, action: (ByteBuffer) -> Any?) {
+        persistenceIDs.sorted().forEach { pId ->
+            useRecord(pId, action)
+        }
+    }
+
+    /**
+     * Deletes the record with the given persistence ID from this file.
+     * @param flushToDisk Whether to flush the changes to disk. Set to false if you delete multiple
+     *                    records; setting it true for the last one flushes all previous.
+     * @return Whether a record was actually removed as a result of this call.
+     */
+    fun removeRecord(persistenceID: PersistenceID, flushToDisk: Boolean = true): Boolean {
+        val (bufferArr, bufferObj) = onePageBuffer.get()
+        val channel = fileChannel.get()
+
+        // read the first page, then decide if we need more
+        bufferObj.clear()
+        val firstPageOffset = offsetToFirstPage + persistenceID * pageSize
+        readWriteLockManager[persistenceID..persistenceID].readLock().withLock {
+            channel.position(firstPageOffset)
+            channel.read(bufferObj)
+        }
+
+        val flags = bufferArr[0]
+        if (flags hasFlag PAGE_FLAG_CONTINUATION) {
+            throw IllegalArgumentException("Invalid persistence ID given - might have been overrwritten since first storage.")
+        }
+        if (flags hasFlag PAGE_FLAG_DELETED) {
+            // already gone
+            return false
+        }
+
+        val recordSize = (bufferArr[1].toInt() and 0xFF shl 24) or (bufferArr[2].toInt() and 0xFF shl 16) or (bufferArr[3].toInt() and 0xFF shl 8) or (bufferArr[4].toInt() and 0xFF)
+        if (recordSize <= pageSize - 5) {
+            // all of the data is in this one page
+            bufferArr[0] = bufferArr[0] plusFlag PAGE_FLAG_DELETED
+            bufferObj.position(0)
+            bufferObj.limit(pageSize)
+            readWriteLockManager[persistenceID..persistenceID].writeLock().withLock {
+                channel.position(firstPageOffset)
+                channel.write(bufferObj)
+
+                if (flushToDisk) {
+                    channel.force(false)
+                }
+            }
+            synchronized(heapManager) {
+                heapManager.free(persistenceID..persistenceID)
+            }
+        } else {
+            val additionalPages = (recordSize - (pageSize - 5) + pageSize - 1) / pageSize
+            readWriteLockManager[persistenceID..(persistenceID + additionalPages)].writeLock().withLock {
+                for (pageIndex in 0..additionalPages) {
+                    channel.position(firstPageOffset + pageIndex * pageSize)
+                    bufferArr[0] = 0.toByte() plusFlag PAGE_FLAG_DELETED
+                    bufferObj.position(0)
+                    bufferObj.limit(pageSize)
+                    channel.write(bufferObj)
+                }
+
+                if (flushToDisk) {
+                    channel.force(false)
+                }
+            }
+        }
+
+        return true
     }
 
     /** Used to synchronize the [close] operation */
