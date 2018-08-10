@@ -9,6 +9,7 @@ import com.github.prologdb.util.concurrency.ClearableThreadLocal
 import com.github.prologdb.util.concurrency.RegionReadWriteLockManager
 import com.github.prologdb.util.memory.FirstFitHeapManager
 import com.github.prologdb.util.memory.HeapManager
+import java.io.Closeable
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -28,7 +29,7 @@ class HeapFile
 private constructor(
     /** The existing and prepared heap-file */
     private val existingFile: Path
-) : AutoCloseable
+) : Closeable, AutoCloseable
 {
     private var randomAccessFile = RandomAccessFile(existingFile.toFile(), "rwd")
 
@@ -81,6 +82,7 @@ private constructor(
 
     /**
      * Adds a record to this heap file.
+     * @param data The data of the record. Is entirely consumed if this call succeeds.
      * @param flushToDisk whether to flush. Can be set to false when adding multiple records, then only needs to be
      *                    true for the last.
      * @return A reference to be used to re-obtain the record.
@@ -152,7 +154,7 @@ private constructor(
 
         val flags = bufferArr[0]
         if (flags hasFlag PAGE_FLAG_DELETED || flags hasFlag PAGE_FLAG_CONTINUATION) {
-            throw IllegalArgumentException("Invalid persistence ID given - might have been overrwritten since first storage.")
+            throw StorageException("Invalid persistence ID given - might have been overrwritten since first storage.")
         }
 
         val recordSize = (bufferArr[1].toInt() and 0xFF shl 24) or (bufferArr[2].toInt() and 0xFF shl 16) or (bufferArr[3].toInt() and 0xFF shl 8) or (bufferArr[4].toInt() and 0xFF)
@@ -177,6 +179,7 @@ private constructor(
 
                 while (bytesOfRecordRemaining > 0) {
                     bufferObj.clear()
+                    bufferObj.limit(min(bufferObj.capacity(), bytesOfRecordRemaining + 1)) // +1 for the flag byte
                     channel.read(bufferObj)
 
                     val pageFlags = bufferArr[0]
@@ -185,11 +188,13 @@ private constructor(
                     }
 
                     bufferObj.flip()
+                    bufferObj.position(1) // skip the flags byte
                     bytesOfRecordRemaining -= bufferObj.remaining()
                     fullRecordBuffer.put(bufferObj)
                 }
             }
 
+            fullRecordBuffer.flip()
             return action(fullRecordBuffer)
         }
     }
@@ -280,7 +285,7 @@ private constructor(
             closed = true
         }
 
-        TODO("wait for the ongoing operations to stop")
+        // TODO("wait for the ongoing operations to stop")
         ClearableThreadLocal.clearForAllThreads(fileChannel)
         ClearableThreadLocal.clearForAllThreads(onePageBuffer)
         randomAccessFile.close()
@@ -333,8 +338,8 @@ private constructor(
          * contiguous memory (e.g. SSDs, ram disks).
          */
         fun initializeForContiguousDevice(file: Path) {
-            if (Files.exists(file)) {
-                throw IllegalArgumentException("A file or directory already exists at path $file")
+            if (Files.exists(file) && Files.size(file) > 0) {
+                throw IllegalArgumentException("A non-empty file or directory already exists at path $file")
             }
 
             val raf = RandomAccessFile(file.toFile(), "rw")
