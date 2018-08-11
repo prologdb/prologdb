@@ -31,7 +31,19 @@ private constructor(
     private val existingFile: Path
 ) : Closeable, AutoCloseable
 {
-    private var randomAccessFile = RandomAccessFile(existingFile.toFile(), "rwd")
+    /**
+     * When a writing action occurs this is the probability that the class will use the opportunity
+     * to instruct the OS to flush all prior changes to disk. This is slow so it is adjustable.
+     *
+     * E.g. if this is set to 0.001, 1 out of 1000 (on average) writing actions will cause a flush.
+     */
+    var flushLikelyhood: Double = 0.0001
+        set(value) {
+            if (value < 0.0 || value > 1.0) throw IllegalArgumentException("Must be in range [0; 1]")
+            field = value
+        }
+
+    private var randomAccessFile = RandomAccessFile(existingFile.toFile(), "rw")
 
     /**
      * Manages read and write locks on the file. One unit in the ranges of the manager
@@ -83,11 +95,12 @@ private constructor(
     /**
      * Adds a record to this heap file.
      * @param data The data of the record. Is entirely consumed if this call succeeds.
-     * @param flushToDisk whether to flush. Can be set to false when adding multiple records, then only needs to be
-     *                    true for the last.
+     * @param flushToDisk Whether to wait until the changes have been persisted to the physical storage device
+     *                    before returning. **Attention:** this is very slow. Setting this to true on a majority
+     *                    of invocations will *ruin* performance (less then 1 MiB/s write speed on a 7200rpm HDD).
      * @return A reference to be used to re-obtain the record.
      */
-    fun addRecord(data: ByteBuffer, flushToDisk: Boolean = true): PersistenceID {
+    fun addRecord(data: ByteBuffer, flushToDisk: Boolean = false): PersistenceID {
         val recordSize = data.remaining()
         val pagesForRecord = if (recordSize < pageSize - 5) 1 else 1 + (recordSize - (pageSize - 5) + pageSize - 1) / pageSize
         val pages = synchronized(heapManager) {
@@ -129,7 +142,7 @@ private constructor(
                 channel.write(bufferObj)
             }
 
-            if (flushToDisk) channel.force(false)
+            if (flushToDisk || diskFlushLottery()) channel.force(false)
         }
 
         return pages.first
@@ -212,11 +225,12 @@ private constructor(
 
     /**
      * Deletes the record with the given persistence ID from this file.
-     * @param flushToDisk Whether to flush the changes to disk. Set to false if you delete multiple
-     *                    records; setting it true for the last one flushes all previous.
+     * @param flushToDisk Whether to wait until the changes have been persisted to the physical storage device
+     *                    before returning. **Attention:** this is very slow. Setting this to true on a majority
+     *                    of invocations will *ruin* performance (less then 1 MiB/s write speed on a 7200rpm HDD).
      * @return Whether a record was actually removed as a result of this call.
      */
-    fun removeRecord(persistenceID: PersistenceID, flushToDisk: Boolean = true): Boolean {
+    fun removeRecord(persistenceID: PersistenceID, flushToDisk: Boolean = false): Boolean {
         val (bufferArr, bufferObj) = onePageBuffer.get()
         val channel = fileChannel.get()
 
@@ -265,13 +279,20 @@ private constructor(
                     channel.write(bufferObj)
                 }
 
-                if (flushToDisk) {
-                    channel.force(false)
-                }
+                if (flushToDisk || diskFlushLottery()) channel.force(false)
             }
         }
 
         return true
+    }
+
+    /**
+     * @return a random boolean where the distribution of true to false is according to [flushLikelyhood]. E.g.
+     * if [flushLikelyhood] is set to 0.001 this method will return true in 1 out of 1000 invocations (on average)
+     * and false on the rest.
+     */
+    private fun diskFlushLottery(): Boolean {
+        return Math.random() <= flushLikelyhood
     }
 
     /** Used to synchronize the [close] operation */
