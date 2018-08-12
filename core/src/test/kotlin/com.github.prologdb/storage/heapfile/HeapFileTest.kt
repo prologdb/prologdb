@@ -2,6 +2,7 @@ package com.github.prologdb.storage.heapfile
 
 import com.github.prologdb.storage.StorageException
 import com.github.prologdb.storage.StorageStrategy
+import com.github.prologdb.storage.predicate.PersistenceID
 import com.github.prologdb.storage.rootDeviceProperties
 import io.kotlintest.matchers.beLessThanOrEqualTo
 import io.kotlintest.matchers.should
@@ -11,6 +12,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.util.*
+import java.util.concurrent.CompletableFuture
 import kotlin.math.max
 import kotlin.math.min
 
@@ -71,6 +73,61 @@ class HeapFileTest : FreeSpec({
                 heapFile.useRecord(pID, {})
             }
         }
+    }
+
+    "multi thread write&read" {
+        val tmpFile = File.createTempFile("heapfiletest", Math.random().toString())
+        tmpFile.deleteOnExit()
+
+        HeapFile.initializeForBlockDevice(tmpFile.toPath())
+        val hf = HeapFile.forExistingFile(tmpFile.toPath())
+
+        val taObjWritten = CompletableFuture<Pair<PersistenceID, ByteArray>>()
+        val tA = testingThread {
+            val random = Random()
+            val bufferArr = ByteArray(1024)
+            val bufferObj = ByteBuffer.wrap(bufferArr)
+
+            for (i in 0..3) {
+                bufferObj.clear()
+                random.nextBytes(bufferArr)
+                hf.addRecord(bufferObj)
+            }
+            bufferObj.clear()
+            random.nextBytes(bufferArr)
+            val pID = hf.addRecord(bufferObj)
+            val controlData = ByteArray(bufferArr.size, bufferArr::get)
+            taObjWritten.complete(Pair(pID, controlData))
+
+            for (i in 0..3) {
+                bufferObj.clear()
+                random.nextBytes(bufferArr)
+                hf.addRecord(bufferObj)
+            }
+        }
+
+        val tB = testingThread {
+            val random = Random()
+            val bufferArr = ByteArray(1024)
+            val bufferObj = ByteBuffer.wrap(bufferArr)
+
+            bufferObj.clear()
+            random.nextBytes(bufferArr)
+            hf.addRecord(bufferObj)
+            taObjWritten.join()
+
+            hf.useRecord(taObjWritten.get().first) { recordData ->
+                val recordDataArray = ByteArray(recordData.remaining())
+                recordData.get(recordDataArray)
+
+                assert(Arrays.equals(taObjWritten.get().second, recordDataArray))
+            }
+        }
+
+        tA.join()
+        tB.join()
+        tA.propagateUncaughtExceptionIfPresent()
+        tB.propagateUncaughtExceptionIfPresent()
     }
 
     "loadtest" - {
@@ -156,4 +213,25 @@ private fun newTmpFileOnHDD(prefix: String, minimumFreeStorage: Long): File {
     tmpFile.deleteOnExit()
 
     return tmpFile
+}
+
+private fun testingThread(code: () -> Unit): TestingThread {
+    val thread = TestingThread(code)
+    thread.start()
+    return thread
+}
+
+private class TestingThread(code: () -> Unit) : Thread(code) {
+    private var uncaughtEx: Throwable? = null
+    init {
+        setUncaughtExceptionHandler { t, e ->
+            uncaughtEx = e
+        }
+    }
+
+    fun propagateUncaughtExceptionIfPresent() {
+        if (uncaughtEx != null) {
+            throw uncaughtEx!!
+        }
+    }
 }
