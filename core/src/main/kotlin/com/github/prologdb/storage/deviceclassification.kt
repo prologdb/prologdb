@@ -3,6 +3,7 @@ package com.github.prologdb.storage
 import java.io.File
 import java.io.InputStreamReader
 import java.nio.file.Path
+import java.nio.file.Paths
 
 val Path.rootDeviceProperties: StorageDeviceProperties
     get() = STORAGE_DEVICE_INFORMATION_PROVIDER.getRootDeviceProperties(this)
@@ -23,6 +24,7 @@ enum class StorageStrategy {
 
 private val STORAGE_DEVICE_INFORMATION_PROVIDER: StorageDeviceInformationProvider = when(File.separatorChar) {
     '\\' -> WindowsStorageDeviceInformationProvider()
+    '/'  -> UnixStorageDeviceInformationProvider()
     else -> throw Exception("Cannot initialize storageDeviceInformationProvider: unknown OS")
 }
 
@@ -136,4 +138,104 @@ class WindowsStorageDeviceInformationProvider : StorageDeviceInformationProvider
             return allObjects
         }
     }
+}
+
+// ---------------------------
+private class UnixStorageDeviceInformationProvider : StorageDeviceInformationProvider {
+    override fun getRootDeviceProperties(ofPath: Path): StorageDeviceProperties {
+        val rootDevice = ofPath.rootDevice ?: throw IllegalArgumentException("Data in this path will not be stored in a physical device.")
+        return StorageDeviceProperties(
+            physicalStorageStrategy = when(File("/sys/block/${rootDevice.fileName}/queue/rotational").readText().trim()) {
+                "1" -> StorageStrategy.ROTATIONAL_DISKS
+                else -> StorageStrategy.UNKNOWN
+            }
+        )
+    }
+
+    /**
+     * The device on which data in this path is being stored. That is the actual device,
+     * without partitions or encryption layers (e.g. /dev/sda even if the path is mounted
+     * for /dev/sda3).
+     * Null if this path does not map to a mounted location (the case for non-existing paths).
+     */
+    private val Path.rootDevice: Path?
+        get() {
+            val mountRoot = mountRoot ?: return null
+            val leafDevice = mounts[mountRoot]!!
+
+            fun BlockDeviceTreeNode.containsDevice(devicePath: Path): Boolean {
+                return devicePath == this.devicePath || children.any { it.containsDevice(devicePath) }
+            }
+
+            return blockDeviceTree.firstOrNull { it.containsDevice(leafDevice) }?.devicePath
+        }
+
+    /**
+     * The mount point of this path, e.g. if this path is `/usr/bin/bash` and that directory
+     * is stored on device `/dev/sda4` which is mounted at `/usr`, returns `/`. This value
+     * can be used as a valid key for [mounts].
+     * Null if this path does not map to a mounted location (the case for non-existing paths).
+     */
+    private val Path.mountRoot: Path?
+        get() = mounts.keys
+                .sortedBy { it.nameCount }
+                .reversed()
+                .firstOrNull { mountPath -> this.toAbsolutePath().startsWith(mountPath) }
+
+    /**
+     * All mounts in the system; keys: mountpoint, value: device file
+     */
+    private val mounts: Map<Path, Path> by lazy {
+        val mountOut = captureOutput("mount")
+        TODO("parse mountOut")
+        // emptyMap()
+    }
+
+    private val blockDeviceTree: Set<BlockDeviceTreeNode> by lazy {
+        /**
+         * Reads the next device off the given list.
+         * @return The parsed device (including children) and the remaining lines possibly containing more devices.
+         */
+        fun readNode(lsblkOutLines: List<String>): Pair<BlockDeviceTreeNode, List<String>> {
+            val nameLine = lsblkOutLines[0]
+            val nameLineTrimmed = nameLine.trim()
+            val name = if (nameLineTrimmed.startsWith("├─") || nameLineTrimmed.startsWith("└─")) nameLineTrimmed.substring(2) else nameLine
+
+            val children = mutableSetOf<BlockDeviceTreeNode>()
+
+            var remainingLines = lsblkOutLines.subList(1, lsblkOutLines.size)
+            while (remainingLines.isNotEmpty() && remainingLines[0].spaceIndentationAmount > nameLine.spaceIndentationAmount) {
+                val childResult = readNode(remainingLines)
+                children += childResult.first
+                remainingLines = childResult.second
+            }
+
+            return Pair(BlockDeviceTreeNode(Paths.get("/dev/${name}"), children), remainingLines)
+        }
+
+        val lsblkOut = captureOutput("lsblk", "-o", "name", "-t")
+        var currentLines = lsblkOut.subList(1, lsblkOut.size) // 1st line are headings
+        val rootNodes = mutableSetOf<BlockDeviceTreeNode>()
+
+        while (currentLines.isNotEmpty()) {
+            val rootDeviceNodeResult = readNode(currentLines)
+
+            if (!rootDeviceNodeResult.first.devicePath.fileName.startsWith("loop")) {
+                rootNodes += rootDeviceNodeResult.first
+            }
+
+            currentLines = rootDeviceNodeResult.second
+        }
+
+        return@lazy rootNodes
+    }
+
+    /** The number of leading spaces in this string */
+    private val String.spaceIndentationAmount: Int
+        get() = takeWhile { it == ' ' }.length
+
+    private data class BlockDeviceTreeNode(
+        val devicePath: Path,
+        val children: Set<BlockDeviceTreeNode>
+    )
 }
