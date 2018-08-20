@@ -8,6 +8,7 @@ import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 interface PredicateStoreFactory {
     /**
      * Creates a new [PredicateStore] for predicates of the given indicator.
+     * @param dbName The name of the database for which to create the new store.
      * @param requiredFeatures The returned predicate store is guaranteed to have all these features
      *                         contained in [requiredFeatures].
      * @param desiredFeatures The factory will try to find an implementation that has the desired features
@@ -20,6 +21,7 @@ interface PredicateStoreFactory {
      * @throws
      */
     fun create(
+        dbName: String,
         forPredicatesOf: PredicateIndicator,
         requiredFeatures: Set<PredicateStoreFeature>,
         desiredFeatures: Set<PredicateStoreFeature>
