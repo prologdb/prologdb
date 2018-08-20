@@ -1,6 +1,7 @@
 package com.github.prologdb.util.concurrency
 
 import java.util.*
+import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -15,7 +16,7 @@ class BroadcastConcurrentQueue<T> {
      * in this project have very few reads&writes to the queues. To suit this for more
      * throughput a [ConcurrentHashMap] can be used.
      */
-    private val consumerQueues: MutableMap<Long, Queue<T>> = HashMap()
+    private val consumerQueues: MutableMap<Long, BlockingQueue<T>> = HashMap()
 
     /**
      * Registers a new consumer with the reference `consumerID` if not already
@@ -23,7 +24,7 @@ class BroadcastConcurrentQueue<T> {
      * @return The queue for the registered consumer.If the consumer was not registered
      * prior to the call, does **not** contain items placed on the queue prior to registering.
      */
-    fun registerConsumer(consumerID: Long): Queue<T> {
+    fun registerConsumer(consumerID: Long): BlockingQueue<T> {
         synchronized(consumerQueues) {
             return consumerQueues.computeIfAbsent(consumerID) { LinkedBlockingQueue<T>() }
         }
