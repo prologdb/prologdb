@@ -1,6 +1,6 @@
 package com.github.prologdb.execplan.planner
 
-import com.github.prologdb.PrologDatabaseView
+import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.execplan.*
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.query.AndQuery

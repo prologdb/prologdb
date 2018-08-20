@@ -1,4 +1,4 @@
-package com.github.prologdb
+package com.github.prologdb.dbms
 
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.indexing.IndexByArgumentMap
@@ -19,7 +19,7 @@ import com.github.prologdb.util.concurrency.BroadcastConcurrentQueue
  * instance of this class. Changes on the DB level are propagated from the thread that does the change to the
  * others using a [BroadcastConcurrentQueue].
  */
-interface PrologDatabaseView {
+class PrologDatabaseView {
     val predicateStores: Map<PredicateIndicator, PredicateStore>
     val rules: Map<PredicateIndicator, Set<Rule>>
     val indexes: Map<PredicateIndicator, IndexByArgumentMap>

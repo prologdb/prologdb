@@ -1,6 +1,6 @@
 package com.github.prologdb.execplan
 
-import com.github.prologdb.PrologDatabaseView
+import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.VariableMapping
 import com.github.prologdb.runtime.knowledge.Rule

@@ -1,6 +1,6 @@
 package com.github.prologdb.execplan.index
 
-import com.github.prologdb.PrologDatabaseView
+import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.execplan.PlanStep
 import com.github.prologdb.execplan.PlanStepInappropriateException
 import com.github.prologdb.execplan.toLazySequence
