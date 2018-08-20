@@ -21,7 +21,7 @@ interface PredicateStoreFactory {
      */
     fun create(
         forPredicatesOf: PredicateIndicator,
-        requiredFeatures: Set<PredicateStorageFeature>,
-        desiredFeatures: Set<PredicateStorageFeature>
+        requiredFeatures: Set<PredicateStoreFeature>,
+        desiredFeatures: Set<PredicateStoreFeature>
     ): PredicateStore
 }

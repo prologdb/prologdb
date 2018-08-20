@@ -6,7 +6,7 @@ import com.github.prologdb.storage.VolatileStorage
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
-enum class PredicateStorageFeature(
+enum class PredicateStoreFeature(
     private val predicate: (KClass<out PredicateStore>) -> Boolean
 ) {
     /** Data persists across restarts and reboots */
