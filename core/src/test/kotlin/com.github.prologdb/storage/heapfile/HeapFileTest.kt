@@ -1,5 +1,7 @@
 package com.github.prologdb.storage.heapfile
 
+import com.github.prologdb.Performance
+import com.github.prologdb.RequiresHDD
 import com.github.prologdb.storage.StorageException
 import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.rootDeviceProperties
@@ -10,6 +12,7 @@ import io.kotlintest.specs.FreeSpec
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
+import java.nio.file.Paths
 import java.util.*
 import kotlin.math.max
 import kotlin.math.min
@@ -77,6 +80,7 @@ class HeapFileTest : FreeSpec({
         "single thread writes" {
             val mib500 =  1024L * 1024L * 500L
             val tmpFile = newTmpFileOnHDD("heapfile-loadtest", mib500 + 8096)
+            val tmpFileOptimalBufferSize = tmpFile.toPath().rootDeviceProperties!!.optimalIOSize ?: 8192
             val random = Random()
 
             // test raw throughput
@@ -84,7 +88,7 @@ class HeapFileTest : FreeSpec({
             var rawTestTimeElapsed = 0
             var startedAt: Long = 0
             FileOutputStream(tmpFile).use { fOut ->
-                val buffer = ByteArray(16_384)
+                val buffer = ByteArray(tmpFileOptimalBufferSize)
 
                 startedAt = System.currentTimeMillis()
                 while (rawTestTimeElapsed < 5_000) {
@@ -132,7 +136,7 @@ class HeapFileTest : FreeSpec({
                 // if the heapfile is more than 4x slower than flat out writing, something is seriously wrong
                 throughputRatio should beLessThanOrEqualTo(4.0)
             }
-        }
+        }.config(tags = setOf(Performance))
     }
 })
 
@@ -143,10 +147,21 @@ private fun bufferOfRandomValues(size: Int): ByteBuffer {
 }
 
 private fun newTmpFileOnHDD(prefix: String, minimumFreeStorage: Long): File {
-    val root: File = File.listRoots()
-        .filter { rootFile -> rootFile.freeSpace >= minimumFreeStorage }
-        .filter { rootFile -> rootFile.canWrite() }
-        .firstOrNull { rootFile -> rootFile.toPath().rootDeviceProperties.physicalStorageStrategy == StorageStrategy.ROTATIONAL_DISKS }
+    fun predicate(rootFile: File): Boolean {
+        if (rootFile.freeSpace < minimumFreeStorage) {
+            return false
+        }
+
+        val deviceProperties = rootFile.toPath().rootDeviceProperties ?: return false
+        return deviceProperties.physicalStorageStrategy == StorageStrategy.ROTATIONAL_DISKS
+    }
+
+    val tmpDirectory = Paths.get(System.getProperty("java.io.tmpdir"))
+    val root: File = if (predicate(tmpDirectory.toFile())) {
+        tmpDirectory.toFile()
+    } else {
+        File.listRoots().firstOrNull(::predicate)
+    }
         ?: throw RuntimeException("This machine does not have an HDD with at least $minimumFreeStorage bytes of free space")
 
     var tmpFile: File

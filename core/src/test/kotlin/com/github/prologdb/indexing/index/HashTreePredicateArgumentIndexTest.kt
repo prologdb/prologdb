@@ -1,9 +1,7 @@
 package com.github.prologdb.indexing.index
 
-import com.github.prologdb.LongRunning
 import com.github.prologdb.Performance
 import com.github.prologdb.indexing.standardDeviation
-import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.term.Atom
 import io.kotlintest.matchers.*
 import io.kotlintest.specs.FreeSpec
@@ -136,7 +134,7 @@ init {
             val avg = batchTimesMicros.average()
             val twoSigma = 2 * batchTimesMicros.standardDeviation
             batchTimesMicros.filter { it > avg + twoSigma || it < avg - twoSigma }.standardDeviation should beLessThanOrEqualTo(800.0)
-        }.config(tags = setOf(LongRunning, Performance))
+        }.config(tags = setOf(Performance))
     }
 }}
 
