@@ -21,7 +21,7 @@ interface SpecializedPredicateStoreLoader<T : PredicateStore> {
      * @param dbName The name of the database for which to create the predicate store.
      * @param forPredicates The indicator that will apply to all predicates stored in
      *                      the created [PredicateStore].
-     * @throws
+     * @throws StorageException
      */
-    fun createOrLoad(dbName: String, forPredicates: PredicateIndicator): PredicateStore
+    fun createOrLoad(dbName: String, forPredicates: PredicateIndicator): T
 }
