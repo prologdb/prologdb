@@ -1,6 +1,6 @@
 package com.github.prologdb.execplan
 
-import com.github.prologdb.PrologDatabase
+import com.github.prologdb.PrologDatabaseView
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.runtime.lazysequence.LazySequence
@@ -19,7 +19,7 @@ class ScanStep(
 
     private val goalIndicator = PredicateIndicator.of(goal)
 
-    override fun execute(db: PrologDatabase, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
+    override fun execute(db: PrologDatabaseView, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
         val predicateStore = db.predicateStores[goalIndicator] ?: return LazySequence.empty()
 
         return predicateStore.all()
