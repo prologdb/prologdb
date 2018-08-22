@@ -46,10 +46,12 @@ interface PredicateStoreLoader {
  * The default implementation to [PredicateStoreLoader] with the following implementation
  * for the desired features weighing algorithm:
  *
- * 1. Every desired feature is assigned its index in the iterated set (most desired to least index)
- * 2. For every known implementation, a score is calculated: the sum of the indices of the features it has
- * 3. The implementation with the lowest score is selected
- * 4. In case of a score-wise draw, the implementation with more supported more desired features is selected
+ * 1. Every desired feature is assigned a weight: the number of desired features minus its iteration index
+ * 2. For every known implementation, a score is calculated: the sum of the weight of the features it has
+ * 3. The implementation with the highest score is selected
+ * 4. In case of a score-wise draw, the implementation of those with the highest score with more supported
+ *     more desired features is selected: say desired features are F1, F2, F3 and we have two implementations
+ *     with the maximum score: A1 supporting F2 and F3 and A2 supporting only F1. A2 wins in this case.
  * 5. If there is still a draw (e.g. for multiple implementations with equal featuresets),
  *    it is not defined which implementation is selected.
  */
@@ -100,15 +102,15 @@ class DefaultPredicateStoreFactory : PredicateStoreLoader {
             }
         }
 
-        val desiredFeaturesWithScore: Set<Pair<PredicateStoreFeature, Int>> = desiredFeatures
+        val desiredFeaturesWithWeight: Set<Pair<PredicateStoreFeature, Int>> = desiredFeatures
             .mapIndexed { index, loader -> Pair(loader, desiredFeatures.size - index) }
             .toSet()
 
         val implementationsWithScore: Set<Pair<SpecializedPredicateStoreLoader<*>, Int>> = implsFittingRequirements
             .map { loader ->
-                val score = desiredFeaturesWithScore
-                    .map { (feature, featureScore) ->
-                        if (feature.isSupportedBy(loader.type)) featureScore else 0
+                val score = desiredFeaturesWithWeight
+                    .map { (feature, weight) ->
+                        if (feature.isSupportedBy(loader.type)) weight else 0
                     }
                     .sum()
 
@@ -116,6 +118,27 @@ class DefaultPredicateStoreFactory : PredicateStoreLoader {
             }
             .toSet()
 
-        TODO()
+        val topScore = implementationsWithScore.map { it.second }.max()
+        val implementationsWithTopScore = implementationsWithScore.filter { it.second == topScore }.map { it.first }
+
+        if (implementationsWithTopScore.size == 1) {
+            return implementationsWithTopScore.first()
+        }
+
+        // there is a draw; go through the features by weight decreasing
+        // if a non-empty subset of the implementations supports the feature,
+        // reduce the working set to those and go on to the next feature
+        var drawImpls: List<SpecializedPredicateStoreLoader<*>> = implementationsWithTopScore
+        for (desiredFeature in desiredFeatures) {
+            val implsSupportingFeature = drawImpls.filter { desiredFeature.isSupportedBy(it.type) }
+            if (implsSupportingFeature.isNotEmpty()) {
+                drawImpls = implsSupportingFeature
+            }
+        }
+
+        // if there is still more than one implementation left, it is
+        // not predictable which one ist the first in the list. Hence
+        // the contract defines that it is not defined which implementation will be used.
+        return drawImpls.first()
     }
 }
