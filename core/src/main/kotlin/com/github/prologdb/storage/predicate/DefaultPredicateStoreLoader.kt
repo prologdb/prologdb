@@ -1,7 +1,13 @@
 package com.github.prologdb.storage.predicate
 
+import com.github.prologdb.util.metadata.DatabaseMetadataRepository
+import com.github.prologdb.util.metadata.get
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.util.metadata.set
 import com.github.prologdb.storage.StorageException
+import kotlin.reflect.KClass
+
+private val METADATA_REPOSITORY_KEY = "predicate_stores"
 
 /**
  * The default implementation to [PredicateStoreLoader] with the following implementation
@@ -16,9 +22,18 @@ import com.github.prologdb.storage.StorageException
  * 5. If there is still a draw (e.g. for multiple implementations with equal featuresets),
  *    it is not defined which implementation is selected.
  */
-class DefaultPredicateStoreFactory : PredicateStoreLoader {
+class DefaultPredicateStoreLoader(
+    val metadataRepository: DatabaseMetadataRepository
+) : PredicateStoreLoader {
 
     private val knownSpecializedLoaders: MutableSet<SpecializedPredicateStoreLoader<*>> = mutableSetOf()
+
+    /**
+     * The metadata; initialized on object creation time. When changes are made they must be flushed
+     * manually by calling [DatabaseMetadataRepository.save] on [metadataRepository]
+     */
+    private var metadataMirror: DefaultPredicateStoreFactoryMetadata = metadataRepository[METADATA_REPOSITORY_KEY]
+        ?: DefaultPredicateStoreFactoryMetadata(mutableSetOf())
 
     /**
      * Adds the given [SpecializedPredicateStoreLoader] to the known loaders. The loader will be
@@ -34,16 +49,42 @@ class DefaultPredicateStoreFactory : PredicateStoreLoader {
         }
 
         val loader = selectImplementation(requiredFeatures, desiredFeatures)
-        return loader.createOrLoad(dbName, forPredicatesOf)
+        val store = loader.createOrLoad(dbName, forPredicatesOf)
+        metadataMirror.stores += ExistingPredicateStore(
+            dbName,
+            forPredicatesOf.name,
+            forPredicatesOf.arity,
+            loader.type.qualifiedName ?: store::class.qualifiedName!!
+        )
+        metadataRepository[METADATA_REPOSITORY_KEY] = metadataMirror
+
+        return store
     }
 
-    override fun load(dbName: String, forPredicatesOf: PredicateIndicator): PredicateStore {
-        val loader: SpecializedPredicateStoreLoader<*> = TODO("find loader for dbName and forPredicatesOf")
+    override fun load(dbName: String, forPredicatesOf: PredicateIndicator): PredicateStore? {
+        val implementationClassName = findStoreImplementationClassName(dbName, forPredicatesOf) ?: return null
+        val loader = knownSpecializedLoaders
+            .firstOrNull { it.type.qualifiedName == implementationClassName }
+            ?: throw StorageException("Cannot load predicate store for $forPredicatesOf: specialized loader for store implementation $implementationClassName is not registered.")
+
         return loader.createOrLoad(dbName, forPredicatesOf)
     }
 
     private fun storeExists(dbName: String, forPredicatesOf: PredicateIndicator): Boolean {
-        TODO()
+        return findStoreImplementationClassName(dbName, forPredicatesOf) != null
+    }
+
+    /**
+     * @return The [KClass.qualifiedName] of the implementation for the given store or `null` if no
+     * store exists for the given database and predicate.
+     * @see ExistingPredicateStore.implementationClassName
+     */
+    private fun findStoreImplementationClassName(dbName: String, forPredicatesOf: PredicateIndicator): String? {
+        return metadataMirror.stores
+            .firstOrNull {
+                it.predicateArity == forPredicatesOf.arity && it.dbName == dbName && it.predicateName == forPredicatesOf.name
+            }
+            ?.implementationClassName
     }
 
     private fun selectImplementation(requiredFeatures: Set<PredicateStoreFeature>, desiredFeatures: Set<PredicateStoreFeature>): SpecializedPredicateStoreLoader<*> {
@@ -103,3 +144,23 @@ class DefaultPredicateStoreFactory : PredicateStoreLoader {
         return drawImpls.first()
     }
 }
+
+/**
+ * Models the JSON for persistence of the information which predicate
+ * stores exist and what implementation was chosen.
+ */
+private data class DefaultPredicateStoreFactoryMetadata(
+    val stores: MutableSet<ExistingPredicateStore>
+)
+
+private data class ExistingPredicateStore(
+    val dbName: String,
+    val predicateName: String,
+    val predicateArity: Int,
+    /**
+     * The [KClass.qualifiedName] (package and class) of the
+     * predicate store used. To be corelated with [SpecializedPredicateStoreLoader.type]
+     * (rather than [PredicateStore.javaClass]).
+     */
+    val implementationClassName: String
+)

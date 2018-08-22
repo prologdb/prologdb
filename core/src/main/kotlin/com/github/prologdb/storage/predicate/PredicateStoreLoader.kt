@@ -35,9 +35,10 @@ interface PredicateStoreLoader {
      * Loads the [PredicateStore] for predicates of the given indicator. Though stores can be loaded
      * multiple times. If both loaded stores are used, the behaviour of the stores is undefined.
      * @param dbName The name of the database for which to load the store.
+     * @return the loaded store or `null` if a store for the given database and predicate does not exist yet.
      */
     fun load(
         dbName: String,
         forPredicatesOf: PredicateIndicator
-    ) : PredicateStore
+    ) : PredicateStore?
 }
