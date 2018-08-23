@@ -1,6 +1,6 @@
 package com.github.prologdb.storage.predicate
 
-import com.github.prologdb.util.metadata.DatabaseMetadataRepository
+import com.github.prologdb.util.metadata.MetadataRepository
 import com.github.prologdb.util.metadata.get
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.util.metadata.set
@@ -23,14 +23,14 @@ private val METADATA_REPOSITORY_KEY = "predicate_stores"
  *    it is not defined which implementation is selected.
  */
 class DefaultPredicateStoreLoader(
-    val metadataRepository: DatabaseMetadataRepository
+    val metadataRepository: MetadataRepository
 ) : PredicateStoreLoader {
 
     private val knownSpecializedLoaders: MutableSet<SpecializedPredicateStoreLoader<*>> = mutableSetOf()
 
     /**
      * The metadata; initialized on object creation time. When changes are made they must be flushed
-     * manually by calling [DatabaseMetadataRepository.save] on [metadataRepository]
+     * manually by calling [MetadataRepository.save] on [metadataRepository]
      */
     private var metadataMirror: DefaultPredicateStoreFactoryMetadata = metadataRepository[METADATA_REPOSITORY_KEY]
         ?: DefaultPredicateStoreFactoryMetadata(mutableSetOf())

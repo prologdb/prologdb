@@ -2,7 +2,7 @@ package com.github.prologdb.util.metadata
 
 import kotlin.reflect.KClass
 
-class InMemoryDatabaseMetataRepository : DatabaseMetadataRepository {
+class InMemoryMetadataRepository : MetadataRepository {
 
     private val metadata = mutableMapOf<String, Any>()
 

@@ -6,7 +6,7 @@ import kotlin.reflect.KClass
  * A simple key-value store for other objects (database internal ones) to persist metadata.
  * Metadata must be saved as JSON; implementations mus use Jackson to convert to JSON.
  */
-interface DatabaseMetadataRepository {
+interface MetadataRepository {
     /**
      * Persists the given value in association with the given key. If
      * A value already exists for the given key, it will be overwritten.
@@ -22,8 +22,8 @@ interface DatabaseMetadataRepository {
     fun <T : Any> load(key: String, valueClass: KClass<T>): T?
 }
 
-inline fun <reified T : Any> DatabaseMetadataRepository.load(key: String): T? = load(key, T::class)
+inline fun <reified T : Any> MetadataRepository.load(key: String): T? = load(key, T::class)
 
-inline operator fun <reified T: Any> DatabaseMetadataRepository.get(key: String): T? = load(key)
+inline operator fun <reified T: Any> MetadataRepository.get(key: String): T? = load(key)
 
-operator fun DatabaseMetadataRepository.set(key: String, value: Any) = save(key, value)
+operator fun MetadataRepository.set(key: String, value: Any) = save(key, value)
