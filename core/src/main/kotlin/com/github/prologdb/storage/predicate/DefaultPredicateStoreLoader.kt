@@ -1,10 +1,10 @@
 package com.github.prologdb.storage.predicate
 
+import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.storage.StorageException
 import com.github.prologdb.util.metadata.MetadataRepository
 import com.github.prologdb.util.metadata.get
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.util.metadata.set
-import com.github.prologdb.storage.StorageException
 import kotlin.reflect.KClass
 
 private val METADATA_REPOSITORY_KEY = "predicate_stores"

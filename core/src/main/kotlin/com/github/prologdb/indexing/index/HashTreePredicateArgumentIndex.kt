@@ -1,8 +1,8 @@
 package com.github.prologdb.indexing.index
 
-import com.github.prologdb.indexing.PersistenceIDSet
-import com.github.prologdb.indexing.IndexingException
 import com.github.prologdb.indexing.ArrayPersistenceIDSet
+import com.github.prologdb.indexing.IndexingException
+import com.github.prologdb.indexing.PersistenceIDSet
 import com.github.prologdb.indexing.PredicateArgumentIndex
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.predicate.PersistenceID

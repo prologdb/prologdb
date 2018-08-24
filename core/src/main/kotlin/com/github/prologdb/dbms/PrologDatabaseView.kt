@@ -1,7 +1,6 @@
 package com.github.prologdb.dbms
 
 import com.github.prologdb.execplan.planner.ExecutionPlanner
-import com.github.prologdb.indexing.DefaultIndexByArgumentMap
 import com.github.prologdb.indexing.IndexByArgumentMap
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.knowledge.Rule

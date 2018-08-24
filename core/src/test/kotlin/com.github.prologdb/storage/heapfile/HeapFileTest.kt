@@ -1,7 +1,6 @@
 package com.github.prologdb.storage.heapfile
 
 import com.github.prologdb.Performance
-import com.github.prologdb.RequiresHDD
 import com.github.prologdb.storage.StorageException
 import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.rootDeviceProperties
