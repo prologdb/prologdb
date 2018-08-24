@@ -19,7 +19,8 @@ import kotlin.concurrent.withLock
 import kotlin.math.min
 
 /**
- * Implements a persistent predicate store by means of a heap file.
+ * A file o store arbitrary records, organized as a heap. Includes
+ * optimizations for multithreading.
  */
 /*
  Unofficial documentation/implementation internals
