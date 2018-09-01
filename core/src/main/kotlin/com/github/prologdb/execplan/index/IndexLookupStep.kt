@@ -1,6 +1,6 @@
 package com.github.prologdb.execplan.index
 
-import com.github.prologdb.PrologDatabase
+import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.execplan.PlanStep
 import com.github.prologdb.execplan.PlanStepInappropriateException
 import com.github.prologdb.execplan.toLazySequence
@@ -60,7 +60,7 @@ class IndexLookupStep private constructor(
         )
     )
 
-    override fun execute(db: PrologDatabase, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
+    override fun execute(db: PrologDatabaseView, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
         val indicesByIndicator = db.indexes[targetPredicateIndicator]
             ?: throw PlanStepInappropriateException("Internal error: index lookup step configured for non-existent index")
         val indicesForArgument = indicesByIndicator[targetArgumentIndex]

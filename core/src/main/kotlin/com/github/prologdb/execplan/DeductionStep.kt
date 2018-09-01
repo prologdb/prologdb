@@ -1,6 +1,6 @@
 package com.github.prologdb.execplan
 
-import com.github.prologdb.PrologDatabase
+import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.VariableMapping
 import com.github.prologdb.runtime.knowledge.Rule
@@ -8,8 +8,6 @@ import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.lazysequence.buildLazySequence
 import com.github.prologdb.runtime.lazysequence.mapRemaining
-import com.github.prologdb.runtime.query.PredicateQuery
-import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -19,7 +17,7 @@ class DeductionStep(
 ) : PlanStep {
     private val goalIndicator = PredicateIndicator.of(goal)
 
-    override fun execute(db: PrologDatabase, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
+    override fun execute(db: PrologDatabaseView, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
         val rules = db.rules[goalIndicator] ?: return LazySequence.empty()
 
         return buildLazySequence {
@@ -30,7 +28,7 @@ class DeductionStep(
     }
 
     /** Internal override of [Rule.fulfill] */
-    private fun deduceWithRule(rule: Rule, db: PrologDatabase, randomVariableScope: RandomVariableScope): LazySequence<Unification> {
+    private fun deduceWithRule(rule: Rule, db: PrologDatabaseView, randomVariableScope: RandomVariableScope): LazySequence<Unification> {
         val predicateRandomVarsMapping = VariableMapping()
         val randomPredicate = randomVariableScope.withRandomVariables(goal, predicateRandomVarsMapping)
 

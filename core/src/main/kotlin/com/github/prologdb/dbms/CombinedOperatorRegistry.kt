@@ -1,4 +1,4 @@
-package com.github.prologdb
+package com.github.prologdb.dbms
 
 import com.github.prologdb.runtime.knowledge.library.DefaultOperatorRegistry
 import com.github.prologdb.runtime.knowledge.library.MutableOperatorRegistry

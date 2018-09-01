@@ -1,9 +1,9 @@
 package com.github.prologdb.execplan
 
-import com.github.prologdb.PrologDatabase
+import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.indexing.PersistenceIDSet
 import com.github.prologdb.runtime.RandomVariableScope
-import com.github.prologdb.runtime.lazysequence.*
+import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -19,7 +19,7 @@ interface PlanStep {
      * Loads the affected instances from the database and returns the unifications resulting from that.
      * @throws PrologQueryException
      */
-    fun execute(db: PrologDatabase, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification>
+    fun execute(db: PrologDatabaseView, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification>
 
     /**
      * An explanation of this step in the official format (e.g. `prove(bar(X, a))`

@@ -5,15 +5,28 @@ import java.io.InputStreamReader
 import java.nio.file.Path
 import java.nio.file.Paths
 
-val Path.rootDeviceProperties: StorageDeviceProperties
+/**
+ * Properties of the device that stores data in this path. Null if this path is not backed by a physical device.
+ */
+val Path.rootDeviceProperties: StorageDeviceProperties?
     get() = STORAGE_DEVICE_INFORMATION_PROVIDER.getRootDeviceProperties(this)
 
 interface StorageDeviceInformationProvider {
-    fun getRootDeviceProperties(ofPath: Path): StorageDeviceProperties
+    /**
+     * Same contract as [Path.rootDeviceProperties]
+     */
+    fun getRootDeviceProperties(ofPath: Path): StorageDeviceProperties?
 }
 
 data class StorageDeviceProperties(
-    val physicalStorageStrategy: StorageStrategy
+    val physicalStorageStrategy: StorageStrategy,
+
+    /**
+     * The size for read&write buffers that will presumably yield optimal performance.
+     * Null for devices that can handle all buffer sizes equally well (e.g. SSDs). In those
+     * cases, 8192 and 4069 are sensible defaults.
+     */
+    val optimalIOSize: Int?
 )
 
 enum class StorageStrategy {
@@ -59,7 +72,8 @@ class WindowsStorageDeviceInformationProvider : StorageDeviceInformationProvider
             ?: throw RuntimeException("Logical drive $pathDriveLetter:\\ does not belong to a physical drive.")
 
         return StorageDeviceProperties(
-            physicalDrive.mediaType
+            physicalDrive.mediaType,
+            TODO("implement optimal IO size")
         )
     }
 
@@ -142,13 +156,11 @@ class WindowsStorageDeviceInformationProvider : StorageDeviceInformationProvider
 
 // ---------------------------
 private class UnixStorageDeviceInformationProvider : StorageDeviceInformationProvider {
-    override fun getRootDeviceProperties(ofPath: Path): StorageDeviceProperties {
-        val rootDevice = ofPath.rootDevice ?: throw IllegalArgumentException("Data in this path will not be stored in a physical device.")
+    override fun getRootDeviceProperties(ofPath: Path): StorageDeviceProperties? {
+        val rootDevice = ofPath.rootDevice ?: return null
         return StorageDeviceProperties(
-            physicalStorageStrategy = when(File("/sys/block/${rootDevice.fileName}/queue/rotational").readText().trim()) {
-                "1" -> StorageStrategy.ROTATIONAL_DISKS
-                else -> StorageStrategy.UNKNOWN
-            }
+            physicalStorageStrategy = if(rootDevice.isRotational) StorageStrategy.ROTATIONAL_DISKS else StorageStrategy.UNKNOWN,
+            optimalIOSize = rootDevice.optimalIOSize
         )
     }
 
@@ -158,21 +170,21 @@ private class UnixStorageDeviceInformationProvider : StorageDeviceInformationPro
      * for /dev/sda3).
      * Null if this path does not map to a mounted location (the case for non-existing paths).
      */
-    private val Path.rootDevice: Path?
+    private val Path.rootDevice: DeviceRef?
         get() {
             val mountRoot = mountRoot ?: return null
             val leafDevice = mounts[mountRoot]!!
 
-            fun BlockDeviceTreeNode.containsDevice(devicePath: Path): Boolean {
-                return devicePath == this.devicePath || children.any { it.containsDevice(devicePath) }
+            fun BlockDeviceTreeNode.containsDevice(device: DeviceRef): Boolean {
+                return device == this.device || children.any { it.containsDevice(device) }
             }
 
-            return blockDeviceTree.firstOrNull { it.containsDevice(leafDevice) }?.devicePath
+            return blockDeviceTree.firstOrNull { it.containsDevice(leafDevice) }?.device
         }
 
     /**
      * The mount point of this path, e.g. if this path is `/usr/bin/bash` and that directory
-     * is stored on device `/dev/sda4` which is mounted at `/usr`, returns `/`. This value
+     * is stored on device `/dev/sda4` which is mounted at `/usr`, returns `/user`. This value
      * can be used as a valid key for [mounts].
      * Null if this path does not map to a mounted location (the case for non-existing paths).
      */
@@ -183,12 +195,28 @@ private class UnixStorageDeviceInformationProvider : StorageDeviceInformationPro
                 .firstOrNull { mountPath -> this.toAbsolutePath().startsWith(mountPath) }
 
     /**
-     * All mounts in the system; keys: mountpoint, value: device file
+     * Mount points of the actual devices in the system (all mounts excluding special devices like sysfs, proc, ...).
+     * Key: Mount Point, Value: Device
      */
-    private val mounts: Map<Path, Path> by lazy {
+    private val mounts: Map<Path, DeviceRef> by lazy {
         val mountOut = captureOutput("mount")
-        TODO("parse mountOut")
-        // emptyMap()
+        mountOut
+            .map { line ->
+                // lines have this format: <device file> on <mount point> type <...>
+                val indexOn = line.indexOf("on")
+                val indexType = line.indexOf("type")
+
+                val devicePathStr = line.substring(0, indexOn - 1).trim()
+                val mountPointStr = line.substring(indexOn + 2, indexType - 1).trim()
+
+                if (devicePathStr.startsWith("/dev")) {
+                    Pair(Paths.get(mountPointStr), DeviceRef(Paths.get(devicePathStr)))
+                } else {
+                    null
+                }
+            }
+            .filterNotNull()
+            .toMap()
     }
 
     private val blockDeviceTree: Set<BlockDeviceTreeNode> by lazy {
@@ -210,7 +238,9 @@ private class UnixStorageDeviceInformationProvider : StorageDeviceInformationPro
                 remainingLines = childResult.second
             }
 
-            return Pair(BlockDeviceTreeNode(Paths.get("/dev/${name}"), children), remainingLines)
+            val devicePath = Paths.get("/dev/$name")
+
+            return Pair(BlockDeviceTreeNode(DeviceRef(devicePath), children), remainingLines)
         }
 
         val lsblkOut = captureOutput("lsblk", "-o", "name", "-t")
@@ -219,11 +249,7 @@ private class UnixStorageDeviceInformationProvider : StorageDeviceInformationPro
 
         while (currentLines.isNotEmpty()) {
             val rootDeviceNodeResult = readNode(currentLines)
-
-            if (!rootDeviceNodeResult.first.devicePath.fileName.startsWith("loop")) {
-                rootNodes += rootDeviceNodeResult.first
-            }
-
+            rootNodes += rootDeviceNodeResult.first
             currentLines = rootDeviceNodeResult.second
         }
 
@@ -235,7 +261,34 @@ private class UnixStorageDeviceInformationProvider : StorageDeviceInformationPro
         get() = takeWhile { it == ' ' }.length
 
     private data class BlockDeviceTreeNode(
-        val devicePath: Path,
+        val device: DeviceRef,
         val children: Set<BlockDeviceTreeNode>
     )
+
+    /**
+     * A simple reference to a device/device file.
+     */
+    private data class DeviceRef(val devicePath: Path) {
+        init {
+            assert(devicePath.toString().startsWith("/dev/"))
+        }
+
+        /**
+         * Assumes thah `this` path is a path to a device file, e.g. /dev/sda. Returns whether that device
+         * uses rotational disks (see /sys/block/$DEV/queue/rotational).
+         */
+        val isRotational: Boolean by lazy { File("/sys/block/${devicePath.fileName}/queue/rotational").readText().trim() == "1" }
+
+        /**
+         * The size for read&write buffers that will presumably yield optimal performance.
+         * Null for devices that can handle all buffer sizes equally well (e.g. SSDs).
+         */
+        val optimalIOSize: Int? by lazy {
+            val reportedByKernel = Integer.parseInt(
+                File("/sys/block/${devicePath.fileName}/queue/optimal_io_size").readText().trim()
+            )
+
+            if (reportedByKernel > 0) reportedByKernel else null
+        }
+    }
 }
