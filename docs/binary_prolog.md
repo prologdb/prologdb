@@ -85,12 +85,22 @@ support arbitrarily large integers.
 Example: `975692`: `0x10 0x03 0x0E 0xE3 0x4C`  
 975692<sub>10</sub> = EE34C<sub>16</sub>
 
+Note that these are also valid binary representations for the same number:
+
+* `0x10 0x04 0x00 0x0E 0xE3 0x4C`
+* `0x10 0x05 0x00 0x00 0x0E 0xE3 0x4C`
+* `0x10 0x08 0x00 0x00 0x00 0x00 0x00 0x0E 0xE3 0x4C`
+
 ### Decimals
 
 Following the type byte is the number of bits that make up the decimal encoded
 with the integer encoding. Decimals are encoded using the IEEE-754 format.
+
+The number of bytes required for a number is always the least in order to
+fit the IEEE-754 encoded bits.
+
 Currently, PrologDB uses only 64bit decimals. It can also read 32bit decimals
-but those will instantly be converted to the 64 bit format.
+but those will be instantly converted to 64 bit for internal use.
 
 **Examples:**
 
@@ -201,4 +211,4 @@ Layout:
 | Term                      | Binary                                         |
 |---------------------------|------------------------------------------------|
 |`{f:"b", x:2}`             |`0x41 0x02 0x01 0x66 0x24 0x01 0x62 0x01 0x78 0x10 0x01 0x02`|
-|<code>{a:b &#124; X}</code>|`0x40 0x01 0x58 0x02 0x01 0x61 0x22 0x01 0x62`  |
+|<code>{a:b &#124; X}</code>|`0x40 0x01 0x58 0x01 0x01 0x61 0x22 0x01 0x62`  |
