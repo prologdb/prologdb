@@ -118,7 +118,7 @@ private constructor(
             var firstPage = true
             while (data.hasRemaining()) {
                 if (firstPage) {
-                    bufferArr[0] = PAGE_FLAGS_INITIAL_PAGE_OF_RECORD
+                    bufferArr[0] = PAGE_FLAGS_FIRST_RECORD_PAGE
                     // record size
                     bufferArr[1] = (recordSize ushr 24).toByte()
                     bufferArr[2] = (recordSize ushr 16).toByte()
@@ -167,8 +167,8 @@ private constructor(
         }
 
         val flags = bufferArr[0]
-        if (flags hasFlag PAGE_FLAG_DELETED || flags hasFlag PAGE_FLAG_CONTINUATION) {
-            throw StorageException("Invalid persistence ID given - might have been overrwritten since first storage.")
+        if (flags hasFlag PAGE_FLAG_DELETED || flags hasFlag PAGE_FLAG_CONTINUATION || !(flags hasFlag PAGE_FLAG_FIRST_PAGE_OF_RECORD)) {
+            throw StorageException("Invalid persistence ID: might have been overwritten since first storage.")
         }
 
         val recordSize = (bufferArr[1].toInt() and 0xFF shl 24) or (bufferArr[2].toInt() and 0xFF shl 16) or (bufferArr[3].toInt() and 0xFF shl 8) or (bufferArr[4].toInt() and 0xFF)
@@ -385,13 +385,15 @@ private constructor(
 private typealias PageFlags = Byte
 
 /** Whether this page is marked as deleted */
-private const val PAGE_FLAG_DELETED = 0b00_00_00_01
+private const val PAGE_FLAG_DELETED = 0b00_00_00_10
 
 /** Whether this page contains continuation data from the previous page */
-private const val PAGE_FLAG_CONTINUATION = 0b00_00_00_10
+private const val PAGE_FLAG_CONTINUATION = 0b00_00_01_00
+
+private const val PAGE_FLAG_FIRST_PAGE_OF_RECORD =0b00_00_00_01
 
 /** Ready-to-go flag values for the first page in a record */
-private const val PAGE_FLAGS_INITIAL_PAGE_OF_RECORD: Byte = 0
+private const val PAGE_FLAGS_FIRST_RECORD_PAGE: Byte = (0 or PAGE_FLAG_FIRST_PAGE_OF_RECORD).toByte()
 
 /** Ready-to-go flag values for a continuation page */
 private const val PAGE_FLAGS_CONTINUATION_PAGE: Byte = (0 or PAGE_FLAG_CONTINUATION).toByte()
