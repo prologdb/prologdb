@@ -73,7 +73,7 @@ class WindowsStorageDeviceInformationProvider : StorageDeviceInformationProvider
 
         return StorageDeviceProperties(
             physicalDrive.mediaType,
-            TODO("implement optimal IO size")
+            physicalDrive.physicalSectorSize
         )
     }
 
@@ -115,7 +115,12 @@ class WindowsStorageDeviceInformationProvider : StorageDeviceInformationProvider
         /** Unique ID of the device, usually hex coded */
         val uniqueID: String,
 
+        /**
+         *  The size of a physical sector on the disk; this is usually the smallest IO size the disk supports
+         *  via the connecting protocol (e.g. SATA).
+         */
         val physicalSectorSize: Int,
+
         val mediaType: StorageStrategy
     )
 
