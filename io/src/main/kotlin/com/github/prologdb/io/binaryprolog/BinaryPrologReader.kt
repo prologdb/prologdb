@@ -69,6 +69,7 @@ class BinaryPrologReader {
             reader.setTermTypeReader(0x10, IntegerReader)
             reader.setTermTypeReader(0x11, DecimalReader)
             reader.setTermTypeReader(0x20, VariableReader)
+            reader.setTermTypeReader(0x21, AnonymousVariableReader)
             reader.setTermTypeReader(0x22, AtomReader)
             reader.setTermTypeReader(0x24, StringReader)
             reader.setTermTypeReader(0x30, PredicateReader)
@@ -151,6 +152,14 @@ object VariableReader : BinaryPrologReader.TermReader<Variable> {
         val dst = ByteArray(nUTF8Bytes)
         buffer.get(dst)
         return String(dst, Charsets.UTF_8)
+    }
+}
+
+object AnonymousVariableReader : BinaryPrologReader.TermReader<AnonymousVariable> {
+    override val prologTypeName = "variable"
+
+    override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): AnonymousVariable {
+        return AnonymousVariable
     }
 }
 

@@ -57,23 +57,24 @@ And this is 287<sub>10</sub> = 100011111<sub>2</sub> encoded:
 The first byte of each term defines its type. Everything that follows is specific
 to that term type.
 
-|First byte value | Term Type         |
-|-----------------|-------------------|
-|            0x10 | integer           |
-|            0x11 | decimal           |
-|            0x12 | *reserved*        |
-|            0x20 | variable          |
-|            0x22 | atom              |
-|            0x23 | *reserved*        |
-|            0x24 | string            |
-|            0x25 | *reserved*        |
-|            0x26 | *reserved*        |
-|            0x27 | *reserved*        |
-|            0x30 | predicate         |
-|            0x31 | list with tail    |
-|            0x32 | list without tail |
-|            0x40 | dict with tail    |
-|            0x41 | dict without tail |
+|First byte value | Term Type               |
+|-----------------|-------------------------|
+|            0x10 | integer                 |
+|            0x11 | decimal                 |
+|            0x12 | *reserved*              |
+|            0x20 | variable                |
+|            0x21 | the anonymous variable  |
+|            0x22 | atom                    |
+|            0x23 | *reserved*              |
+|            0x24 | string                  |
+|            0x25 | *reserved*              |
+|            0x26 | *reserved*              |
+|            0x27 | *reserved*              |
+|            0x30 | predicate               |
+|            0x31 | list with tail          |
+|            0x32 | list without tail       |
+|            0x40 | dict with tail          |
+|            0x41 | dict without tail       |
 
 ### Integers
 
@@ -111,6 +112,9 @@ but those will be instantly converted to 64 bit for internal use.
 0.00000000000000016 as IEEE-754 64bit float: `0x3CA70EF54646D497`
 
 ### Variables, Atoms and Strings
+
+Occurrences of the anonymous variable `_` are encoded merely by its type
+byte, nothing else.
 
 Variables, atoms and strings are stored in UTF-8 format. Following the type
 byte is the number of bytes the name/content of the term occupies in UTF-8

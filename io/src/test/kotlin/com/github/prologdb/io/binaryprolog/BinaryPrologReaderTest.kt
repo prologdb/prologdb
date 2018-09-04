@@ -72,14 +72,25 @@ class BinaryPrologReaderTest : FreeSpec({
         }
     }
 
-    "variable" {
-        val buffer = ByteBuffer.wrap(byteArrayOf(0x20, 0x89.toByte(), 0x41, 0x76, 0x61, 0x72, 0x69, 0x61, 0x62, 0x6C, 0x65))
+    "variable" - {
+        "regular" {
+            val buffer = ByteBuffer.wrap(byteArrayOf(0x20, 0x89.toByte(), 0x41, 0x76, 0x61, 0x72, 0x69, 0x61, 0x62, 0x6C, 0x65))
 
-        val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
+            val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
-        buffer.position() shouldBe 11
-        result as Variable
-        result.name shouldBe "Avariable"
+            buffer.position() shouldBe 11
+            result as Variable
+            result.name shouldBe "Avariable"
+        }
+
+        "anonymous" {
+            val buffer = ByteBuffer.wrap(byteArrayOf(0x21))
+
+            val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
+
+            buffer.position() shouldBe 1
+            result shouldBe AnonymousVariable
+        }
     }
 
     "atom" {
