@@ -1,6 +1,7 @@
 package com.github.prologdb.io.binaryprolog
 
-import io.kotlintest.matchers.shouldBe
+import com.github.prologdb.runtime.term.PrologInteger
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.FreeSpec
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
@@ -83,7 +84,17 @@ class BinaryPrologWriterTest : FreeSpec({
     }
 
     "integer" {
-        TODO()
+        val buffer = ByteArrayOutputStream()
+        val out = DataOutputStream(buffer)
+
+        BinaryPrologWriter.getDefaultInstance().writeTermTo(
+            PrologInteger(4687792L),
+            out
+        )
+
+        val bufferData = buffer.toByteArray()
+        bufferData shouldBe byteArrayOf(0x10, 0x88.toByte(), 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x47, 0x87.toByte(), 0xB0.toByte())
     }
 
     "decimal" {
