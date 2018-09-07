@@ -46,8 +46,16 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     /** Caches return values of [get] per thread */
     private val readWriteLockCache: MutableMap<LongRange, ReadWriteLock> = WeakHashMap()
 
-    /** Set to true when this manager is closed. Locks cannot be acquired after that */
-    private var closed = false
+    /** Set to non-null when this manager is closed. Locks cannot be acquired after that */
+    private var closeMode: CloseMode? = null
+
+    /**
+     * Must be completed by the [granterThread] when it shuts down; if it quits with an exception,
+     * this future must be completed exceptionally.
+     *
+     * Used by [close] in [CloseMode.WAITING] to determine when closing is completed.
+     */
+    private val granterThreadShutdown = CompletableFuture<Unit>()
 
     /**
      * Grants the locks; doing this in a background thread assures order of grants.
@@ -69,7 +77,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         if (region.first > region.last) throw IllegalArgumentException("The given region must be ascending")
         if (region.isEmpty()) throw IllegalArgumentException("Given region is empty, cannot be locked.")
 
-        if (closed) throw ClosedException("This manager has been closed.")
+        if (closeMode != null) throw ClosedException("This manager has been closed.")
 
         val cached = readWriteLockCache[region]
         if (cached != null) return cached
@@ -94,14 +102,37 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
      * * calling [Lock.lock] or [Lock.lockInterruptibly] on any of the locks obtained from this manager will throw
      *   a [ClosedException]
      */
-    override fun close() {
-        closed = true
-        lockGrantThread.interrupt()
+    fun close(mode: CloseMode) {
+        // prevent new queueing
+        closeMode = mode
 
-        val closedException = ClosedException("The manager has been closed while you were waiting for the lock.")
-        lockRequestQueue.forEach { it.onGrantComplete.completeExceptionally(closedException) }
-        unlockRequestQueue.clear()
+        when (mode) {
+            CloseMode.IMMEDIATELY -> {
+                lockGrantThread.interrupt()
+                val closedException = ClosedException("The manager has been closed while you were waiting for the lock.")
+                lockRequestQueue.forEach { it.onGrantComplete.completeExceptionally(closedException) }
+                unlockRequestQueue.clear()
+            }
+            CloseMode.WAITING -> {
+                // wait for all outstanding locks to be granted.
+                while (lockRequestQueue.isNotEmpty()) {
+                    lockRequestQueue.peekLast()?.onGrantComplete?.join()
+                }
+
+                // now wait for these to be freed
+                granterThreadShutdown.join()
+
+                // just to be sure
+                lockRequestQueue.clear()
+                unlockRequestQueue.clear()
+            }
+        }
     }
+
+    /**
+     * Delegates to `close(CloseMode.IMMEDIATELY)`
+     */
+    override fun close() = close(CloseMode.IMMEDIATELY)
 
     /**
      * Grants locks in a fair way - first requested, first to acquire
@@ -123,10 +154,21 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         private val activeWriteLocks = TreeSet<Pair<Thread, LongRange>>(compareBy { it.second.first })
 
         override fun run() {
+            try {
+                doRun()
+                granterThreadShutdown.complete(Unit)
+            }
+            catch (ex: Throwable) {
+                granterThreadShutdown.completeExceptionally(ex)
+                throw ex
+            }
+        }
+
+        private fun doRun() {
             /** Re-used for [BlockingQueue.drainTo] with [unlockRequestQueue] */
             val toBeFreedBucket: MutableList<UnlockRequest> = ArrayList(10)
 
-            while (!closed) {
+            while (closeMode != CloseMode.IMMEDIATELY) {
                 // first try to free locks; that makes unlocks fast and acquires more likely
                 toBeFreedBucket.clear()
                 unlockRequestQueue.drainTo(toBeFreedBucket)
@@ -218,13 +260,13 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
 
     private inner class LockHandle(val region: LongRange, val mode: LockMode) : Lock {
         override fun lock() {
-            if (closed) throw ClosedException("The manager has already been closed - cannot acquire lock")
+            if (closeMode != null) throw ClosedException("The manager has already been closed - cannot acquire lock")
 
             lock(false)
         }
 
         @Synchronized override fun tryLock(): Boolean {
-            if (closed) return false
+            if (closeMode != null) return false
 
             // granting is done by another thread; even though the region might be free currently,
             // we cannot just start messing about with the granter threads data here. Checking whether
@@ -234,7 +276,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         }
 
         @Synchronized override fun tryLock(time: Long, unit: TimeUnit?): Boolean {
-            if (closed) return false
+            if (closeMode != null) return false
 
             if (Thread.interrupted()) throw InterruptedException()
 
@@ -242,14 +284,14 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         }
 
         override fun unlock() {
-            if (closed) throw ClosedException("The manager has already been closed - cannot acquire lock")
+            if (closeMode != null) throw ClosedException("The manager has already been closed - cannot acquire lock")
 
             unlockRequestQueue.put(UnlockRequest(region, mode, Thread.currentThread()))
             lockGrantThread.interrupt()
         }
 
         @Synchronized override fun lockInterruptibly() {
-            if (closed) throw ClosedException("The manager has already been closed - cannot acquire lock")
+            if (closeMode != null) throw ClosedException("The manager has already been closed - cannot acquire lock")
 
             if (Thread.interrupted()) throw InterruptedException()
 
@@ -349,6 +391,25 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
      * in that situation (e.g. waiting [Lock.lock] calls).
      */
     class ClosedException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+
+    /**
+     * The different ways this manager can be closed.
+     */
+    enum class CloseMode {
+        /**
+         * Prevents new grants from being queued and then
+         * * aborts all queued grants with a [ClosedException]
+         * * closes open locks
+         */
+        IMMEDIATELY,
+
+        /**
+         * Prevents new grants from being queued and then
+         * * waits for all currently queued grants to be granted
+         * * then, waits for all currently open locks to be released
+         */
+        WAITING
+    }
 }
 
 private infix fun LongRange.overlapsWith(other: LongRange): Boolean {
