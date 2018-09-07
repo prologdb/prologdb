@@ -105,10 +105,10 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     fun close(mode: CloseMode) {
         // prevent new queueing
         closeMode = mode
+        lockGrantThread.interrupt()
 
         when (mode) {
             CloseMode.IMMEDIATELY -> {
-                lockGrantThread.interrupt()
                 val closedException = ClosedException("The manager has been closed while you were waiting for the lock.")
                 lockRequestQueue.forEach { it.onGrantComplete.completeExceptionally(closedException) }
                 unlockRequestQueue.clear()
@@ -175,28 +175,37 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
                 toBeFreedBucket.forEach(this::doUnlock)
 
                 // try to acquire the next lock in line; if not possible, wait for more unlocks
-                val request = try {
-                    lockRequestQueue.take()
+                val request: LockRequest? = try {
+                    if (closeMode == null) lockRequestQueue.take() else lockRequestQueue.poll()
                 } catch (ex: InterruptedException) {
                     // more frees may be available or the manager might have been closed
                     continue
                 }
 
-                val locked = tryLock(request)
-                if (locked) {
-                    request.onGrantComplete.complete(Unit)
+                if (request == null) {
+                    if (closeMode != null) {
+                        // all done
+                        break
+                    }
                 }
                 else
                 {
-                    // cannot acquire; wait for more frees to become available
-                    val newUnlockRequest = try {
-                        unlockRequestQueue.take()
-                    } catch (ex: InterruptedException) {
-                        // more frees may be available or the manager might have been closed
-                        continue
+                    val locked = tryLock(request)
+                    if (locked) {
+                        request.onGrantComplete.complete(Unit)
                     }
+                    else
+                    {
+                        // cannot acquire; wait for more frees to become available
+                        val newUnlockRequest = try {
+                            unlockRequestQueue.take()
+                        } catch (ex: InterruptedException) {
+                            // more frees may be available or the manager might have been closed
+                            continue
+                        }
 
-                    doUnlock(newUnlockRequest)
+                        doUnlock(newUnlockRequest)
+                    }
                 }
             }
 
