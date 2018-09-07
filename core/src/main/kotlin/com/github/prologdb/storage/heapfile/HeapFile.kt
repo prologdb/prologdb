@@ -10,6 +10,7 @@ import com.github.prologdb.util.concurrency.RegionReadWriteLockManager
 import com.github.prologdb.util.memory.FirstFitHeapManager
 import com.github.prologdb.util.memory.HeapManager
 import java.io.Closeable
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -102,6 +103,8 @@ private constructor(
      * @return A reference to be used to re-obtain the record.
      */
     fun addRecord(data: ByteBuffer, flushToDisk: Boolean = false): PersistenceID {
+        if (closed) throw IOException("The heapfile is closed.")
+
         val recordSize = data.remaining()
         val pagesForRecord = if (recordSize < pageSize - 5) 1 else 1 + (recordSize - (pageSize - 5) + pageSize - 1) / pageSize
         val pages = synchronized(heapManager) {
@@ -155,6 +158,8 @@ private constructor(
      * way after the action has returned.
      */
     fun <T> useRecord(persistenceID: PersistenceID, action: (ByteBuffer) -> T): T {
+        if (closed) throw IOException("The heapfile is closed.")
+
         val (bufferArr, bufferObj) = onePageBuffer.get()
         val channel = fileChannel.get()
 
@@ -219,6 +224,8 @@ private constructor(
      * way after the action has returned.
      */
     fun <T> useRecords(persistenceIDs: Collection<out PersistenceID>, action: (ByteBuffer) -> Any?) {
+        if (closed) throw IOException("The heapfile is closed.")
+
         persistenceIDs.sorted().forEach { pId ->
             useRecord(pId, action)
         }
@@ -232,6 +239,8 @@ private constructor(
      * @return Whether a record was actually removed as a result of this call.
      */
     fun removeRecord(persistenceID: PersistenceID, flushToDisk: Boolean = false): Boolean {
+        if (closed) throw IOException("The heapfile is closed.")
+
         val (bufferArr, bufferObj) = onePageBuffer.get()
         val channel = fileChannel.get()
 
@@ -298,6 +307,12 @@ private constructor(
 
     /** Used to synchronize the [close] operation */
     private val closingMutex = Any()
+
+    /**
+     * Almost immediately after this method has been invoked, new reading or writing actions
+     * are refused with an [IOException]. This method then waits for ongoing actions to
+     * complete and then returns.
+     */
     override fun close() {
         if (closed) return
         synchronized(closingMutex) {
@@ -307,7 +322,9 @@ private constructor(
             closed = true
         }
 
-        // TODO("wait for the ongoing operations to stop")
+        // wait for all ongoing actions to complete
+        readWriteLockManager.close(RegionReadWriteLockManager.CloseMode.WAITING)
+
         ClearableThreadLocal.clearForAllThreads(fileChannel)
         ClearableThreadLocal.clearForAllThreads(onePageBuffer)
         randomAccessFile.close()
