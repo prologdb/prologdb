@@ -1,12 +1,14 @@
 package com.github.prologdb.storage.heapfile
 
 import com.github.prologdb.Performance
+import com.github.prologdb.runtime.lazysequence.forEachRemaining
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.predicate.PersistenceID
 import com.github.prologdb.storage.rootDeviceProperties
 import io.kotlintest.matchers.beLessThanOrEqualTo
 import io.kotlintest.matchers.should
+import io.kotlintest.matchers.shouldBe
 import io.kotlintest.matchers.shouldThrow
 import io.kotlintest.specs.FreeSpec
 import java.io.File
@@ -148,9 +150,13 @@ class HeapFileTest : FreeSpec({
                 writtenBuffers[pID] = buf
             }
 
-            heapFile.useAllRecords { data, pID ->
+            heapFile.allRecords { data ->
+                val dataCopy = ByteArray(data.remaining())
+                data.get(dataCopy)
+                dataCopy
+            }.forEachRemaining { (pID, dataAsByteArray) ->
                 val originalData = writtenBuffers[pID]!!
-                assert(originalData == data)
+                ByteBuffer.wrap(dataAsByteArray) shouldBe originalData
             }
         }
     }

@@ -23,8 +23,18 @@
             <artifactId>kotlin-reflect</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-core</artifactId>
+            <version>0.25.3</version>
+        </dependency>
+        <dependency>
             <groupId>com.github.prologdb</groupId>
             <artifactId>runtime-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.prologdb</groupId>
+            <artifactId>prologdb-io</artifactId>
+            <version>${project.parent.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>

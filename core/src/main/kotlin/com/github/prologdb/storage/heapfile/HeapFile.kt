@@ -1,5 +1,7 @@
 package com.github.prologdb.storage.heapfile
 
+import com.github.prologdb.runtime.lazysequence.LazySequence
+import com.github.prologdb.runtime.lazysequence.buildLazySequence
 import com.github.prologdb.storage.*
 import com.github.prologdb.storage.predicate.PersistenceID
 import com.github.prologdb.util.concurrency.ClearableThreadLocal
@@ -154,9 +156,10 @@ private constructor(
      * Reads the record for the given [PersistenceID] from this file and invokes the given
      * action with the data. The byte buffer given to the action **MUST NOT** be used in any
      * way after the action has returned.
+     *
      * @throws InvalidPersistenceIDException
-     */
-    fun <T> useRecord(persistenceID: PersistenceID, action: (ByteBuffer) -> T): T {
+    */
+    fun <T> useRecord(persistenceID: PersistenceID, action: (ByteBuffer) -> T) : T {
         return internalUseRecord(persistenceID, action).first
     }
 
@@ -165,8 +168,8 @@ private constructor(
      * action with the data. The byte buffer given to the action **MUST NOT** be used in any
      * way after the action has returned.
      *
-     * @return In [Pair.first], the forwarded result from [action]. In [Pair.second] the next potential
-     * persistence ID (to use for scans).
+     * @return The forwarded result from [action] in [Pair.first], the next closest potential persistence
+     * ID (to use for scans) in [Pair.second]
      * @throws InvalidPersistenceIDException
      */
     private fun <T> internalUseRecord(persistenceID: PersistenceID, action: (ByteBuffer) -> T) : Pair<T, PersistenceID> {
@@ -231,37 +234,27 @@ private constructor(
     }
 
     /**
-     * Reads the records for the given [PersistenceID]s from this file and invokes the given
-     * action with the data of each record. The byte buffer given to the action **MUST NOT** be used in any
-     * way after the action has returned.
+     * The lazy sequence returns from this function steps through all records in this heap file. For each
+     * record it finds, it invokes the given [transform] before returning the result.
+     *
+     * @param transform Transforms the records; the [ByteBuffer] given to this function MUST NOT be used after
+     *                  the transform function returns.
+     * @return The transformed records in [Pair.second] and the corresponding persistence id in [Pair.first]
      */
-    fun useRecords(persistenceIDs: Collection<out PersistenceID>, action: (ByteBuffer) -> Any?) {
-        if (closed) throw IOException("The heapfile is closed.")
+    fun <T> allRecords(transform: (ByteBuffer) -> T): LazySequence<Pair<PersistenceID, T>> {
+        return buildLazySequence {
+            var pageIndex: PersistenceID = 0L
 
-        persistenceIDs.sorted().forEach { pId ->
-            useRecord(pId, action)
-        }
-    }
-
-    /**
-     * Invokes the given action for all records in this heap file.
-     */
-    fun useAllRecords(action: (ByteBuffer, PersistenceID) -> Any?) {
-        if (closed) throw IOException("The heapfile is closed.")
-
-        var pageIndex: PersistenceID = 0
-
-        while (pageIndex < heapManager.size) {
-            try {
-                val result = internalUseRecord(pageIndex) { data ->
-                    action(data, pageIndex)
+            while (pageIndex < heapManager.size) {
+                try {
+                    val result = internalUseRecord(pageIndex, transform)
+                    yield(Pair(pageIndex, result.first))
+                    pageIndex = result.second
                 }
-                pageIndex = result.second
-            }
-            catch (ex: InvalidPersistenceIDException) {
-                // this page happens not to be usable
-                // just go on to the next one
-                pageIndex++
+                catch (ex: InvalidPersistenceIDException) {
+                    // that page is not valid, just move on to the next one
+                    pageIndex++
+                }
             }
         }
     }
