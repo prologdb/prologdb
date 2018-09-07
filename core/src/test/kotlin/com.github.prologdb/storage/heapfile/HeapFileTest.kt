@@ -1,7 +1,7 @@
 package com.github.prologdb.storage.heapfile
 
 import com.github.prologdb.Performance
-import com.github.prologdb.storage.StorageException
+import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.predicate.PersistenceID
 import com.github.prologdb.storage.rootDeviceProperties
@@ -17,6 +17,7 @@ import java.util.*
 import java.util.concurrent.CompletableFuture
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.test.assertFalse
 
 class HeapFileTest : FreeSpec({
     "write and read back - smaller than pagesize" {
@@ -71,7 +72,7 @@ class HeapFileTest : FreeSpec({
 
             heapFile.removeRecord(pID)
 
-            shouldThrow<StorageException> {
+            shouldThrow<InvalidPersistenceIDException> {
                 heapFile.useRecord(pID, {})
             }
         }
@@ -130,6 +131,28 @@ class HeapFileTest : FreeSpec({
         tB.join()
         tA.propagateUncaughtExceptionIfPresent()
         tB.propagateUncaughtExceptionIfPresent()
+    }
+
+    "f:scan" {
+        val tmpFile = File.createTempFile("heapfiletest", Math.random().toString())
+        tmpFile.deleteOnExit()
+        HeapFile.initializeForBlockDevice(tmpFile.toPath())
+        HeapFile.forExistingFile(tmpFile.toPath()).use { heapFile ->
+            val writtenBuffers = mutableMapOf<PersistenceID, ByteBuffer>()
+
+            for (n in 0..50) {
+                val buf = bufferOfRandomValues(768)
+                val pID = heapFile.addRecord(buf)
+
+                assertFalse(pID in writtenBuffers)
+                writtenBuffers[pID] = buf
+            }
+
+            heapFile.useAllRecords { data, pID ->
+                val originalData = writtenBuffers[pID]!!
+                assert(originalData == data)
+            }
+        }
     }
 
     "loadtest" - {

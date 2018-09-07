@@ -1,10 +1,7 @@
 package com.github.prologdb.storage.heapfile
 
-import com.github.prologdb.storage.OutOfStorageMemoryException
-import com.github.prologdb.storage.StorageException
+import com.github.prologdb.storage.*
 import com.github.prologdb.storage.predicate.PersistenceID
-import com.github.prologdb.storage.readStruct
-import com.github.prologdb.storage.writeStruct
 import com.github.prologdb.util.concurrency.ClearableThreadLocal
 import com.github.prologdb.util.concurrency.RegionReadWriteLockManager
 import com.github.prologdb.util.memory.FirstFitHeapManager
@@ -149,6 +146,7 @@ private constructor(
             if (flushToDisk || diskFlushLottery()) channel.force(false)
         }
 
+        data.flip()
         return pages.first
     }
 
@@ -156,8 +154,22 @@ private constructor(
      * Reads the record for the given [PersistenceID] from this file and invokes the given
      * action with the data. The byte buffer given to the action **MUST NOT** be used in any
      * way after the action has returned.
+     * @throws InvalidPersistenceIDException
      */
     fun <T> useRecord(persistenceID: PersistenceID, action: (ByteBuffer) -> T): T {
+        return internalUseRecord(persistenceID, action).first
+    }
+
+    /**
+     * Reads the record for the given [PersistenceID] from this file and invokes the given
+     * action with the data. The byte buffer given to the action **MUST NOT** be used in any
+     * way after the action has returned.
+     *
+     * @return In [Pair.first], the forwarded result from [action]. In [Pair.second] the next potential
+     * persistence ID (to use for scans).
+     * @throws InvalidPersistenceIDException
+     */
+    private fun <T> internalUseRecord(persistenceID: PersistenceID, action: (ByteBuffer) -> T) : Pair<T, PersistenceID> {
         if (closed) throw IOException("The heapfile is closed.")
 
         val (bufferArr, bufferObj) = onePageBuffer.get()
@@ -169,52 +181,52 @@ private constructor(
         readWriteLockManager[persistenceID..persistenceID].readLock().withLock {
             channel.position(firstPageOffset)
             channel.read(bufferObj)
-        }
 
-        val flags = bufferArr[0]
-        if (flags hasFlag PAGE_FLAG_DELETED || flags hasFlag PAGE_FLAG_CONTINUATION || !(flags hasFlag PAGE_FLAG_FIRST_PAGE_OF_RECORD)) {
-            throw StorageException("Invalid persistence ID: might have been overwritten since first storage.")
-        }
-
-        val recordSize = (bufferArr[1].toInt() and 0xFF shl 24) or (bufferArr[2].toInt() and 0xFF shl 16) or (bufferArr[3].toInt() and 0xFF shl 8) or (bufferArr[4].toInt() and 0xFF)
-        if (recordSize <= pageSize - 5) {
-            // all of the data is in this one page
-            bufferObj.position(5) // 1 for flags, 4 for record size
-            bufferObj.limit(recordSize + 5)
-            return action(bufferObj)
-        } else {
-            val additionalPages = (recordSize - (pageSize - 5) + pageSize - 1) / pageSize
-            val fullRecordBuffer = ByteBuffer.allocateDirect(recordSize)
-
-            // copy the first page
-            bufferObj.position(5)
-            bufferObj.limit(pageSize)
-            fullRecordBuffer.put(bufferObj)
-
-            // read the other pages
-            var bytesOfRecordRemaining = recordSize - (pageSize - 5)
-            readWriteLockManager[persistenceID..(persistenceID + additionalPages)].readLock().withLock {
-                val channel = fileChannel.get()
-
-                while (bytesOfRecordRemaining > 0) {
-                    bufferObj.clear()
-                    bufferObj.limit(min(bufferObj.capacity(), bytesOfRecordRemaining + 1)) // +1 for the flag byte
-                    channel.read(bufferObj)
-
-                    val pageFlags = bufferArr[0]
-                    if (!(pageFlags hasFlag PAGE_FLAG_CONTINUATION)) {
-                        throw StorageException("Invalid internal state - record contains non-continuation flagged page (offset of first page in record: $firstPageOffset)")
-                    }
-
-                    bufferObj.flip()
-                    bufferObj.position(1) // skip the flags byte
-                    bytesOfRecordRemaining -= bufferObj.remaining()
-                    fullRecordBuffer.put(bufferObj)
-                }
+            val flags = bufferArr[0]
+            if (flags hasFlag PAGE_FLAG_DELETED || flags hasFlag PAGE_FLAG_CONTINUATION || !(flags hasFlag PAGE_FLAG_FIRST_PAGE_OF_RECORD)) {
+                throw InvalidPersistenceIDException(persistenceID, "Invalid persistence ID: might have been overwritten since first storage.")
             }
 
-            fullRecordBuffer.flip()
-            return action(fullRecordBuffer)
+            val recordSize = (bufferArr[1].toInt() and 0xFF shl 24) or (bufferArr[2].toInt() and 0xFF shl 16) or (bufferArr[3].toInt() and 0xFF shl 8) or (bufferArr[4].toInt() and 0xFF)
+            if (recordSize <= pageSize - 5) {
+                // all of the data is in this one page
+                bufferObj.position(5) // 1 for flags, 4 for record size
+                bufferObj.limit(recordSize + 5)
+                return Pair(action(bufferObj), persistenceID + 1L)
+            } else {
+                val additionalPages = (recordSize - (pageSize - 5) + pageSize - 1) / pageSize
+                val fullRecordBuffer = ByteBuffer.allocateDirect(recordSize)
+
+                // copy the first page
+                bufferObj.position(5)
+                bufferObj.limit(pageSize)
+                fullRecordBuffer.put(bufferObj)
+
+                // read the other pages
+                var bytesOfRecordRemaining = recordSize - (pageSize - 5)
+                readWriteLockManager[persistenceID..(persistenceID + additionalPages)].readLock().withLock {
+                    val channel = fileChannel.get()
+
+                    while (bytesOfRecordRemaining > 0) {
+                        bufferObj.clear()
+                        bufferObj.limit(min(bufferObj.capacity(), bytesOfRecordRemaining + 1)) // +1 for the flag byte
+                        channel.read(bufferObj)
+
+                        val pageFlags = bufferArr[0]
+                        if (!(pageFlags hasFlag PAGE_FLAG_CONTINUATION)) {
+                            throw StorageException("Invalid internal state - record contains non-continuation flagged page (offset of first page in record: $firstPageOffset)")
+                        }
+
+                        bufferObj.flip()
+                        bufferObj.position(1) // skip the flags byte
+                        bytesOfRecordRemaining -= bufferObj.remaining()
+                        fullRecordBuffer.put(bufferObj)
+                    }
+                }
+
+                fullRecordBuffer.flip()
+                return Pair(action(fullRecordBuffer), persistenceID + additionalPages + 1)
+            }
         }
     }
 
@@ -223,11 +235,34 @@ private constructor(
      * action with the data of each record. The byte buffer given to the action **MUST NOT** be used in any
      * way after the action has returned.
      */
-    fun <T> useRecords(persistenceIDs: Collection<out PersistenceID>, action: (ByteBuffer) -> Any?) {
+    fun useRecords(persistenceIDs: Collection<out PersistenceID>, action: (ByteBuffer) -> Any?) {
         if (closed) throw IOException("The heapfile is closed.")
 
         persistenceIDs.sorted().forEach { pId ->
             useRecord(pId, action)
+        }
+    }
+
+    /**
+     * Invokes the given action for all records in this heap file.
+     */
+    fun useAllRecords(action: (ByteBuffer, PersistenceID) -> Any?) {
+        if (closed) throw IOException("The heapfile is closed.")
+
+        var pageIndex: PersistenceID = 0
+
+        while (pageIndex < heapManager.size) {
+            try {
+                val result = internalUseRecord(pageIndex) { data ->
+                    action(data, pageIndex)
+                }
+                pageIndex = result.second
+            }
+            catch (ex: InvalidPersistenceIDException) {
+                // this page happens not to be usable
+                // just go on to the next one
+                pageIndex++
+            }
         }
     }
 
