@@ -1,6 +1,7 @@
 package com.github.prologdb.io.binaryprolog
 
-import com.github.prologdb.runtime.term.PrologInteger
+import arrow.core.toT
+import com.github.prologdb.runtime.term.*
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.FreeSpec
 import java.io.ByteArrayOutputStream
@@ -98,42 +99,181 @@ class BinaryPrologWriterTest : FreeSpec({
     }
 
     "decimal" {
-        TODO()
+        val buffer = ByteArrayOutputStream()
+        val out = DataOutputStream(buffer)
+
+        BinaryPrologWriter.getDefaultInstance().writeTermTo(
+            PrologDecimal(1.6e-16),
+            out
+        )
+
+        val bufferData = buffer.toByteArray()
+        bufferData shouldBe byteArrayOf(0x11, 0xC0.toByte(), 0x3C, 0xA7.toByte(), 0x0E,
+            0xF5.toByte(), 0x46, 0x46, 0xD4.toByte(), 0x97.toByte())
     }
 
     "string" {
-        TODO()
+        val buffer = ByteArrayOutputStream()
+        val out = DataOutputStream(buffer)
+
+        BinaryPrologWriter.getDefaultInstance().writeTermTo(
+            PrologString("String➩\uD83D\uDE4A"),
+            out
+        )
+
+        val bufferData = buffer.toByteArray()
+        bufferData shouldBe byteArrayOf(0x24, 0x8D.toByte(), 0x53, 0x74, 0x72, 0x69, 0x6E,
+            0x67, 0xE2.toByte(), 0x9E.toByte(), 0xA9.toByte(), 0xF0.toByte(), 0x9F.toByte(),
+            0x99.toByte(), 0x8A.toByte())
     }
 
     "atom" {
-        TODO()
+        val buffer = ByteArrayOutputStream()
+        val out = DataOutputStream(buffer)
+
+        BinaryPrologWriter.getDefaultInstance().writeTermTo(
+            Atom("String➩\uD83D\uDE4A"),
+            out
+        )
+
+        val bufferData = buffer.toByteArray()
+        bufferData shouldBe byteArrayOf(0x22, 0x8D.toByte(), 0x53, 0x74, 0x72, 0x69, 0x6E,
+            0x67, 0xE2.toByte(), 0x9E.toByte(), 0xA9.toByte(), 0xF0.toByte(), 0x9F.toByte(),
+            0x99.toByte(), 0x8A.toByte())
     }
 
     "variable" {
-        TODO()
+        val buffer = ByteArrayOutputStream()
+        val out = DataOutputStream(buffer)
+
+        BinaryPrologWriter.getDefaultInstance().writeTermTo(
+            Variable("String➩\uD83D\uDE4A"),
+            out
+        )
+
+        val bufferData = buffer.toByteArray()
+        bufferData shouldBe byteArrayOf(0x20, 0x8D.toByte(), 0x53, 0x74, 0x72, 0x69, 0x6E,
+            0x67, 0xE2.toByte(), 0x9E.toByte(), 0xA9.toByte(), 0xF0.toByte(), 0x9F.toByte(),
+            0x99.toByte(), 0x8A.toByte())
     }
 
-    "predicate" {
-        TODO()
+    "predicate" - {
+        "simple" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                Predicate("a", arrayOf(Atom("x"))),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(0x30, 0x81.toByte(), 0x81.toByte(), 0x61,
+                0x22, 0x81.toByte(), 0x78.toByte())
+        }
+
+        "advanced" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                Predicate("foo", arrayOf(
+                    PrologInteger(1),
+                    PrologString("bar"),
+                    Atom("z")
+                )),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(0x30, 0x83.toByte(), 0x83.toByte(), 0x66,
+                0x6F, 0x6F, 0x10, 0x88.toByte(), 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x01, 0x24, 0x83.toByte(), 0x62,
+                0x61, 0x72, 0x22, 0x81.toByte(), 0x7A)
+        }
     }
 
     "list" - {
         "with tail" {
-            TODO()
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                PrologList(
+                    listOf(
+                        Atom("a"),
+                        PrologInteger(2)
+                    ),
+                    Variable("T")
+                ),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(0x31, 0x81.toByte(), 0x54, 0x82.toByte(),
+                0x22, 0x81.toByte(), 0x61, 0x10, 0x88.toByte(), 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x02)
         }
 
         "without tail" {
-            TODO()
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                PrologList(
+                    listOf(
+                        Atom("a"),
+                        PrologInteger(2)
+                    )
+                ),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(0x32, 0x82.toByte(),
+                0x22, 0x81.toByte(), 0x61, 0x10, 0x88.toByte(), 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x02)
         }
     }
 
-    "dictionary" {
+    "dictionary" - {
         "with tail" {
-            TODO()
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                PrologDictionary(
+                    mapOf(
+                        Atom("a") to Atom("b")
+                    ),
+                    Variable("X")
+                ),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(0x40, 0x81.toByte(), 0x58, 0x81.toByte(),
+                0x81.toByte(), 0x61, 0x22, 0x81.toByte(), 0x62)
         }
 
         "without tail" {
-            TODO()
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                PrologDictionary(
+                    mapOf(
+                        Atom("f") to PrologString("b"),
+                        Atom("x") to PrologInteger(2)
+                    )
+                ),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(0x41, 0x82.toByte(), 0x81.toByte(), 0x66,
+                0x24, 0x81.toByte(), 0x62, 0x81.toByte(), 0x78, 0x10, 0x88.toByte(),
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)
         }
     }
 })

@@ -57,6 +57,7 @@ class BinaryPrologWriter {
             writer.registerWriter(PrologString::class, StringWriter)
             writer.registerWriter(Atom::class, AtomWriter)
             writer.registerWriter(Predicate::class, PredicateWriter)
+            writer.registerWriter(PrologList::class, ListWriter)
             writer.registerWriter(PrologDictionary::class, DictionaryWriter)
 
             return writer
@@ -208,7 +209,7 @@ object ListWriter : BinaryPrologWriter.TermWriter<PrologList> {
     }
 
     private fun writeWithoutTail(elements: List<Term>, out: DataOutput, writerRef: BinaryPrologWriter) {
-        out.write(TYPE_BYTE_WITH_TAIL)
+        out.write(TYPE_BYTE_WITHOUT_TAIL)
         out.writeIntEncoded(elements.size)
         for (element in elements) {
             writerRef.writeTermTo(element, out)
@@ -226,7 +227,7 @@ object DictionaryWriter : BinaryPrologWriter.TermWriter<PrologDictionary> {
         val tail = term.tail
 
         if (tail == null) {
-
+            writeWithoutTail(term.pairs, out, writerRef)
         } else {
             writeWithTail(term.pairs, tail, out, writerRef)
         }
@@ -242,7 +243,7 @@ object DictionaryWriter : BinaryPrologWriter.TermWriter<PrologDictionary> {
     }
 
     private fun writeWithoutTail(entries: Map<Atom, Term>, out: DataOutput, writerRef: BinaryPrologWriter) {
-        out.writeByte(TYPE_BYTE_WITH_TAIL)
+        out.writeByte(TYPE_BYTE_WITHOUT_TAIL)
         out.writeIntEncoded(entries.size)
         for (entry in entries) {
             writeEntry(entry, out, writerRef)
