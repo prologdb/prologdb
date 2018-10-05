@@ -75,12 +75,25 @@ sealed class DatabaseUpdateEvent {
 /**
  * When a new predicate store has been added
  */
-data class PredicateStoreAddedEvent(val forPredicatesOf: PredicateIndicator, val store: PredicateStore) : DatabaseUpdateEvent() {
+data class PredicateStoreAddedEvent(val store: PredicateStore) : DatabaseUpdateEvent() {
     override fun applyTo(dbv: PrologDatabaseView) {
-        if (forPredicatesOf in dbv._predicateStores) {
-            throw IllegalStateException("A predicate store for $forPredicatesOf is already registered with this database view.")
+        if (store.indicator in dbv._predicateStores) {
+            throw IllegalStateException("A predicate store for ${store.indicator} is already registered with this database view.")
         }
 
-        dbv._predicateStores[forPredicatesOf] = store
+        dbv._predicateStores[store.indicator] = store
+    }
+}
+
+data class RuleAddedEvent(val rule: Rule) : DatabaseUpdateEvent() {
+    override fun applyTo(dbv: PrologDatabaseView) {
+        val indicator = PredicateIndicator.of(rule.head)
+        val set: MutableSet<Rule> = dbv._rules[indicator] ?: {
+            val newSet = HashSet<Rule>()
+            dbv._rules[indicator] = newSet
+            newSet
+        }()
+
+        set += rule
     }
 }
