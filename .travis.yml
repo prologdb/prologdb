@@ -16,4 +16,4 @@ install:
   - mvn dependency:go-offline
 
 script:
-  - mvn clean install -Dgpg.skip=true
+  - mvn clean install -Dgpg.skip=true -am
