@@ -8,9 +8,10 @@ cache:
   directories:
   - $HOME/protobuf-3.6.1
 
+env:
+  - PATH=$PATH:$HOME/protobuf-3.6.1/bin
+
 install:
-  - pwd
-  - ls
   - bash build-helpers/install-protobuf.sh
   - mvn dependency:go-offline
 
