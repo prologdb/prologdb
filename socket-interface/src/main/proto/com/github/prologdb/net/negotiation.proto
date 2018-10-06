@@ -1,0 +1,44 @@
+syntax = "proto2";
+
+package com.github.prologdb.net.negotioation;
+option java_outer_classname = "NegotiationMessage";
+option java_multiple_files = true;
+option optimize_for = SPEED;
+
+message ServerHello {
+    /* The server code vendor / creator. This might become interesting
+     * when forks are present (see e.g. MySQL / MariaDB)
+     */
+    optional string vendor = 1;
+
+    /* Release version number of the server application; note that this
+     * is not related to the supported protocol versions
+     */
+    required SemanticVersion version = 2;
+
+    /* The protocol version the server chose as a result of the ClientHello. */
+    required SemanticVersion chosen_protocol_version = 3;
+
+    /* The protocol versions the server supports, possibly including
+     * the chosen version.
+     */
+    repeated SemanticVersion supported_protocol_versions = 4;
+
+    reserved 5 to 15;
+}
+
+message ClientHello {
+    /* The protocol versions the client can speak. Of none given,
+       the server will choose its most recent one. */
+    repeated SemanticVersion desired_protocol_version = 1;
+}
+
+/* A version number that follows semantic versioning, see https://semver.org
+ */
+message SemanticVersion {
+    required uint32 major = 1;
+    required uint32 minor = 2 [default = 0];
+    required uint32 patch = 3 [default = 0];
+    optional uint64 build_number = 4;
+    repeated string pre_release_labels = 5;
+}

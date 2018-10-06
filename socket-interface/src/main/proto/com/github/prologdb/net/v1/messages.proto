@@ -1,0 +1,210 @@
+syntax = "proto2";
+
+option java_multiple_files = true;
+option optimize_for = SPEED;
+
+package com.github.prologdb.net.v1.messages;
+
+/* What clients can send to the server.
+ */
+message ToServer {
+    oneof command {
+        QueryInitialization init_query = 1;
+        QuerySolutionConsumption consume_results = 2;
+    }
+}
+
+message ToClient {
+    oneof event {
+        QuerySolution solution = 1;
+    }
+}
+
+/* A prolog term. It may either be encoded using binary prolog (see the io module)
+ * or as a string (with UTF-8 encoding) as regular prolog code.
+ * Clients are free to choose what to send. The server will always respond with
+ * binary prolog.
+ */
+message Term {
+    required Type type = 1;
+    required bytes data = 2;
+
+    reserved 3 to 10;
+
+    enum Type {
+        BINARY = 0;
+        STRING = 1;
+
+        reserved 2 to 10;
+    }
+}
+
+/* Client-to-Server
+ * Starts a new query or directive execution.
+ */
+message QueryInitialization {
+    /* Client-Defined identifier for this query. Must be unique among the queries currently active.
+     */
+    required uint32 query_id = 1;
+
+    /* The actual query content.
+     */
+    required Term instruction = 2;
+
+    optional Kind kind = 100 [default = QUERY];
+
+    /* These instantiations will be included into the instruction. The intended purpose
+     * of this is a very similar mechanic as prepared statements.
+     * Key: Variable Name, Value: Variable value, can be a variable.
+     */
+    map<string, Term> instantiations = 3;
+
+    /* The server will try to have this number of solutions already calculated and waiting
+     * when a fetch request comes in. When undefined, the server uses the defaults.
+     */
+    optional uint32 precalculate_amount = 4;
+
+    /* The server will artificially limit the number of solutions to this number;
+     * pre-calculation is also affected (will not precalculate past the limit)
+     * If absent, the server assumes that the client will possibly consume all
+     * solutions.
+     */
+    optional uint64 limit = 5;
+
+    reserved 6 to 15;
+
+    /* How the instruction should be interpreted.
+     */
+    enum Kind {
+        /* As a reading or writing query, e.g. ?-(foo(X)). or ?-(assert(foo(1))).
+         */
+        QUERY = 0;
+
+        /* As a directive, e.g. :-select_knowledge_base(my_kb).
+         */
+        DIRECTIVE = 1;
+
+        reserved 2 to 10;
+    }
+}
+
+/* Client-to-Server
+ * Instructs the server to consume solutions of a query previously initialized with
+ * a QueryInitialization.
+ */
+message QuerySolutionConsumption {
+    /* Reference to the original query_id
+     */
+    required uint32 query_id = 1;
+
+    /* The maximum number of solutions to consume
+     */
+    required uint32 amount = 2;
+
+    optional PostConsumptionAction handling = 3 [default = RETURN];
+
+    /* If true, the server will close the query after having consumed
+     * the given number of solutions even if there are more remaining.
+     */
+    optional bool close_afterwards = 4 [default = false];
+
+    /* If close_afterwards is true AND this field is true, the server will
+     * send a QueryClosedEvent after closing the query.
+     */
+    optional bool notify_about_close = 100 [default = true];
+
+    reserved 5 to 15;
+
+    /* What the server should do with the solutions once consumed
+     */
+    enum PostConsumptionAction {
+        /* The server should send the solutions to the client.
+         */
+        RETURN = 0;
+
+        /* The server should discard the solutions.
+         */
+        DISCARD = 1;
+    }
+}
+
+/* Server-to-Client
+ * One solution from a previous QueryInitialization as requested by a QuerySolutionConsumption.
+ */
+message QuerySolution {
+    required uint32 query_id = 1;
+
+    map<string, Term> instantiations = 2;
+
+    reserved 3 to 15;
+}
+
+/* Server-to-Client
+ * A query has been closed.
+ */
+message QueryClosedEvent {
+    required uint32 query_id = 1;
+
+    required Reason reason = 2;
+
+    enum Reason {
+        /* All solutions have been consumed.
+         */
+        SOLUTIONS_DEPLETED = 1;
+
+        /* The closing was premature and requested by the client with the
+         * close_afterwards flag on QuerySolutionConsumption
+         */
+        ABORTED_ON_USER_REQUEST = 2;
+
+        /* An error condition was encountered while calculating solutions. The
+         * server will also send a QueryRelatedError for the same query with details
+         * about the error.
+         */
+        FAILED = 3;
+    }
+}
+
+/* An error message related to a query.
+ */
+message QueryRelatedError {
+    /* An error code, intended for processing by software.
+     */
+    required Kind kind = 1;
+
+    /* A short error message, intended to be read by a human,
+     * may contain more information than the error code.
+     */
+    optional string short_message = 2;
+
+    /* Additional information fields, e.g. stack strace, ...
+     */
+    map<string, string> additional_information = 3;
+
+    enum Kind {
+        /* A term sent to the server did not follow its syntax (invalid binary prolog, incorrect prolog code)
+         */
+        INVALID_TERM_SYNTAX = 0;
+
+        /* A query initialization was received with a query_id that is currently still in use (not closed)
+         */
+        QUERY_ID_ALREADY_IN_USE = 1;
+
+        /* A QuerySolutionConsumption was received for a query_id that is currently not open.
+         */
+        QUERY_ID_NOT_IN_USE = 2;
+
+        /* A (not further specified) error occured while calculation a solution (e.g. argument not sufficiently instantiated)
+         */
+        ERROR_GENERIC = 3;
+
+        /* An assert or retract query attempted to modify a predicate which was not previously declared dynamic using the
+         * dynamic/1 directive.
+         */
+        ERROR_PREDICATE_NOT_DYNAMIC = 4;
+
+        /* An assert or retract query was not executed because a constraint prevent it (e.g. unique constraint)
+         */
+        ERROR_CONSTRAINT_VIOLATION = 5;
+    }
+}
