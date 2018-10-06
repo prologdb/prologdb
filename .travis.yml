@@ -9,7 +9,9 @@ cache:
   - $HOME/protobuf-3.6.1
 
 install:
-  - bash build/install-protobuf.sh
+  - pwd
+  - ls
+  - bash build-helpers/install-protobuf.sh
   - mvn dependency:go-offline
 
 script:
