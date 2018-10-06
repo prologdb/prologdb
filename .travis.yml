@@ -4,7 +4,12 @@ jdk:
 
 dist: trusty
 
+cache:
+  directories:
+  - $HOME/protobuf-3.6.1
+
 install:
+  - bash build/install-protobuf.sh
   - mvn dependency:go-offline
 
 script:
