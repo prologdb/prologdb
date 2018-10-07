@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.github.prologdb.net.negotioation;
+package com.github.prologdb.net.negotiation;
 option java_outer_classname = "NegotiationMessage";
 option java_multiple_files = true;
 option optimize_for = SPEED;
@@ -28,9 +28,36 @@ message ServerHello {
 }
 
 message ClientHello {
-    /* The protocol versions the client can speak. Of none given,
+    /* The protocol versions the client can speak. If none given,
        the server will choose its most recent one. */
     repeated SemanticVersion desired_protocol_version = 1;
+}
+
+/** Sent by the server when an error occurs during negotiation.
+ */
+message ServerError {
+   required Kind kind = 1;
+   optional string message = 2;
+
+   reserved 3 to 15;
+
+   enum Kind {
+       GENERIC = 0;
+       INVALID_WIRE_FORMAT = 1;
+   }
+}
+
+message ToServer {
+    oneof message {
+        ClientHello hello = 1;
+    }
+}
+
+message ToClient {
+    oneof message {
+        ServerHello hello = 1;
+        ServerError error = 2;
+    }
 }
 
 /* A version number that follows semantic versioning, see https://semver.org

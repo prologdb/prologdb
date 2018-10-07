@@ -11,12 +11,14 @@ message ToServer {
     oneof command {
         QueryInitialization init_query = 1;
         QuerySolutionConsumption consume_results = 2;
+        GeneralError error = 101;
     }
 }
 
 message ToClient {
     oneof event {
         QuerySolution solution = 1;
+        GeneralError error = 101;
     }
 }
 
@@ -208,4 +210,16 @@ message QueryRelatedError {
          */
         ERROR_CONSTRAINT_VIOLATION = 5;
     }
+}
+
+/* Can be used by both sides to indicate a general error condition. Once one of these is sent
+ * the connection MUST be considered bad and be abandoned by both parties (also, resources must
+ * be released).
+ */
+message GeneralError {
+    required string message = 1;
+
+    /* Additional information fields, e.g. stack strace, ...
+    */
+    map<string, string> additional_information = 3;
 }
