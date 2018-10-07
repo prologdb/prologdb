@@ -97,9 +97,10 @@ message QuerySolutionConsumption {
      */
     required uint32 query_id = 1;
 
-    /* The maximum number of solutions to consume
+    /* The maximum number of solutions to consume. If not present the server will
+     * consume and handle all remaining solutions.
      */
-    required uint32 amount = 2;
+    optional uint32 amount = 2;
 
     optional PostConsumptionAction handling = 3 [default = RETURN];
 
