@@ -4,6 +4,26 @@ import java.io.File
 import java.io.InputStreamReader
 import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.collections.Collection
+import kotlin.collections.List
+import kotlin.collections.Map
+import kotlin.collections.MutableMap
+import kotlin.collections.Set
+import kotlin.collections.any
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.filterNotNull
+import kotlin.collections.firstOrNull
+import kotlin.collections.lastIndex
+import kotlin.collections.map
+import kotlin.collections.mutableListOf
+import kotlin.collections.mutableMapOf
+import kotlin.collections.mutableSetOf
+import kotlin.collections.plusAssign
+import kotlin.collections.reversed
+import kotlin.collections.set
+import kotlin.collections.sortedBy
+import kotlin.collections.toMap
 
 /**
  * Properties of the device that stores data in this path. Null if this path is not backed by a physical device.
@@ -225,40 +245,56 @@ private class UnixStorageDeviceInformationProvider : StorageDeviceInformationPro
     }
 
     private val blockDeviceTree: Set<BlockDeviceTreeNode> by lazy {
+        fun minusTreeDisplayPrefix(str: String): String {
+            val indentAmount = str.spaceIndentationAmount
+            var pivot = str
+
+            if (indentAmount > 0) {
+                pivot = pivot.substring(indentAmount)
+            }
+
+            if (pivot.startsWith("├─") || pivot.startsWith("└─")) {
+                pivot = pivot.substring(2)
+            }
+
+            return pivot
+        }
+
         /**
          * Reads the next device off the given list.
          * @return The parsed device (including children) and the remaining lines possibly containing more devices.
          */
-        fun readNode(lsblkOutLines: List<String>): Pair<BlockDeviceTreeNode, List<String>> {
-            val nameLine = lsblkOutLines[0]
-            val nameLineTrimmed = nameLine.trim()
-            val name = if (nameLineTrimmed.startsWith("├─") || nameLineTrimmed.startsWith("└─")) nameLineTrimmed.substring(2) else nameLine
+        fun readNodes(lsblkOutLines: List<String>): Set<BlockDeviceTreeNode> {
+            val nodes = mutableSetOf<BlockDeviceTreeNode>()
+            var lineIndex = 0
+            while (lineIndex <= lsblkOutLines.lastIndex) {
+                val name = lsblkOutLines[lineIndex].trim()
+                lineIndex++
 
-            val children = mutableSetOf<BlockDeviceTreeNode>()
+                val subLines = mutableListOf<String>()
+                while (
+                    lineIndex < lsblkOutLines.size && (
+                        lsblkOutLines[lineIndex].startsWith("├─") ||
+                        lsblkOutLines[lineIndex].startsWith("└─") ||
+                        lsblkOutLines[lineIndex].startsWith(" ") ||
+                        lsblkOutLines[lineIndex].startsWith("\t")
+                    )
+                ) {
+                    subLines += minusTreeDisplayPrefix(lsblkOutLines[lineIndex])
+                    lineIndex++
+                }
 
-            var remainingLines = lsblkOutLines.subList(1, lsblkOutLines.size)
-            while (remainingLines.isNotEmpty() && remainingLines[0].spaceIndentationAmount > nameLine.spaceIndentationAmount) {
-                val childResult = readNode(remainingLines)
-                children += childResult.first
-                remainingLines = childResult.second
+                val subNodes = readNodes(subLines)
+                val devicePath = Paths.get("/dev/$name")
+                nodes += BlockDeviceTreeNode(DeviceRef(devicePath), subNodes)
             }
 
-            val devicePath = Paths.get("/dev/$name")
-
-            return Pair(BlockDeviceTreeNode(DeviceRef(devicePath), children), remainingLines)
+            return nodes
         }
 
         val lsblkOut = captureOutput("lsblk", "-o", "name", "-t")
-        var currentLines = lsblkOut.subList(1, lsblkOut.size) // 1st line are headings
-        val rootNodes = mutableSetOf<BlockDeviceTreeNode>()
-
-        while (currentLines.isNotEmpty()) {
-            val rootDeviceNodeResult = readNode(currentLines)
-            rootNodes += rootDeviceNodeResult.first
-            currentLines = rootDeviceNodeResult.second
-        }
-
-        return@lazy rootNodes
+        val devices = readNodes(lsblkOut.subList(0, lsblkOut.size)) // cut first line with NAME header
+        return@lazy devices
     }
 
     /** The number of leading spaces in this string */
