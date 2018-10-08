@@ -196,6 +196,8 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
                     }
                     else
                     {
+                        lockRequestQueue.putFirst(request)
+
                         // cannot acquire; wait for more frees to become available
                         val newUnlockRequest = try {
                             unlockRequestQueue.take()
