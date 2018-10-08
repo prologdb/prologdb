@@ -80,62 +80,66 @@ class HeapFileTest : FreeSpec({
         }
     }
 
-    "multi thread write&read" {
+    "f:multi thread write&read" {
         val tmpFile = File.createTempFile("heapfiletest", Math.random().toString())
         tmpFile.deleteOnExit()
 
         HeapFile.initializeForBlockDevice(tmpFile.toPath())
         val hf = HeapFile.forExistingFile(tmpFile.toPath())
 
-        val taObjWritten = CompletableFuture<Pair<PersistenceID, ByteArray>>()
-        val tA = testingThread {
-            val random = Random()
-            val bufferArr = ByteArray(1024)
-            val bufferObj = ByteBuffer.wrap(bufferArr)
+        // this test is empirically unreliable when run once
+        for (i in 0..100) {
+            val taObjWritten = CompletableFuture<Pair<PersistenceID, ByteArray>>()
+            val tA = testingThread {
+                val random = Random()
+                val bufferArr = ByteArray(1500)
+                val bufferObj = ByteBuffer.wrap(bufferArr)
 
-            for (i in 0..3) {
+                for (i in 0..3) {
+                    bufferObj.clear()
+                    random.nextBytes(bufferArr)
+                    hf.addRecord(bufferObj)
+                }
+                bufferObj.clear()
+                random.nextBytes(bufferArr)
+                val pID = hf.addRecord(bufferObj)
+                val controlData = ByteArray(bufferArr.size, bufferArr::get)
+                taObjWritten.complete(Pair(pID, controlData))
+
+                for (i in 0..3) {
+                    bufferObj.clear()
+                    random.nextBytes(bufferArr)
+                    hf.addRecord(bufferObj)
+                }
+            }
+
+            val tB = testingThread {
+                val random = Random()
+                val bufferArr = ByteArray(1800)
+                val bufferObj = ByteBuffer.wrap(bufferArr)
+
                 bufferObj.clear()
                 random.nextBytes(bufferArr)
                 hf.addRecord(bufferObj)
-            }
-            bufferObj.clear()
-            random.nextBytes(bufferArr)
-            val pID = hf.addRecord(bufferObj)
-            val controlData = ByteArray(bufferArr.size, bufferArr::get)
-            taObjWritten.complete(Pair(pID, controlData))
+                taObjWritten.join()
 
-            for (i in 0..3) {
-                bufferObj.clear()
-                random.nextBytes(bufferArr)
-                hf.addRecord(bufferObj)
+                hf.useRecord(taObjWritten.get().first) { recordData ->
+                    val recordDataArray = ByteArray(recordData.remaining())
+                    recordData.get(recordDataArray)
+
+                    assert(Arrays.equals(taObjWritten.get().second, recordDataArray))
+                }
             }
+
+            tA.join()
+            tB.join()
+            tA.propagateUncaughtExceptionIfPresent()
+            tB.propagateUncaughtExceptionIfPresent()
+            println("one done")
         }
-
-        val tB = testingThread {
-            val random = Random()
-            val bufferArr = ByteArray(1024)
-            val bufferObj = ByteBuffer.wrap(bufferArr)
-
-            bufferObj.clear()
-            random.nextBytes(bufferArr)
-            hf.addRecord(bufferObj)
-            taObjWritten.join()
-
-            hf.useRecord(taObjWritten.get().first) { recordData ->
-                val recordDataArray = ByteArray(recordData.remaining())
-                recordData.get(recordDataArray)
-
-                assert(Arrays.equals(taObjWritten.get().second, recordDataArray))
-            }
-        }
-
-        tA.join()
-        tB.join()
-        tA.propagateUncaughtExceptionIfPresent()
-        tB.propagateUncaughtExceptionIfPresent()
     }
 
-    "f:scan" {
+    "scan" {
         val tmpFile = File.createTempFile("heapfiletest", Math.random().toString())
         tmpFile.deleteOnExit()
         HeapFile.initializeForBlockDevice(tmpFile.toPath())
@@ -156,6 +160,7 @@ class HeapFileTest : FreeSpec({
                 dataCopy
             }.forEachRemaining { (pID, dataAsByteArray) ->
                 val originalData = writtenBuffers[pID]!!
+                originalData.flip()
                 ByteBuffer.wrap(dataAsByteArray) shouldBe originalData
             }
         }
