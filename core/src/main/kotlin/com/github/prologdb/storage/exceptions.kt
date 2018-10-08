@@ -1,9 +1,10 @@
 package com.github.prologdb.storage
 
 import com.github.prologdb.storage.predicate.PersistenceID
+import java.io.IOException
 
 /** Thrown for all storage related errors */
-open class StorageException(message: String, cause: Throwable? = null) : Exception(message, cause)
+open class StorageException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
 class OutOfStorageMemoryException(message: String, cause: Throwable? = null) : StorageException(message, cause)
 
