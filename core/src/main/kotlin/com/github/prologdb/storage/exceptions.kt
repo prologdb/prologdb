@@ -17,3 +17,5 @@ class NoSuchStorageImplementationException(message: String, cause: Throwable? = 
 class InvalidPersistenceIDException(val invalidID: PersistenceID, message: String, cause: Throwable? = null) : StorageException(message, cause) {
     constructor(invalidID: PersistenceID) : this(invalidID, "Got invalid persistence ID ${invalidID.toString(16)}")
 }
+
+class RecordTooLargeException(val actualSize: Long, val maximumSize: Long, cause: Throwable? = null) : StorageException("This record is too large to be stored: size is $actualSize, maximum possible/allowed is $maximumSize bytes", cause)
