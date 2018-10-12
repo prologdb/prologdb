@@ -1,6 +1,8 @@
-package com.github.prologdb.net
+package com.github.prologdb.net.session
 
+import com.github.prologdb.net.HandshakeFailedException
 import com.github.prologdb.net.negotiation.*
+import com.github.prologdb.net.session.handle.SessionHandle
 import com.google.protobuf.InvalidProtocolBufferException
 import java.net.Socket
 
@@ -110,16 +112,3 @@ class SessionInitializer(
         throw originalEx
     }
 }
-
-/**
- * A handle of a connection/session. Reference to the actual [Socket] along with the
- * information relevant to that session.
- * These objects also take care of handling the actual protocol version.
- */
-sealed class SessionHandle {
-
-}
-
-internal class ProtocolVersion1SessionHandle(
-    private val socket: Socket
-)
