@@ -136,11 +136,10 @@ private constructor(
             readWriteLockManager[pages].writeLock().withLock {
                 val channel = fileChannel.get()
 
-                channel.position(offsetToFirstPage + pages.first * pageSize)
-
-                var firstPage = true
+                var nPageInRecord = 0
+                var offsetToCurrentPage = offsetToFirstPage + pages.first * pageSize
                 while (data.hasRemaining()) {
-                    if (firstPage) {
+                    if (nPageInRecord == 0) {
                         bufferArr[0] = PAGE_FLAGS_FIRST_RECORD_PAGE
                         // record size
                         bufferArr[1] = (recordSize ushr 24).toByte()
@@ -150,9 +149,6 @@ private constructor(
 
                         // get payload data from the payload buffer
                         data.get(bufferArr, 5, min(data.remaining(), pageSize - 5))
-
-                        // don't repeat for the following pages
-                        firstPage = false
                     } else {
                         bufferArr[0] = PAGE_FLAGS_CONTINUATION_PAGE
 
@@ -163,7 +159,10 @@ private constructor(
                     // write payload to channel
                     bufferObj.position(0)
                     bufferObj.limit(bufferArr.size)
-                    channel.write(bufferObj)
+                    channel.write(bufferObj, offsetToCurrentPage)
+
+                    nPageInRecord++
+                    offsetToCurrentPage += pageSize
                 }
 
                 if (flushToDisk || diskFlushLottery()) channel.force(false)
@@ -200,12 +199,13 @@ private constructor(
         val firstPageOffset = offsetToFirstPage + firstPageIndex * pageSize
 
         readWriteLockManager[pages].readLock().withLock {
-            channel.position(firstPageOffset)
-            channel.read(bufferObj)
+            if (channel.read(bufferObj, firstPageOffset) < 0) {
+                throw InvalidPersistenceIDException(persistenceID, "Beyond EOF")
+            }
 
             val flags = bufferArr[0]
             if (flags hasFlag PAGE_FLAG_DELETED || flags hasFlag PAGE_FLAG_CONTINUATION || !(flags hasFlag PAGE_FLAG_FIRST_PAGE_OF_RECORD)) {
-                throw InvalidPersistenceIDException(persistenceID, "Invalid persistence ID: might have been overwritten since added.")
+                throw InvalidPersistenceIDException(persistenceID, "Record might have been overwritten since added.")
             }
 
             val recordSize = (bufferArr[1].toInt() and 0xFF shl 24) or (bufferArr[2].toInt() and 0xFF shl 16) or (bufferArr[3].toInt() and 0xFF shl 8) or (bufferArr[4].toInt() and 0xFF)
@@ -224,13 +224,12 @@ private constructor(
 
                 // read the other pages
                 var bytesOfRecordRemaining = recordSize - (pageSize - 5)
-
-                val channel = fileChannel.get()
+                var offsetToCurrentPage = firstPageOffset + pageSize // start at page 2
 
                 while (bytesOfRecordRemaining > 0) {
                     bufferObj.clear()
                     bufferObj.limit(min(bufferObj.capacity(), bytesOfRecordRemaining + 1)) // +1 for the flag byte
-                    channel.read(bufferObj)
+                    channel.read(bufferObj, offsetToCurrentPage)
 
                     val pageFlags = bufferArr[0]
                     if (!(pageFlags hasFlag PAGE_FLAG_CONTINUATION)) {
@@ -241,6 +240,8 @@ private constructor(
                     bufferObj.position(1) // skip the flags byte
                     bytesOfRecordRemaining -= bufferObj.remaining()
                     fullRecordBuffer.put(bufferObj)
+
+                    offsetToCurrentPage += pageSize
                 }
 
                 fullRecordBuffer.flip()
@@ -391,46 +392,28 @@ private constructor(
         """.trimIndent())
 
         readWriteLockManager[pages].readLock().withLock {
-            channel.position(firstPageOffset)
-            channel.read(bufferObj)
+            channel.read(bufferObj, firstPageOffset)
 
             val flags = bufferArr[0]
             if (flags hasFlag PAGE_FLAG_CONTINUATION) {
-                throw IllegalArgumentException("Invalid persistence ID given - might have been overrwritten since first storage.")
+                throw IllegalArgumentException("Record might have been overwritten since first added.")
             }
             if (flags hasFlag PAGE_FLAG_DELETED) {
                 // already gone
                 return false
             }
 
-            val recordSize = (bufferArr[1].toInt() and 0xFF shl 24) or (bufferArr[2].toInt() and 0xFF shl 16) or (bufferArr[3].toInt() and 0xFF shl 8) or (bufferArr[4].toInt() and 0xFF)
-            if (recordSize <= pageSize - 5) {
-                // all of the data is in this one page
-                bufferArr[0] = bufferArr[0] plusFlag PAGE_FLAG_DELETED
-                bufferObj.position(0)
-                bufferObj.limit(pageSize)
-                readWriteLockManager[persistenceID..persistenceID].writeLock().withLock {
-                    channel.position(firstPageOffset)
-                    channel.write(bufferObj)
-
-                    if (flushToDisk) {
-                        channel.force(false)
-                    }
-                }
-                synchronized(heapManager) {
-                    heapManager.free(persistenceID..persistenceID)
-                }
-            } else {
-                for (pageIndex in 1..nPages) {
-                    channel.position(firstPageOffset + pageIndex * pageSize)
-                    bufferArr[0] = 0.toByte() plusFlag PAGE_FLAG_DELETED
-                    bufferObj.position(0)
-                    bufferObj.limit(pageSize)
-                    channel.write(bufferObj)
-                }
-
-                if (flushToDisk || diskFlushLottery()) channel.force(false)
+            bufferArr[0] = bufferArr[0] plusFlag PAGE_FLAG_DELETED
+            bufferObj.position(0)
+            bufferObj.limit(pageSize)
+            readWriteLockManager[pages.first..pages.first].writeLock().withLock {
+                channel.write(bufferObj, firstPageOffset)
             }
+            synchronized(heapManager) {
+                heapManager.free(pages)
+            }
+
+            if (flushToDisk || diskFlushLottery()) channel.force(false)
 
             return true
         }
