@@ -111,6 +111,12 @@ message QuerySolutionConsumption {
      */
     optional bool close_afterwards = 4 [default = false];
 
+    /**
+     * If given, updates the precalculation_amount for the query.
+     * Does not discard precalculated solutions when lowered.
+     */
+    optional uint32 update_precalculate_amount = 101;
+
     /* If close_afterwards is true AND this field is true, the server will
      * send a QueryClosedEvent after closing the query.
      */
@@ -206,7 +212,7 @@ message QueryRelatedError {
          */
         ERROR_PREDICATE_NOT_DYNAMIC = 4;
 
-        /* An assert or retract query was not executed because a constraint prevent it (e.g. unique constraint)
+        /* An assert or retract query was not executed because a constraint prevented it (e.g. unique constraint)
          */
         ERROR_CONSTRAINT_VIOLATION = 5;
     }
