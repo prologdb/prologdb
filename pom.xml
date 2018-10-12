@@ -22,7 +22,7 @@
     </modules>
 
     <properties>
-        <kotlin.version>1.2.0</kotlin.version>
+        <kotlin.version>1.2.71</kotlin.version>
         <kotlin.plugin.version>${kotlin.version}</kotlin.plugin.version>
         <kotlin.kotlintest.version>2.0.7</kotlin.kotlintest.version>
         <mockito.version>2.0</mockito.version>
