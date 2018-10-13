@@ -31,18 +31,14 @@ internal class ProtocolVersion1SessionHandle(
     private val inputStream = socket.getInputStream()
     private val outputStream = socket.getOutputStream()
 
-    override fun popNextIncomingMessage(): ProtocolMessage? {
-        return if (inputStream.available() > 0) {
-            val versionMessage = ToServer.parseDelimitedFrom(inputStream)
+    override fun popNextIncomingMessage(): ProtocolMessage {
+        val versionMessage = ToServer.parseDelimitedFrom(inputStream)
 
-            when (versionMessage.commandCase!!) {
-                ToServer.CommandCase.CONSUME_RESULTS -> versionMessage.consumeResults.toIndependent()
-                ToServer.CommandCase.INIT_QUERY -> versionMessage.initQuery.toIndependent(termReader)
-                ToServer.CommandCase.ERROR -> versionMessage.error.toIndependent()
-                ToServer.CommandCase.COMMAND_NOT_SET -> throw NetworkProtocolException("command field of ToServer message not set")
-            }
-        } else {
-            null
+        return when (versionMessage.commandCase!!) {
+            ToServer.CommandCase.CONSUME_RESULTS -> versionMessage.consumeResults.toIndependent()
+            ToServer.CommandCase.INIT_QUERY -> versionMessage.initQuery.toIndependent(termReader)
+            ToServer.CommandCase.ERROR -> versionMessage.error.toIndependent()
+            ToServer.CommandCase.COMMAND_NOT_SET -> throw NetworkProtocolException("command field of ToServer message not set")
         }
     }
 

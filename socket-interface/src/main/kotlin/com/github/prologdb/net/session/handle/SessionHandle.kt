@@ -12,10 +12,10 @@ import java.net.Socket
  */
 abstract class SessionHandle {
     /**
-     * @return if available, the next message incoming in this session. Null otherwise.
+     * @return waits for the next message incoming in this session.
      *         The incoming message is one of those annotated with [ToServer].
      */
-    abstract fun popNextIncomingMessage(): ProtocolMessage?
+    abstract fun popNextIncomingMessage(): ProtocolMessage
 
     /**
      * Sends the given message to the session client. Implementations may
