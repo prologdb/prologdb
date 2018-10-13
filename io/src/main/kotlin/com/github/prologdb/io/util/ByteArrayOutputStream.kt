@@ -1,4 +1,4 @@
-package com.github.prologdb.util;
+package com.github.prologdb.io.util
 
 import java.io.OutputStream
 import java.nio.ByteBuffer

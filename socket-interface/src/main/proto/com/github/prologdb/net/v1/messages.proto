@@ -18,7 +18,10 @@ message ToServer {
 message ToClient {
     oneof event {
         QuerySolution solution = 1;
-        GeneralError error = 101;
+        QueryRelatedError query_error = 101;
+        QueryOpenedEvent query_opened = 102;
+        QueryClosedEvent query_closed = 103;
+        GeneralError server_error = 104;
     }
 }
 
@@ -149,6 +152,15 @@ message QuerySolution {
 }
 
 /* Server-to-Client
+ * Confirmation that a query has been opened (in response to a QueryInitialization message)
+ */
+message QueryOpenedEvent {
+    required uint32 query_id = 1;
+
+    reserved 2 to 15;
+}
+
+/* Server-to-Client
  * A query has been closed.
  */
 message QueryClosedEvent {
@@ -177,18 +189,20 @@ message QueryClosedEvent {
 /* An error message related to a query.
  */
 message QueryRelatedError {
+    required uint32 query_id = 1;
+
     /* An error code, intended for processing by software.
      */
-    required Kind kind = 1;
+    required Kind kind = 2;
 
     /* A short error message, intended to be read by a human,
      * may contain more information than the error code.
      */
-    optional string short_message = 2;
+    optional string short_message = 3;
 
     /* Additional information fields, e.g. stack strace, ...
      */
-    map<string, string> additional_information = 3;
+    map<string, string> additional_information = 4;
 
     enum Kind {
         /* A term sent to the server did not follow its syntax (invalid binary prolog, incorrect prolog code)

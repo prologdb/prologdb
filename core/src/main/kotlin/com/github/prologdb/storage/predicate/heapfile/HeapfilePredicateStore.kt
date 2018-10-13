@@ -2,6 +2,7 @@ package com.github.prologdb.storage.predicate.heapfile
 
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
+import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
 import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.term.Predicate
@@ -9,7 +10,6 @@ import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.heapfile.HeapFile
 import com.github.prologdb.storage.predicate.PersistenceID
 import com.github.prologdb.storage.predicate.PredicateStore
-import com.github.prologdb.util.ByteArrayOutputStream
 import java.io.DataOutput
 import java.io.DataOutputStream
 import java.nio.ByteBuffer
