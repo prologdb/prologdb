@@ -2,6 +2,8 @@ package com.github.prologdb.net.session
 
 import com.github.prologdb.net.HandshakeFailedException
 import com.github.prologdb.net.negotiation.*
+import com.github.prologdb.net.negotiation.ToClient
+import com.github.prologdb.net.negotiation.ToServer
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.google.protobuf.InvalidProtocolBufferException
 import java.net.Socket
@@ -54,7 +56,7 @@ class SessionInitializer(
 
             val handle = versionHandleFactories[targetVersion]!!(socket, clientHello)
 
-            ToClient.newBuilder()
+            com.github.prologdb.net.negotiation.ToClient.newBuilder()
                 .setHello(shb.build())
                 .build()
                 .writeDelimitedTo(socket.getOutputStream())
