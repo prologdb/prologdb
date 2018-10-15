@@ -12,6 +12,15 @@ import com.github.prologdb.runtime.unification.Unification
  * Implementations need not be thread-safe.
  */
 interface QueryHandler {
-    fun startQuery(term: Term): LazySequence<Unification>
-    fun startDirective(command: Term): LazySequence<Unification>
+    /**
+     * @param term the query to run
+     * @param totalLimit If not null, the number of results is limited to this number.
+     */
+    fun startQuery(term: Term, totalLimit: Long?): LazySequence<Unification>
+
+    /**
+     * @param command the directive to run
+     * @param totalLimit If not null, the number of results is limited to this number.
+     */
+    fun startDirective(command: Term, totalLimit: Long?): LazySequence<Unification>
 }
