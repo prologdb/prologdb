@@ -10,21 +10,34 @@ import java.net.Socket
  *
  * Session handles are generally **NOT THREAD SAFE!**
  */
-abstract class SessionHandle {
+interface SessionHandle {
     /**
      * @return waits for the next message incoming in this session.
      *         The incoming message is one of those annotated with [ToServer].
      */
-    abstract fun popNextIncomingMessage(): ProtocolMessage
+    fun popNextIncomingMessage(): ProtocolMessage
 
     /**
-     * Sends the given message to the session client. Implementations may
-     * queue messages and send them later.
+     * Queues the given message for later sending. The order
+     * in which the messages are queued is preserved for the
+     * sending.
      */
-    abstract fun sendMessage(message: ProtocolMessage)
+    fun queueMessage(message: ProtocolMessage)
+
+    /**
+     * Directly sends the given message, flushing previously
+     * sent messages to preserve order.
+     */
+    fun sendMessage(message: ProtocolMessage)
+
+    /**
+     * Flushes queued outgoing messages.
+     * @return the number of messages sent to the client
+     */
+    fun flushOutbox(): Int
 
     /**
      * Closes the session.
      */
-    abstract fun closeSession()
+    fun closeSession()
 }

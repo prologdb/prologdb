@@ -21,15 +21,18 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.GeneratedMessageV3
 import java.io.DataOutputStream
 import java.net.Socket
+import java.util.*
 
 internal class ProtocolVersion1SessionHandle(
     private val socket: Socket,
     private val termReader: ProtocolVersion1TermReader,
     private val termWriter: ProtocolVersion1TermWriter
-) : SessionHandle() {
+) : SessionHandle {
 
     private val inputStream = socket.getInputStream()
     private val outputStream = socket.getOutputStream()
+
+    private val outQueue: Queue<GeneratedMessageV3> = ArrayDeque()
 
     override fun popNextIncomingMessage(): ProtocolMessage {
         val versionMessage = ToServer.parseDelimitedFrom(inputStream)
@@ -42,12 +45,31 @@ internal class ProtocolVersion1SessionHandle(
         }
     }
 
-    override fun sendMessage(message: ProtocolMessage) {
+    override fun queueMessage(message: ProtocolMessage) {
         if (message.javaClass.getAnnotation(com.github.prologdb.net.session.ToClient::class.java) == null) {
             throw IllegalArgumentException("Can only send messages intended for the client; see the ToClient annotation")
         }
 
-        message.toProtocol(termWriter).writeDelimitedTo(outputStream)
+        outQueue.add(message.toProtocol(termWriter))
+    }
+
+    override fun sendMessage(message: ProtocolMessage) {
+        flushOutbox()
+        internalSendDirectly(message.toProtocol(termWriter))
+    }
+
+    private fun internalSendDirectly(message: GeneratedMessageV3) {
+        message.writeDelimitedTo(outputStream)
+    }
+
+    override fun flushOutbox(): Int {
+        var nFlushed = 0
+        outQueue.forEach {
+            internalSendDirectly(it)
+            nFlushed++
+        }
+
+        return nFlushed
     }
 
     override fun closeSession() {
