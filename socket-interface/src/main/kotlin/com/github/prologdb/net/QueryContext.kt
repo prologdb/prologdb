@@ -44,13 +44,13 @@ internal class QueryContext(
      * forwarded return value
      */
     fun <T> ifAvailable(action: (ActionInterface) -> T): Pair<Boolean, T?> {
-        if (!closed && lock.tryLock()) {
-            if (!closed) {
-                try {
+        if (lock.tryLock()) {
+            try {
+                if (!closed) {
                     return Pair(true, action(actionInterface))
-                } finally {
-                    lock.unlock()
                 }
+            } finally {
+                lock.unlock()
             }
         }
 
