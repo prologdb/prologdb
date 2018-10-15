@@ -186,14 +186,10 @@ class PrologDBServerInterface(
         private fun doOnePrecalculation(): Boolean {
             for (contexts in queryContexts.values) {
                 for (context in contexts.values) {
-                    if (context.lock.tryLock()) {
-                        try {
-                            val hasMore = context.doOnePrecalculation()
-                            if (hasMore) return true
-                        }
-                        finally {
-                            context.lock.unlock()
-                        }
+                    val (wasAvailabe, hasMore) = context.ifAavailable { it.doOnePrecalculation() }
+
+                    if (wasAvailabe && hasMore!!) {
+                        return true
                     }
                 }
             }
@@ -233,30 +229,59 @@ class PrologDBServerInterface(
  * Context of a query. Only one thread can work on one
  * query context at a time. The worker threads synchronize
  * using the [lock].
+ *
+ * Query contexts are **NOT THREAD-SAFE!**. Use [ifAavailable]
+ * for interaction.
  */
 private class QueryContext(
     private val solutions: LazySequence<Unification>,
     private val precalculation_limit: Long,
     private val total_limit: Long
 ) {
-    val lock: Lock = ReentrantLock()
+    private val lock: Lock = ReentrantLock()
 
     private val precalculations: Queue<Unification> = ArrayDeque(min(precalculation_limit, 1024L).toInt())
 
     private val hasPrecalculationsOutstanding: Boolean
         get() = precalculations.size.toLong() < precalculation_limit
 
+    private val actionInterface = ActionInterface()
+
     /**
-     * If needed, does one precalculation.
-     * @return whether there are more outstanding.
+     * If currently no other thread is working on this context,
+     * locks the context and executes the action. The return
+     * value and exceptions are forwarded from the action. The lock
+     * is released before this method returns in any case.
+     *
+     * @return first: whether the action was executed, second: the
+     * forwarded return value
      */
-    fun doOnePrecalculation(): Boolean {
-        if (!hasPrecalculationsOutstanding) return false
+    fun <T> ifAavailable(action: (ActionInterface) -> T): Pair<Boolean, T?> {
+        if (lock.tryLock()) {
+            try {
+                return Pair(true, action(actionInterface))
+            }
+            finally {
+                lock.unlock()
+            }
+        } else {
+            return Pair(false, null)
+        }
+    }
 
-        val solution = solutions.tryAdvance()
-        // this wont block or trip because ArrayDeque
-        assert(precalculations.offer(solution), { "Precalculations queue out of capacity. Somethings wrong here!" })
+    inner class ActionInterface internal constructor() {
+        /**
+         * If needed, does one precalculation.
+         * @return whether there are more outstanding.
+         */
+        fun doOnePrecalculation(): Boolean {
+            if (!hasPrecalculationsOutstanding) return false
 
-        return hasPrecalculationsOutstanding
+            val solution = solutions.tryAdvance()
+            // this wont block or trip because ArrayDeque
+            assert(precalculations.offer(solution), { "Precalculations queue out of capacity. Somethings wrong here!" })
+
+            return hasPrecalculationsOutstanding
+        }
     }
 }
