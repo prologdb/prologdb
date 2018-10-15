@@ -11,9 +11,8 @@ import kotlin.concurrent.withLock
 import kotlin.math.min
 
 /**
- * Context of a query. Only one thread can work on one
- * query context at a time. The worker threads synchronize
- * using the [lock].
+ * Context of a query. Has all necessary methods to operate
+ * the query in any way possible.
  *
  * Query contexts are **NOT THREAD-SAFE!**. Use [ifAavailable]
  * for interaction.
@@ -32,26 +31,30 @@ internal class QueryContext(
 
     private val actionInterface = ActionInterface()
 
+    var closed = false
+        private set
+
     /**
-     * If currently no other thread is working on this context,
-     * locks the context and executes the action. The return
-     * value and exceptions are forwarded from the action. The lock
-     * is released before this method returns in any case.
+     * If currently no other thread is working on this context and
+     * the context is not closed, locks the context and executes the
+     * action. The return value and exceptions are forwarded from the
+     * action. The lock is released before this method returns in any case.
      *
      * @return first: whether the action was executed, second: the
      * forwarded return value
      */
     fun <T> ifAavailable(action: (ActionInterface) -> T): Pair<Boolean, T?> {
-        if (lock.tryLock()) {
-            try {
-                return Pair(true, action(actionInterface))
+        if (!closed && lock.tryLock()) {
+            if (!closed) {
+                try {
+                    return Pair(true, action(actionInterface))
+                } finally {
+                    lock.unlock()
+                }
             }
-            finally {
-                lock.unlock()
-            }
-        } else {
-            return Pair(false, null)
         }
+
+        return Pair(false, null)
     }
 
     /**
@@ -60,8 +63,19 @@ internal class QueryContext(
      * value and exceptions are forwarded. The lock is released in any
      * case.
      */
-    fun <T> doWith(action: (ActionInterface) -> T): T = lock.withLock { action(actionInterface) }
+    fun <T> doWith(action: (ActionInterface) -> T): T {
+        if (closed) throw IllegalStateException("Query context already closed.")
 
+        return lock.withLock {
+            if (closed) throw IllegalStateException("Query context already closed!")
+            action(actionInterface)
+        }
+    }
+
+    /**
+     * Interface to interact with the context. Separated from the other code
+     * to 100% enforce thread-safety.
+     */
     inner class ActionInterface internal constructor() {
         /**
          * If needed, does one precalculation.
@@ -94,6 +108,7 @@ internal class QueryContext(
         /**
          * Calculates up to `limit` solutions (up to [Integer.MAX_VALUE]) and
          * adds them to the given collection.
+         * **Important:** this method does not respect the precalculations. Call [drainPrecalculationsTo] first!
          *
          * @param limit Maximum number of solutions to calculate. Must be less than [Integer.MAX_VALUE]
          * @return The number of solutions actually added. Is less than the requested
@@ -139,7 +154,8 @@ internal class QueryContext(
          * Closes the context, releasing any open resources.
          */
         fun close() {
-            TODO()
+            solutions.close()
+            precalculations.clear()
         }
 
         var precalculationLimit: Long
