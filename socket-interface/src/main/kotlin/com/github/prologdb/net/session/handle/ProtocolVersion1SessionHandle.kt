@@ -121,7 +121,7 @@ private fun QuerySolutionConsumption.toIndependent() = ConsumeQuerySolutionsComm
     queryId,
     if (hasAmount()) amount else null,
     closeAfterwards,
-    if (hasUpdatePrecalculateAmount()) updatePrecalculateAmount else null,
+    if (hasUpdatePrecalculateAmount()) (updatePrecalculateAmount.toLong() and 0xFFFFFFFF) else null,
     notifyAboutClose,
     handling.toIndependent()
 )
@@ -169,6 +169,7 @@ private fun com.github.prologdb.net.session.QueryRelatedError.toProtocol() = Que
     .setQueryId(queryId)
     .setKind(kind.toProtocol())
     .setShortMessage(shortMessage)
+    .putAllAdditionalInformation(additionalFields)
     .build()
 
 private fun com.github.prologdb.net.session.QueryRelatedError.Kind.toProtocol() = when(this) {
