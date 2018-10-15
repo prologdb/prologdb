@@ -2,6 +2,7 @@ package com.github.prologdb.net
 
 import com.github.prologdb.net.session.*
 import com.github.prologdb.net.session.handle.SessionHandle
+import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.unification.Unification
 import java.io.IOException
@@ -223,6 +224,7 @@ class PrologDBServerInterface(
 
             // initialize the context
             val queryContext = QueryContext(
+                command.desiredQueryId,
                 command.startUsing(queryHandler),
                 command.initialPrecalculationLimit
             )
@@ -248,50 +250,70 @@ class PrologDBServerInterface(
                 when (command.handling) {
                     ConsumeQuerySolutionsCommand.SolutionHandling.DISCARD -> {}
                     ConsumeQuerySolutionsCommand.SolutionHandling.RETURN -> {
-                        TODO("queue solutions for communication back to the client")
+                        solutions.forEach {
+                            handle.sendMessage(QuerySolutionMessage(command.queryId, it))
+                        }
                     }
                 }
             }
 
             // TODO: handle large amounts in smaller batches to distribute the load
             context.doWith {
-                val precalculatedSolutions = ArrayList<Unification>(command.amount ?: 10)
-                it.drainPrecalculationsTo(precalculatedSolutions)
+                var closedForDepletion = false
+                if (command.amount != 0) {
+                    val precalculatedSolutions = ArrayList<Unification>(command.amount ?: 10)
+                    it.drainPrecalculationsTo(precalculatedSolutions, command.amount?: Integer.MAX_VALUE)
 
-                handleResults(precalculatedSolutions)
+                    handleResults(precalculatedSolutions)
 
-                if (command.amount == null) {
-                    val batchsize = 100
-                    do {
-                        val solutions = ArrayList<Unification>(batchsize)
-                        val nCalculated = it.calculateSolutionsInto(solutions, batchsize)
-                        handleResults(solutions)
+                    if (command.amount == null) {
+                        val batchsize = 100
+                        do {
+                            val solutions = ArrayList<Unification>(batchsize)
+                            val nCalculated = it.calculateSolutionsInto(solutions, batchsize)
+                            handleResults(solutions)
+                        }
+                        while (nCalculated == batchsize)
+                        closedForDepletion = true
+                        it.close()
+                        handle.sendMessage(QueryClosedMessage(command.queryId, QueryClosedMessage.CloseReason.SOLUTIONS_DEPLETED))
                     }
-                    while (nCalculated == batchsize)
-                }
-                else
-                {
-                    val nToCalculate = command.amount - precalculatedSolutions.size
-                    val solutions = ArrayList<Unification>(command.amount)
-                    it.calculateSolutionsInto(solutions, nToCalculate)
-                    handleResults(solutions)
+                    else
+                    {
+                        val nToCalculate = command.amount - precalculatedSolutions.size
+                        val solutions = ArrayList<Unification>(command.amount)
+                        val nCalculated = it.calculateSolutionsInto(solutions, nToCalculate)
+                        handleResults(solutions)
+
+                        if (nCalculated < nToCalculate) {
+                            closedForDepletion = true
+                            handle.sendMessage(QueryClosedMessage(command.queryId, QueryClosedMessage.CloseReason.SOLUTIONS_DEPLETED))
+                        }
+                    }
                 }
 
                 if (command.precalculateLimitUpdate != null) {
                     it.precalculationLimit = command.precalculateLimitUpdate
                 }
 
-                if (command.closeAfterwards) {
+                if (command.closeAfterwards && !closedForDepletion) {
                     it.close()
                     if (command.notifyAboutClose) {
-                        TODO("queue notification for communication")
+                        handle.sendMessage(QueryClosedMessage(command.queryId, QueryClosedMessage.CloseReason.ABORTED_ON_USER_REQUEST))
                     }
                 }
             }
         }
 
         private fun handleClientError(error: GeneralError, handle: SessionHandle) {
-            TODO()
+            // TODO: log
+            val contexts = queryContexts.remove(handle)
+            if (contexts != null) {
+                contexts.values.forEach {
+                    it.doWith { it.close() }
+                }
+            }
+            handle.closeSession()
         }
 
         private fun InitializeQueryCommand.startUsing(handler: QueryHandler): LazySequence<Unification> {
@@ -304,8 +326,10 @@ class PrologDBServerInterface(
         fun close() {
             closed = true
             if (this::thread.isInitialized) {
-                this.thread.interrupt()
-                this.thread.join()
+                if (this.thread != Thread.currentThread()) {
+                    this.thread.interrupt()
+                    this.thread.join()
+                }
             }
         }
     }
@@ -320,6 +344,7 @@ class PrologDBServerInterface(
  * for interaction.
  */
 private class QueryContext(
+    private val queryId: Int,
     private val solutions: LazySequence<Unification>,
     private var precalculationLimit: Long
 ) {
@@ -406,7 +431,29 @@ private class QueryContext(
 
             var added = 0
             while (added < limit) {
-                target.add(solutions.tryAdvance() ?: break)
+                val solution = try {
+                    solutions.tryAdvance()
+                }
+                catch (ex: PrologRuntimeException) {
+                    throw QueryRelatedException(
+                        QueryRelatedError(
+                            queryId,
+                            QueryRelatedError.Kind.ERROR_GENERIC,
+                            ex.message,
+                            mapOf("prologStackTrace" to ex.prettyPrint())
+                        )
+                    )
+                }
+                catch (ex: Throwable) {
+                    throw NetworkProtocolException(
+                        "Internal server error",
+                        ex
+                    )
+                }
+
+                if (solution == null) break
+
+                target.add(solution)
                 added++
             }
 
@@ -427,4 +474,34 @@ private class QueryContext(
                 this@QueryContext.precalculationLimit = value
             }
     }
+}
+
+private fun PrologRuntimeException.prettyPrint(): String {
+    val b = StringBuilder()
+    prettyPrint(b)
+    return b.toString()
+}
+private fun PrologRuntimeException.prettyPrint(toBuilder: StringBuilder) {
+    toBuilder.append("M: ")
+    toBuilder.append(message ?: "null")
+    toBuilder.append("\n")
+    for (sf in prologStackTrace) {
+        toBuilder.append("\t")
+        toBuilder.append(sf.toString())
+        toBuilder.append("\n")
+    }
+
+    val _cause = cause
+    if (_cause != null && _cause is PrologRuntimeException) {
+        toBuilder.append("caused by: ")
+        _cause.prettyPrint(toBuilder)
+    }
+
+    (suppressed
+        .asSequence()
+        .filter { it is PrologRuntimeException } as Sequence<PrologRuntimeException>)
+        .forEach {
+            toBuilder.append("suppressed: ")
+            it.prettyPrint(toBuilder)
+        }
 }
