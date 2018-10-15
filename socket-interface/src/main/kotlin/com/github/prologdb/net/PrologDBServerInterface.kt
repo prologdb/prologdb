@@ -13,6 +13,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Supplier
+import kotlin.concurrent.withLock
 import kotlin.math.min
 
 /**
@@ -204,15 +205,100 @@ class PrologDBServerInterface(
         }
 
         private fun initializeQuery(command: InitializeQueryCommand, handle: SessionHandle) {
-            TODO()
+            fun refuseForDuplicateID() {
+                throw QueryRelatedException(
+                    QueryRelatedError(
+                        command.desiredQueryId,
+                        QueryRelatedError.Kind.QUERY_ID_ALREADY_IN_USE,
+                        "QueryID ${command.desiredQueryId.unsingedIntHexString()} is currently in use",
+                        mapOf("queryId" to command.desiredQueryId.unsingedIntHexString())
+                    )
+                )
+            }
+
+            val contexts = queryContexts.computeIfAbsent(handle) { ConcurrentHashMap() }
+            if (command.desiredQueryId in contexts.keys) {
+                refuseForDuplicateID()
+            }
+
+            // initialize the context
+            val queryContext = QueryContext(
+                command.startUsing(queryHandler),
+                command.initialPrecalculationLimit
+            )
+
+            // catch the race condition
+            val queryIdPresent = contexts.putIfAbsent(command.desiredQueryId, queryContext) != null
+            if (queryIdPresent) {
+                refuseForDuplicateID()
+            }
         }
 
         private fun consumeQuerySolutions(command: ConsumeQuerySolutionsCommand, handle: SessionHandle) {
-            TODO()
+            val contexts = queryContexts.computeIfAbsent(handle) { ConcurrentHashMap() }
+            val context = contexts[command.queryId] ?: throw QueryRelatedException(
+                QueryRelatedError(
+                    command.queryId,
+                    QueryRelatedError.Kind.QUERY_ID_NOT_IN_USE,
+                    "Cannot consume solutions of query ${command.queryId.unsingedIntHexString()}: not initialized"
+                )
+            )
+
+            fun handleResults(solutions: Collection<Unification>) {
+                when (command.handling) {
+                    ConsumeQuerySolutionsCommand.SolutionHandling.DISCARD -> {}
+                    ConsumeQuerySolutionsCommand.SolutionHandling.RETURN -> {
+                        TODO("queue solutions for communication back to the client")
+                    }
+                }
+            }
+
+            // TODO: handle large amounts in smaller batches to distribute the load
+            context.doWith {
+                val precalculatedSolutions = ArrayList<Unification>(command.amount ?: 10)
+                it.drainPrecalculationsTo(precalculatedSolutions)
+
+                handleResults(precalculatedSolutions)
+
+                if (command.amount == null) {
+                    val batchsize = 100
+                    do {
+                        val solutions = ArrayList<Unification>(batchsize)
+                        val nCalculated = it.calculateSolutionsInto(solutions, batchsize)
+                        handleResults(solutions)
+                    }
+                    while (nCalculated == batchsize)
+                }
+                else
+                {
+                    val nToCalculate = command.amount - precalculatedSolutions.size
+                    val solutions = ArrayList<Unification>(command.amount)
+                    it.calculateSolutionsInto(solutions, nToCalculate)
+                    handleResults(solutions)
+                }
+
+                if (command.precalculateLimitUpdate != null) {
+                    it.precalculationLimit = command.precalculateLimitUpdate
+                }
+
+                if (command.closeAfterwards) {
+                    it.close()
+                    if (command.notifyAboutClose) {
+                        TODO("queue notification for communication")
+                    }
+                }
+            }
         }
 
         private fun handleClientError(error: GeneralError, handle: SessionHandle) {
             TODO()
+        }
+
+        private fun InitializeQueryCommand.startUsing(handler: QueryHandler): LazySequence<Unification> {
+            return when (kind) {
+                InitializeQueryCommand.Kind.QUERY     -> handler.startQuery(instruction, totalLimit)
+                InitializeQueryCommand.Kind.DIRECTIVE -> handler.startDirective(instruction, totalLimit)
+            }
         }
 
         fun close() {
@@ -235,15 +321,14 @@ class PrologDBServerInterface(
  */
 private class QueryContext(
     private val solutions: LazySequence<Unification>,
-    private val precalculation_limit: Long,
-    private val total_limit: Long
+    private var precalculationLimit: Long
 ) {
     private val lock: Lock = ReentrantLock()
 
-    private val precalculations: Queue<Unification> = ArrayDeque(min(precalculation_limit, 1024L).toInt())
+    private val precalculations: Queue<Unification> = ArrayDeque(min(precalculationLimit, 1024L).toInt())
 
     private val hasPrecalculationsOutstanding: Boolean
-        get() = precalculations.size.toLong() < precalculation_limit
+        get() = precalculations.size.toLong() < precalculationLimit
 
     private val actionInterface = ActionInterface()
 
@@ -269,6 +354,14 @@ private class QueryContext(
         }
     }
 
+    /**
+     * Locks the context, possibly waiting interruptibly for the lock
+     * to become available. Once acquired runs the given action. Return
+     * value and exceptions are forwarded. The lock is released in any
+     * case.
+     */
+    fun <T> doWith(action: (ActionInterface) -> T): T = lock.withLock { action(actionInterface) }
+
     inner class ActionInterface internal constructor() {
         /**
          * If needed, does one precalculation.
@@ -283,5 +376,55 @@ private class QueryContext(
 
             return hasPrecalculationsOutstanding
         }
+
+        /**
+         * [MutableCollection.add]s up to `limit` precalculated solutions to `target`.
+         *
+         * @return the actual number of solutions added.
+         */
+        fun drainPrecalculationsTo(target: MutableCollection<in Unification>, limit: Int = Integer.MAX_VALUE): Int {
+            val nToDrain = min(limit, precalculations.size)
+            for (i in 1..nToDrain) {
+                target.add(precalculations.poll() ?: throw RuntimeException("Queue must not be empty, race condition?"))
+            }
+
+            return nToDrain
+        }
+
+        /**
+         * Calculates up to `limit` solutions (up to [Integer.MAX_VALUE]) and
+         * adds them to the given collection.
+         *
+         * @param limit Maximum number of solutions to calculate. Must be less than [Integer.MAX_VALUE]
+         * @return The number of solutions actually added. Is less than the requested
+         *         limit if the solutions are depleted.
+         */
+        fun calculateSolutionsInto(target: MutableCollection<in Unification>, limit: Int): Int {
+            if (limit >= Integer.MAX_VALUE) {
+                throw IllegalArgumentException("Limit must be less than ${Integer.MAX_VALUE}")
+            }
+
+            var added = 0
+            while (added < limit) {
+                target.add(solutions.tryAdvance() ?: break)
+                added++
+            }
+
+            return added
+        }
+
+        /**
+         * Closes the context, releasing any open resources.
+         */
+        fun close() {
+            TODO()
+        }
+
+        var precalculationLimit: Long
+            get() = this@QueryContext.precalculationLimit
+            set(value) {
+                if (value < 0) throw IllegalArgumentException("Cannot set negative precalculation limiu")
+                this@QueryContext.precalculationLimit = value
+            }
     }
 }
