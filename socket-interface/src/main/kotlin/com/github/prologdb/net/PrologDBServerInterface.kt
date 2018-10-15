@@ -1,16 +1,19 @@
 package com.github.prologdb.net
 
-import com.github.prologdb.net.session.ProtocolMessage
-import com.github.prologdb.net.session.QueryHandler
-import com.github.prologdb.net.session.SessionInitializer
+import com.github.prologdb.net.session.*
 import com.github.prologdb.net.session.handle.SessionHandle
+import com.github.prologdb.runtime.lazysequence.LazySequence
+import com.github.prologdb.runtime.unification.Unification
 import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Supplier
+import kotlin.math.min
 
 /**
  * Opens a new interface on the given [ServerSocket]
@@ -62,7 +65,7 @@ class PrologDBServerInterface(
             }
 
             for (i in 1..nWorkerThreads) {
-                val worker = Worker(tasks, queryHandlerSupplier.get())
+                val worker = Worker(queryHandlerSupplier.get())
                 val thread = Thread(worker, "prologdb-${serverSocket.localSocketAddress}-worker-$i")
                 workers.add(Pair(worker, thread))
             }
@@ -122,7 +125,7 @@ class PrologDBServerInterface(
             }
             catch (ex: IOException) {
                 System.err.println(ex)
-                // TODO: handle gracefully, e.g. socket closes
+                // TODO: handle gracefully, probably involves heartbeating and/or an explicit close message
             }
         }
     }
@@ -132,8 +135,9 @@ class PrologDBServerInterface(
         val message: ProtocolMessage
     )
 
-    private class Worker(
-        private val taskSource: LinkedBlockingQueue<Task>,
+    private val queryContexts: MutableMap<SessionHandle, MutableMap<Int, QueryContext>> = ConcurrentHashMap()
+
+    private inner class Worker(
         private val queryHandler: QueryHandler
     ) : Runnable {
 
@@ -144,15 +148,75 @@ class PrologDBServerInterface(
             thread = Thread.currentThread()
 
             while (!closed) {
-                try {
-                    val task = taskSource.take()
+                /*
+                 * Admittedly, this code is cryptic. So here is how it works:
+                 * as long as there are no tasks available (using tasks.poll),
+                 * it does precalculations (one at a time before checking again).
+                 * If all precalculations are done it will wait for and then execute
+                 * the next task (ending the loop and waiting using tasks.take).
+                 */
+                do {
+                    // look for new tasks
+                    val hasPrecalculationsTodo = doOnePrecalculation()
+                    val hasTask = tasks.peek() != null
                 }
-                catch (ex: InterruptedException) {
-                    continue
-                }
+                while (!hasTask && hasPrecalculationsTodo)
 
-                TODO("do the task")
+                // precalculations done, do a task (possibly waiting for it)
+                doTask(tasks.take())
             }
+        }
+
+        private fun doTask(task: Task) {
+            when (task.message) {
+                is InitializeQueryCommand -> initializeQuery(task.message, task.handle)
+                is ConsumeQuerySolutionsCommand -> consumeQuerySolutions(task.message, task.handle)
+                is GeneralError -> handleClientError(task.message, task.handle)
+                else -> throw IllegalArgumentException("Tasks with message of type ${task.message.javaClass.name} not supported")
+            }
+        }
+
+        /**
+         * @return Whether there are more precalculations outstanding that can
+         *         be started right away. Even when false is returned, some
+         *         might be outstanding. But in order not to wait for a shared lock,
+         *         it will be assumed that locked context do not have any outstanding
+         *         precalculations.
+         */
+        private fun doOnePrecalculation(): Boolean {
+            for (contexts in queryContexts.values) {
+                for (context in contexts.values) {
+                    if (context.lock.tryLock()) {
+                        try {
+                            val hasMore = context.doOnePrecalculation()
+                            if (hasMore) return true
+                        }
+                        finally {
+                            context.lock.unlock()
+                        }
+                    }
+                }
+            }
+
+            return false
+            // there might actually be more, but these are currently
+            // locked by other threads. returning false makes the
+            // worker continue waiting for user-specified tasks. This
+            // behaviour thus puts user tasks at a higher priority than
+            // precalculations, so, while not technically correct, this
+            // return is desireable in its current form.
+        }
+
+        private fun initializeQuery(command: InitializeQueryCommand, handle: SessionHandle) {
+            TODO()
+        }
+
+        private fun consumeQuerySolutions(command: ConsumeQuerySolutionsCommand, handle: SessionHandle) {
+            TODO()
+        }
+
+        private fun handleClientError(error: GeneralError, handle: SessionHandle) {
+            TODO()
         }
 
         fun close() {
@@ -162,5 +226,37 @@ class PrologDBServerInterface(
                 this.thread.join()
             }
         }
+    }
+}
+
+/**
+ * Context of a query. Only one thread can work on one
+ * query context at a time. The worker threads synchronize
+ * using the [lock].
+ */
+private class QueryContext(
+    private val solutions: LazySequence<Unification>,
+    private val precalculation_limit: Long,
+    private val total_limit: Long
+) {
+    val lock: Lock = ReentrantLock()
+
+    private val precalculations: Queue<Unification> = ArrayDeque(min(precalculation_limit, 1024L).toInt())
+
+    private val hasPrecalculationsOutstanding: Boolean
+        get() = precalculations.size.toLong() < precalculation_limit
+
+    /**
+     * If needed, does one precalculation.
+     * @return whether there are more outstanding.
+     */
+    fun doOnePrecalculation(): Boolean {
+        if (!hasPrecalculationsOutstanding) return false
+
+        val solution = solutions.tryAdvance()
+        // this wont block or trip because ArrayDeque
+        assert(precalculations.offer(solution), { "Precalculations queue out of capacity. Somethings wrong here!" })
+
+        return hasPrecalculationsOutstanding
     }
 }
