@@ -181,7 +181,7 @@ class PrologDBServerInterface(
         private fun doOnePrecalculation(): Boolean {
             for (contexts in queryContexts.values) {
                 for (context in contexts.values) {
-                    val (wasAvailabe, hasMore) = context.ifAavailable { it.doOnePrecalculation() }
+                    val (wasAvailabe, hasMore) = context.ifAvailable { it.doOnePrecalculation() }
 
                     if (wasAvailabe && hasMore!!) {
                         return true

@@ -14,7 +14,7 @@ import kotlin.math.min
  * Context of a query. Has all necessary methods to operate
  * the query in any way possible.
  *
- * Query contexts are **NOT THREAD-SAFE!**. Use [ifAavailable]
+ * Query contexts are **NOT THREAD-SAFE!**. Use [ifAvailable]
  * for interaction.
  */
 internal class QueryContext(
@@ -43,7 +43,7 @@ internal class QueryContext(
      * @return first: whether the action was executed, second: the
      * forwarded return value
      */
-    fun <T> ifAavailable(action: (ActionInterface) -> T): Pair<Boolean, T?> {
+    fun <T> ifAvailable(action: (ActionInterface) -> T): Pair<Boolean, T?> {
         if (!closed && lock.tryLock()) {
             if (!closed) {
                 try {
