@@ -54,6 +54,11 @@
             </dependency>
             <dependency>
                 <groupId>com.github.prologdb</groupId>
+                <artifactId>runtime-async</artifactId>
+                <version>${prolog.runtime.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.prologdb</groupId>
                 <artifactId>runtime-core</artifactId>
                 <version>${prolog.runtime.version}</version>
             </dependency>
