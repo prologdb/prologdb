@@ -1,11 +1,12 @@
-package com.github.prologdb.util.concurrency
+package com.github.prologdb.util.concurrency.locks
 
+import com.github.prologdb.async.Principal
 import java.io.Closeable
 import java.util.*
-import java.util.concurrent.*
-import java.util.concurrent.locks.Condition
-import java.util.concurrent.locks.Lock
-import java.util.concurrent.locks.ReadWriteLock
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Future
+import java.util.concurrent.LinkedBlockingDeque
 
 /**
  * For some contiguous thing where single units can be represented by offsets of type [Long]
@@ -24,9 +25,9 @@ import java.util.concurrent.locks.ReadWriteLock
  *
  * This class is named RegionReadWriteLockManager for lack of a better name.
  */
-internal class RegionReadWriteLockManager(val name: String? = null) : AutoCloseable, Closeable {
+class RegionReadWriteLockManager(val name: String? = null) : AutoCloseable, Closeable {
     /**
-     * For every invocation of [Lock.lock], a request is put onto this queue for
+     * For every invocation of [LockHandle.acquire], a request is put onto this queue for
      * the [lockGrantThread] to pick it up and grant the lock
      *
      * When the manager is closed it is the responsibility of the manager (as opposed to the [lockGrantThread])
@@ -35,7 +36,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     private val lockRequestQueue: LinkedBlockingDeque<LockRequest> = LinkedBlockingDeque()
 
     /**
-     * For every invocation of [Lock.unlock], the region to be unlocked is put onto this
+     * For every invocation of [LockHandle.release], the region to be unlocked is put onto this
      * queue for the [lockGrantThread] to pick it up and free the lock.
      *
      * When the manager is closed it is the responsibility of the manager (as opposed to the [lockGrantThread])
@@ -44,7 +45,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     private val unlockRequestQueue: BlockingQueue<UnlockRequest> = LinkedBlockingDeque()
 
     /** Caches return values of [get] per thread */
-    private val readWriteLockCache: MutableMap<LongRange, ReadWriteLock> = WeakHashMap()
+    private val readWriteLockCache: MutableMap<LongRange, RegionLockHandle> = WeakHashMap()
 
     /** Set to non-null when this manager is closed. Locks cannot be acquired after that */
     private var closeMode: CloseMode? = null
@@ -73,7 +74,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     /**
      * @throws ClosedException If this manager has been closed, see [close]
      */
-    operator fun get(region: LongRange): ReadWriteLock {
+    operator fun get(region: LongRange): AsyncReadWriteLock {
         if (region.first > region.last) throw IllegalArgumentException("The given region must be ascending")
         if (region.isEmpty()) throw IllegalArgumentException("Given region is empty, cannot be locked.")
 
@@ -83,7 +84,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         if (cached != null) return cached
 
         synchronized(readWriteLockCache) {
-            val lock = ReadWriteLockHandle(region)
+            val lock = RegionLockHandle(region)
             readWriteLockCache[region] = lock
             return lock
         }
@@ -92,7 +93,7 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
     /**
      * See `get(LongRange)`
      */
-    operator fun get(region: IntRange): ReadWriteLock = get(LongRange(region.start.toLong(), region.last.toLong()))
+    operator fun get(region: IntRange): AsyncReadWriteLock = get(LongRange(region.start.toLong(), region.last.toLong()))
 
     /**
      * Closes this manager, with the following effects:
@@ -144,14 +145,14 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
          *
          * Sorted by the starting position of the region. This makes finding overlaps faster.
          */
-        private val activeReadLocks = TreeSet<Pair<Thread, LongRange>>(compareBy { it.second.first })
+        private val activeReadLocks = TreeSet<Pair<Principal, LongRange>>(compareBy { it.second.first })
 
         /**
          * All active write locks
          *
          * Sorted by the starting position of the region. This makes finding overlaps faster.
          */
-        private val activeWriteLocks = TreeSet<Pair<Thread, LongRange>>(compareBy { it.second.first })
+        private val activeWriteLocks = TreeSet<Pair<Principal, LongRange>>(compareBy { it.second.first })
 
         override fun run() {
             try {
@@ -261,115 +262,25 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         }
     }
 
-    private inner class ReadWriteLockHandle(region: LongRange) : ReadWriteLock {
-        private val readHandle = LockHandle(region, LockMode.READ)
-        private val writeHandle = LockHandle(region, LockMode.READ_WRITE)
-
-        override fun writeLock(): Lock = writeHandle
-        override fun readLock(): Lock = readHandle
+    private inner class RegionLockHandle(region: LongRange): AsyncReadWriteLock {
+        override val readLock: AsyncLock = LockHandle(region, LockMode.READ)
+        override val writeLock: AsyncLock = LockHandle(region, LockMode.READ_WRITE)
     }
 
-    private inner class LockHandle(val region: LongRange, val mode: LockMode) : Lock {
-        override fun lock() {
+    private inner class LockHandle(val region: LongRange, val mode: LockMode): AsyncLock {
+        override fun acquireFor(principal: Principal): Future<Unit> {
             if (closeMode != null) throw ClosedException("The manager has already been closed - cannot acquire lock")
 
-            lock(false)
-        }
-
-        @Synchronized override fun tryLock(): Boolean {
-            if (closeMode != null) return false
-
-            // granting is done by another thread; even though the region might be free currently,
-            // we cannot just start messing about with the granter threads data here. Checking whether
-            // the lock is free might also take some time and when we then start to acquire the lock,
-            // it might be blocked. This is a trade-off.
-            return tryLock(5, TimeUnit.MILLISECONDS)
-        }
-
-        @Synchronized override fun tryLock(time: Long, unit: TimeUnit?): Boolean {
-            if (closeMode != null) return false
-
-            if (Thread.interrupted()) throw InterruptedException()
-
-            return lock(true, time, unit!!)
-        }
-
-        override fun unlock() {
-            if (closeMode != null) throw ClosedException("The manager has already been closed - cannot acquire lock")
-
-            unlockRequestQueue.put(UnlockRequest(region, mode, Thread.currentThread()))
-            lockGrantThread.interrupt()
-        }
-
-        @Synchronized override fun lockInterruptibly() {
-            if (closeMode != null) throw ClosedException("The manager has already been closed - cannot acquire lock")
-
-            if (Thread.interrupted()) throw InterruptedException()
-
-            lock(true)
-        }
-
-        override fun newCondition(): Condition {
-            throw NotImplementedError("Conditions are not implemented on RegionReadWriteLockManager Locks, sorry.")
-        }
-
-        /**
-         * Acquires the lock.
-         * @param canBeInterrupted Whether [InterruptedException]s should be propagated; if false, are caught and waiting is resumed
-         * @param timeoutAmount Amount of the timeout. 0 means infinite.
-         * @param timeoutUnit Unit of [timeoutAmount]
-         */
-        private fun lock(canBeInterrupted: Boolean, timeoutAmount: Long = 0, timeoutUnit: TimeUnit = TimeUnit.MILLISECONDS): Boolean {
             val granted = CompletableFuture<Unit>()
-            lockRequestQueue.put(LockRequest(region, mode, Thread.currentThread(), granted))
+            lockRequestQueue.put(LockRequest(region, mode, principal, granted))
 
-            // completable future join() cannot be interrupted
-            try {
-                if (canBeInterrupted) {
-                    if (timeoutAmount == 0L) {
-                        granted.get()
-                    } else {
-                        // throws timeout exception when the timeout is reached
-                        granted.get(timeoutAmount, timeoutUnit)
-                    }
+            return granted
+        }
 
-                    return true
-                }
-                else {
-                    if (timeoutAmount == 0L) {
-                        // join cannot be interrupted
-                        granted.join()
-                        return true
-                    } else {
-                        val timeoutInNanos = timeoutUnit.toNanos(timeoutAmount)
-                        var totalWaitedTimeNanos = 0L
-                        while (true) {
-                            val waitStartedAt = System.nanoTime()
-
-                            try {
-                                // throws timeout exception when the timeout is reached
-                                // interrupted exception when interrupted
-                                granted.get(timeoutAmount, timeoutUnit)
-                                // success!
-                                return true
-                            }
-                            catch (ex: InterruptedException) {
-                                val interruptedAt = System.nanoTime()
-                                totalWaitedTimeNanos += interruptedAt - waitStartedAt
-                                if (totalWaitedTimeNanos >= timeoutInNanos) {
-                                    // the timeout has been reached
-                                    throw TimeoutException()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            catch (ex: CompletionException) {
-                throw ex.cause ?: ex
-            }
-            catch (ex: TimeoutException) {
-                return false
+        override fun releaseFor(principal: Principal) {
+            if (closeMode == null) {
+                unlockRequestQueue.put(UnlockRequest(region, mode, principal))
+                lockGrantThread.interrupt()
             }
         }
     }
@@ -378,8 +289,8 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         /** The region to lock */
         val region: LongRange,
         val mode: LockMode,
-        /** The thread requesting the lock */
-        val thread: Thread,
+        /** The principal requesting the lock */
+        val thread: Principal,
         /** When the lock is granted, this future is to be completed */
         val onGrantComplete: CompletableFuture<Unit>
     )
@@ -388,8 +299,8 @@ internal class RegionReadWriteLockManager(val name: String? = null) : AutoClosea
         /** The region to free; must match one that was requested using a [LockRequest] */
         val region: LongRange,
         val mode: LockMode,
-        /** The thread releasing the lock */
-        val thread: Thread
+        /** The principal releasing the lock */
+        val thread: Principal
     )
 
     private enum class LockMode {

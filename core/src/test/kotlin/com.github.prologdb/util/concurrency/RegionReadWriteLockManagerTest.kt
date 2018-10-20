@@ -1,154 +1,80 @@
 package com.github.prologdb.util.concurrency
 
-import io.kotlintest.matchers.shouldBe
+import com.github.prologdb.util.concurrency.locks.RegionReadWriteLockManager
+import io.kotlintest.matchers.shouldThrow
 import io.kotlintest.specs.FreeSpec
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 class RegionReadWriteLockManagerTest : FreeSpec() { init {
     "multiple read locks on non-overlapping regions" {
         RegionReadWriteLockManager().use { manager ->
-            val tA = testingThread {
-                manager[0..10].readLock().lock()
-            }
-            tA.join()
-            tA.propagateUncaughtExceptionIfPresent()
-
-            var success = false
-            val tB = testingThread {
-                success = manager[20..30].readLock().tryLock(100, TimeUnit.MILLISECONDS)
-            }
-            tB.join()
-            tB.propagateUncaughtExceptionIfPresent()
-
-            success shouldBe true
+            manager[0 ..10].readLock.acquireFor("A").get(50, TimeUnit.MILLISECONDS)
+            manager[20..30].readLock.acquireFor("B").get(50, TimeUnit.MILLISECONDS)
         }
     }
 
     "read and write locks on non-overlapping regions" {
-        val manager = RegionReadWriteLockManager().use { manager ->
-            val tA = testingThread {
-                manager[0..10].readLock().lock()
-            }
-            tA.join()
-            tA.propagateUncaughtExceptionIfPresent()
-
-            var success = false
-            val tB = testingThread {
-                success = manager[20..30].writeLock().tryLock(100, TimeUnit.MILLISECONDS)
-            }
-            tB.join()
-            tB.propagateUncaughtExceptionIfPresent()
-
-            success shouldBe true
+        RegionReadWriteLockManager().use { manager ->
+            manager[0 ..10].readLock.acquireFor("A").get(50, TimeUnit.MILLISECONDS)
+            manager[20..30].writeLock.acquireFor("B").get(50, TimeUnit.MILLISECONDS)
         }
     }
 
     "read and write lock on overlapping regions" {
         RegionReadWriteLockManager().use { manager ->
-            val tAStep1Completed = CompletableFuture<Unit>()
-            val tBStep2Completed = CompletableFuture<Unit>()
-            val tAStep3Completed = CompletableFuture<Unit>()
-
-            val tA = testingThread {
-                manager[0..10].readLock().lock()
-                tAStep1Completed.complete(Unit)
-
-                tBStep2Completed.join()
-                manager[0..10].readLock().unlock()
-                tAStep3Completed.complete(Unit)
+            manager[0 .. 10].readLock.acquireFor("A").get(50, TimeUnit.MILLISECONDS)
+            val writeLockAcquired = manager[5 .. 15].writeLock.acquireFor("B")
+            shouldThrow<TimeoutException> {
+                writeLockAcquired.get(50, TimeUnit.MILLISECONDS)
             }
 
-            val tB = testingThread {
-                tAStep1Completed.join()
-                var success = manager[5..15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
-                success shouldBe false
-                tBStep2Completed.complete(Unit)
-
-                tAStep3Completed.join()
-                success = manager[5..15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
-                success shouldBe true
-            }
-
-            tA.join()
-            tA.propagateUncaughtExceptionIfPresent()
-            tB.join()
-            tB.propagateUncaughtExceptionIfPresent()
+            manager[0 .. 10].readLock.releaseFor("A")
+            writeLockAcquired.get(50, TimeUnit.MILLISECONDS)
         }
     }
 
     "write locks on overlapping regions" {
         RegionReadWriteLockManager().use { manager ->
-            val tAStep1Completed = CompletableFuture<Unit>()
-            val tBStep2Completed = CompletableFuture<Unit>()
-            val tAStep3Completed = CompletableFuture<Unit>()
-
-            val tA = testingThread {
-                manager[0..10].writeLock().lock()
-                tAStep1Completed.complete(Unit)
-
-                tBStep2Completed.join()
-                manager[0..10].writeLock().unlock()
-                tAStep3Completed.complete(Unit)
+            manager[0 .. 10].writeLock.acquireFor("A").get(50, TimeUnit.MILLISECONDS)
+            val writeLockAcquired = manager[5 .. 15].writeLock.acquireFor("B")
+            shouldThrow<TimeoutException> {
+                writeLockAcquired.get(50, TimeUnit.MILLISECONDS)
             }
 
-            val tB = testingThread {
-                tAStep1Completed.join()
-                var success = manager[5..15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
-                success shouldBe false
-                tBStep2Completed.complete(Unit)
-
-                tAStep3Completed.join()
-                success = manager[5..15].writeLock().tryLock(20, TimeUnit.MILLISECONDS)
-                success shouldBe true
-            }
-
-            tA.join()
-            tA.propagateUncaughtExceptionIfPresent()
-            tB.join()
-            tB.propagateUncaughtExceptionIfPresent()
+            manager[0 .. 10].writeLock.releaseFor("A")
+            writeLockAcquired.get(50, TimeUnit.MILLISECONDS)
         }
     }
 
     "same thread can acquire overlapping write locks" {
         RegionReadWriteLockManager().use { manager ->
-            manager[0 .. 10].writeLock().tryLock() shouldBe true
-            manager[5 .. 15].writeLock().tryLock() shouldBe true
+            manager[0 .. 10].writeLock.acquireFor(Thread.currentThread()).get(20, TimeUnit.MILLISECONDS)
+            manager[5 .. 15].writeLock.acquireFor(Thread.currentThread()).get(20, TimeUnit.MILLISECONDS)
         }
     }
 
     "calling lock twice and unlock once on the same region frees the region" {
         RegionReadWriteLockManager().use { manager ->
-            manager[0 .. 10].writeLock().tryLock() shouldBe true
-            manager[0 .. 10].writeLock().tryLock() shouldBe true
+            manager[0 .. 10].writeLock.acquireFor(Thread.currentThread()).get()
+            manager[0 .. 10].writeLock.acquireFor(Thread.currentThread()).get()
 
-            manager[0 .. 10].writeLock().unlock()
+            manager[0 .. 10].writeLock.releaseFor(Thread.currentThread())
 
-            var success = false
-            val tA = testingThread {
-                success = manager[5..15].writeLock().tryLock()
-            }
-            tA.join()
-            tA.propagateUncaughtExceptionIfPresent()
-
-            success shouldBe true
+            manager[5 .. 15].writeLock.acquireFor("other principal").get(20, TimeUnit.MILLISECONDS)
         }
     }
 
     "releasing a write lock on the same region as a read lock does not release the read lock" {
         RegionReadWriteLockManager().use { manager ->
-            manager[0 .. 10].readLock().lock()
-            manager[0 .. 10].writeLock().lock()
+            manager[0 .. 10].readLock.acquireFor("principal")
+            manager[0 .. 10].writeLock.acquireFor("principal")
 
-            manager[0 .. 10].writeLock().unlock()
+            manager[0 .. 10].writeLock.releaseFor("principal")
 
-            var success = false
-            val tA = testingThread {
-                success = manager[5..10].writeLock().tryLock()
+            shouldThrow<TimeoutException> {
+                manager[5..10].writeLock.acquireFor("other principal").get(200, TimeUnit.MILLISECONDS)
             }
-            tA.join()
-            tA.propagateUncaughtExceptionIfPresent()
-            success shouldBe false
         }
     }
 }}
