@@ -7,6 +7,7 @@ dist: trusty
 cache:
   directories:
   - $HOME/protobuf-3.6.1
+  - $HOME/.m2/repository
 
 env:
   - PATH=$PATH:$HOME/protobuf-3.6.1/bin
@@ -16,4 +17,4 @@ install:
   - mvn dependency:go-offline
 
 script:
-  - mvn clean install -Dgpg.skip=true -am
+  - mvn -U clean install -Dgpg.skip=true -am
