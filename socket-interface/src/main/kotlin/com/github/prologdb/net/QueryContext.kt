@@ -1,8 +1,8 @@
 package com.github.prologdb.net
 
+import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.QueryRelatedError
 import com.github.prologdb.runtime.PrologRuntimeException
-import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.unification.Unification
 import java.util.*
 import java.util.concurrent.locks.Lock
@@ -78,15 +78,16 @@ internal class QueryContext(
      */
     inner class ActionInterface internal constructor() {
         /**
-         * If needed, does one precalculation.
-         * @return whether there are more outstanding.
+         * If possible, performs a [LazySequence.step] as a pre-calculation.
          */
-        fun doOnePrecalculation(): Boolean {
+        fun doOnePrecalculationStep(): Boolean {
             if (!hasPrecalculationsOutstanding) return false
 
-            val solution = solutions.tryAdvance()
+            val state = solutions.step()
             // this wont block or trip because ArrayDeque
-            assert(precalculations.offer(solution), { "Precalculations queue out of capacity. Somethings wrong here!" })
+            if (state == LazySequence.State.RESULTS_AVAILABLE) {
+                assert(precalculations.offer(solutions.tryAdvance()!!), { "Precalculations queue out of capacity. Somethings wrong here!" })
+            }
 
             return hasPrecalculationsOutstanding
         }

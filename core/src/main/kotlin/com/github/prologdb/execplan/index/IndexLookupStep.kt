@@ -1,14 +1,14 @@
 package com.github.prologdb.execplan.index
 
+import com.github.prologdb.async.LazySequenceBuilder
+import com.github.prologdb.async.filterRemainingNotNull
+import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.execplan.PlanStep
 import com.github.prologdb.execplan.PlanStepInappropriateException
 import com.github.prologdb.execplan.toLazySequence
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
-import com.github.prologdb.runtime.lazysequence.LazySequence
-import com.github.prologdb.runtime.lazysequence.filterRemainingNotNull
-import com.github.prologdb.runtime.lazysequence.mapRemaining
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
@@ -60,7 +60,7 @@ class IndexLookupStep private constructor(
         )
     )
 
-    override fun execute(db: PrologDatabaseView, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
+    override val execute: suspend LazySequenceBuilder<Unification>.(PrologDatabaseView, RandomVariableScope, VariableBucket) -> Unit = { db, randomVarsScope, variables ->
         val indicesByIndicator = db.indexes[targetPredicateIndicator]
             ?: throw PlanStepInappropriateException("Internal error: index lookup step configured for non-existent index")
         val indicesForArgument = indicesByIndicator[targetArgumentIndex]
@@ -72,12 +72,13 @@ class IndexLookupStep private constructor(
         val predicateStore = db.predicateStores[targetPredicateIndicator]
             ?: throw PlanStepInappropriateException("Internal error: index lookup step configured for non-existent predicate-store")
 
-        return strategy.execute(
+        await(strategy.execute(
             randomVariableScope = randomVarsScope,
             indexMap = indicesForArgument,
-            valueToBeUnifiedWith = if (originalValueForArgument is Variable) null else originalValueForArgument
-        )
-            .toLazySequence(predicateStore)
+            valueToBeUnifiedWith = if (originalValueForArgument is Variable) null else originalValueForArgument,
+            principal = principal
+        ))
+            .toLazySequence(predicateStore, principal)
             .mapRemaining { storedPredicate -> storedPredicate.unify(predicateAsInQuery, randomVarsScope) }
             .filterRemainingNotNull()
     }

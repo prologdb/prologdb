@@ -1,9 +1,11 @@
 package com.github.prologdb.execplan.index
 
+import com.github.prologdb.async.Principal
 import com.github.prologdb.indexing.IndexByTypeMap
 import com.github.prologdb.indexing.PersistenceIDSet
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.term.Term
+import java.util.concurrent.Future
 
 /**
  * [IndexLookupStep] uses the strategy pattern to support the different ways of looking things up from an index
@@ -27,6 +29,7 @@ interface IndexLookupStrategy {
     fun execute(
         randomVariableScope: RandomVariableScope,
         indexMap: IndexByTypeMap,
-        valueToBeUnifiedWith: Term?
-    ) : PersistenceIDSet
+        valueToBeUnifiedWith: Term?,
+        principal: Principal
+    ) : Future<PersistenceIDSet>
 }

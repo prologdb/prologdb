@@ -18,7 +18,6 @@
         <module>io</module>
         <module>socket-interface</module>
         <module>core</module>
-        <module>transactions</module>
     </modules>
 
     <properties>

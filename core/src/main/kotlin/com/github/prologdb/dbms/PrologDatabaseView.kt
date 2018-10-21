@@ -1,11 +1,11 @@
 package com.github.prologdb.dbms
 
+import com.github.prologdb.async.LazySequence
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.indexing.IndexByArgumentMap
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
-import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket

@@ -1,9 +1,12 @@
 package com.github.prologdb.execplan
 
+import com.github.prologdb.async.LazySequence
+import com.github.prologdb.async.LazySequenceBuilder
+import com.github.prologdb.async.Principal
+import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.indexing.PersistenceIDSet
 import com.github.prologdb.runtime.RandomVariableScope
-import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -19,7 +22,7 @@ interface PlanStep {
      * Loads the affected instances from the database and returns the unifications resulting from that.
      * @throws PrologQueryException
      */
-    fun execute(db: PrologDatabaseView, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification>
+    val execute: suspend LazySequenceBuilder<Unification>.(PrologDatabaseView, RandomVariableScope, VariableBucket) -> Unit
 
     /**
      * An explanation of this step in the official format (e.g. `prove(bar(X, a))`
@@ -27,13 +30,12 @@ interface PlanStep {
     val explanation: Predicate
 }
 
-internal fun PersistenceIDSet.toLazySequence(store: PredicateStore): LazySequence<Predicate> {
+internal fun PersistenceIDSet.toLazySequence(store: PredicateStore, principal: Principal): LazySequence<Predicate> {
     val indexIt = iterator()
 
-    return LazySequence.fromGenerator {
+    return buildLazySequence(principal) {
         while (indexIt.hasNext()) {
-            return@fromGenerator store.retrieve(indexIt.next()) ?: continue
+            yield(store.retrieve(indexIt.next()) ?: continue)
         }
-        null
     }
 }
