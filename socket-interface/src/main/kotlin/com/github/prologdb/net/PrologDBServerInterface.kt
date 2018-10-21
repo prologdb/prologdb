@@ -143,59 +143,65 @@ class PrologDBServerInterface(
             thread = Thread.currentThread()
 
             while (!closed) {
-                /*
-                 * Admittedly, this code is cryptic. So here is how it works:
-                 * as long as there are no tasks available (using tasks.poll),
-                 * it does precalculations (one at a time before checking again).
-                 * If all precalculations are done it will wait for and then execute
-                 * the next task (ending the loop and waiting using tasks.take).
-                 */
-                do {
-                    // look for new tasks
-                    val hasPrecalculationsTodo = doOnePrecalculation()
-                    val hasTask = tasks.peek() != null
-                }
-                while (!hasTask && hasPrecalculationsTodo)
+                val closedContexts = mutableListOf<Int>() // local to the second loop but hoisted for efficiency
 
-                // precalculations done, do a task (possibly waiting for it)
-                doTask(tasks.take())
+                for ((sessionHandle, contexts) in queryContexts) {
+                    closedContexts.clear()
+                    for ((queryId, context) in contexts) {
+                        context.ifAvailable {
+                            it.step()
+                            val closed = it.consumeSolutions(
+                                solutionHandler = { solution ->
+                                    sessionHandle.queueMessage(QuerySolutionMessage(queryId, solution))
+                                },
+                                errorHandler = { error ->
+                                    sessionHandle.queueMessage(error.queryRelatedErrorToMessage(queryId))
+                                },
+                                closeNotifier = { reason ->
+                                    sessionHandle.queueMessage(QueryClosedMessage(queryId, reason))
+                                }
+                            )
+                            if (closed) {
+                                closedContexts.add(queryId)
+                            }
+                        }
+
+                        // do an open task
+                        tasks.poll()?.let(::doTask)
+                    }
+
+                    closedContexts.forEach { contexts.remove(it) }
+                }
             }
         }
 
         private fun doTask(task: Task) {
             when (task.message) {
                 is InitializeQueryCommand -> initializeQuery(task.message, task.handle)
-                is ConsumeQuerySolutionsCommand -> consumeQuerySolutions(task.message, task.handle)
+                is ConsumeQuerySolutionsCommand -> registerConsumptionRequest(task.message, task.handle)
                 is GeneralError -> handleClientError(task.message, task.handle)
                 else -> throw IllegalArgumentException("Tasks with message of type ${task.message.javaClass.name} not supported")
             }
         }
 
-        /**
-         * @return Whether there are more precalculations outstanding that can
-         *         be started right away. Even when false is returned, some
-         *         might be outstanding. But in order not to wait for a shared lock,
-         *         it will be assumed that locked context do not have any outstanding
-         *         precalculations.
-         */
-        private fun doOnePrecalculation(): Boolean {
-            for (contexts in queryContexts.values) {
-                for (context in contexts.values) {
-                    val (wasAvailabe, hasMore) = context.ifAvailable { it.doOnePrecalculationStep() }
+        private fun registerConsumptionRequest(command: ConsumeQuerySolutionsCommand, handle: SessionHandle) {
+            val contexts = queryContexts.computeIfAbsent(handle) { ConcurrentHashMap() }
+            val context = contexts[command.queryId] ?: throw QueryRelatedException(
+                QueryRelatedError(
+                    command.queryId,
+                    QueryRelatedError.Kind.QUERY_ID_NOT_IN_USE,
+                    "Cannot consume solutions of query ${command.queryId.unsingedIntHexString()}: not initialized"
+                )
+            )
 
-                    if (wasAvailabe && hasMore!!) {
-                        return true
-                    }
-                }
+            val (wasAvailable, _) = context.ifAvailable {
+                it.registerConsumptionRequest(command)
             }
-
-            return false
-            // there might actually be more, but these are currently
-            // locked by other threads. returning false makes the
-            // worker continue waiting for user-specified tasks. This
-            // behaviour thus puts user tasks at a higher priority than
-            // precalculations, so, while not technically correct, this
-            // return is desireable in its current form.
+            if (!wasAvailable) {
+                // requeue for a retry
+                tasks.put(Task(handle, command))
+                // TODO: log&track requeues and determine whether it is a performance-issue
+            }
         }
 
         private fun initializeQuery(command: InitializeQueryCommand, handle: SessionHandle) {
@@ -218,8 +224,7 @@ class PrologDBServerInterface(
             // initialize the context
             val queryContext = QueryContext(
                 command.desiredQueryId,
-                command.startUsing(queryHandler),
-                command.initialPrecalculationLimit
+                command.startUsing(queryHandler)
             )
 
             // catch the race condition
@@ -229,81 +234,12 @@ class PrologDBServerInterface(
             }
         }
 
-        private fun consumeQuerySolutions(command: ConsumeQuerySolutionsCommand, handle: SessionHandle) {
-            val contexts = queryContexts.computeIfAbsent(handle) { ConcurrentHashMap() }
-            val context = contexts[command.queryId] ?: throw QueryRelatedException(
-                QueryRelatedError(
-                    command.queryId,
-                    QueryRelatedError.Kind.QUERY_ID_NOT_IN_USE,
-                    "Cannot consume solutions of query ${command.queryId.unsingedIntHexString()}: not initialized"
-                )
-            )
-
-            fun handleResults(solutions: Collection<Unification>) {
-                when (command.handling) {
-                    ConsumeQuerySolutionsCommand.SolutionHandling.DISCARD -> {}
-                    ConsumeQuerySolutionsCommand.SolutionHandling.RETURN -> {
-                        solutions.forEach {
-                            handle.queueMessage(QuerySolutionMessage(command.queryId, it))
-                        }
-                    }
-                }
-            }
-
-            // TODO: handle large amounts in smaller batches to distribute the load
-            context.doWith {
-                var closedForDepletion = false
-                if (command.amount != 0) {
-                    val precalculatedSolutions = ArrayList<Unification>(command.amount ?: 10)
-                    it.drainPrecalculationsTo(precalculatedSolutions, command.amount?: Integer.MAX_VALUE)
-
-                    handleResults(precalculatedSolutions)
-
-                    if (command.amount == null) {
-                        val batchsize = 100
-                        do {
-                            val solutions = ArrayList<Unification>(batchsize)
-                            val nCalculated = it.calculateSolutionsInto(solutions, batchsize)
-                            handleResults(solutions)
-                        }
-                        while (nCalculated == batchsize)
-                        closedForDepletion = true
-                        it.close()
-                        handle.queueMessage(QueryClosedMessage(command.queryId, QueryClosedMessage.CloseReason.SOLUTIONS_DEPLETED))
-                    }
-                    else
-                    {
-                        val nToCalculate = command.amount - precalculatedSolutions.size
-                        val solutions = ArrayList<Unification>(command.amount)
-                        val nCalculated = it.calculateSolutionsInto(solutions, nToCalculate)
-                        handleResults(solutions)
-
-                        if (nCalculated < nToCalculate) {
-                            closedForDepletion = true
-                            handle.queueMessage(QueryClosedMessage(command.queryId, QueryClosedMessage.CloseReason.SOLUTIONS_DEPLETED))
-                        }
-                    }
-                }
-
-                if (command.precalculateLimitUpdate != null) {
-                    it.precalculationLimit = command.precalculateLimitUpdate
-                }
-
-                if (command.closeAfterwards && !closedForDepletion) {
-                    it.close()
-                    if (command.notifyAboutClose) {
-                        handle.queueMessage(QueryClosedMessage(command.queryId, QueryClosedMessage.CloseReason.ABORTED_ON_USER_REQUEST))
-                    }
-                }
-            }
-        }
-
         private fun handleClientError(error: GeneralError, handle: SessionHandle) {
             // TODO: log
             val contexts = queryContexts.remove(handle)
             if (contexts != null) {
-                contexts.values.forEach {
-                    it.doWith { it.close() }
+                contexts.values.forEach { context ->
+                    context.doWith { it.close() }
                 }
             }
             handle.closeSession()

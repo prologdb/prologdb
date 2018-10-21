@@ -1,14 +1,13 @@
 package com.github.prologdb.net
 
 import com.github.prologdb.async.LazySequence
-import com.github.prologdb.net.session.QueryRelatedError
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
+import com.github.prologdb.net.session.QueryClosedMessage
 import com.github.prologdb.runtime.unification.Unification
 import java.util.*
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
-import kotlin.math.min
 
 /**
  * Context of a query. Has all necessary methods to operate
@@ -19,15 +18,21 @@ import kotlin.math.min
  */
 internal class QueryContext(
     private val queryId: Int,
-    private val solutions: LazySequence<Unification>,
-    private var precalculationLimit: Long
+    private val solutions: LazySequence<Unification>
 ) {
     private val lock: Lock = ReentrantLock()
 
-    private val precalculations: Queue<Unification> = ArrayDeque(min(precalculationLimit, 1024L).toInt())
+    /**
+     * Consumption requests. The head of the queue remains there until it is fully
+     * handled (see [currentlyConsumed]).
+     */
+    private val consumptionRequests = ArrayDeque<ConsumeQuerySolutionsCommand>()
 
-    private val hasPrecalculationsOutstanding: Boolean
-        get() = precalculations.size.toLong() < precalculationLimit
+    /**
+     * The amount of solutions already consumed **from the head of [consumptionRequests]**.
+     * Is reset to 0 when the head of [consumptionRequests] is completed and removed.
+     */
+    private var currentlyConsumed: Int = 0
 
     private val actionInterface = ActionInterface()
 
@@ -77,78 +82,68 @@ internal class QueryContext(
      * to 100% enforce thread-safety.
      */
     inner class ActionInterface internal constructor() {
-        /**
-         * If possible, performs a [LazySequence.step] as a pre-calculation.
-         */
-        fun doOnePrecalculationStep(): Boolean {
-            if (!hasPrecalculationsOutstanding) return false
-
-            val state = solutions.step()
-            // this wont block or trip because ArrayDeque
-            if (state == LazySequence.State.RESULTS_AVAILABLE) {
-                assert(precalculations.offer(solutions.tryAdvance()!!), { "Precalculations queue out of capacity. Somethings wrong here!" })
-            }
-
-            return hasPrecalculationsOutstanding
+        fun registerConsumptionRequest(command: ConsumeQuerySolutionsCommand) {
+            this@QueryContext.consumptionRequests.add(command)
         }
 
         /**
-         * [MutableCollection.add]s up to `limit` precalculated solutions to `target`.
-         *
-         * @return the actual number of solutions added.
+         * Does one [LazySequence.step] on the solutions.
          */
-        fun drainPrecalculationsTo(target: MutableCollection<in Unification>, limit: Int = Integer.MAX_VALUE): Int {
-            val nToDrain = min(limit, precalculations.size)
-            for (i in 1..nToDrain) {
-                target.add(precalculations.poll() ?: throw RuntimeException("Queue must not be empty, race condition?"))
-            }
-
-            return nToDrain
-        }
+        fun step(): LazySequence.State = solutions.step()
 
         /**
-         * Calculates up to `limit` solutions (up to [Integer.MAX_VALUE]) and
-         * adds them to the given collection.
-         * **Important:** this method does not respect the precalculations. Call [drainPrecalculationsTo] first!
+         * If there are open consumption requests (see [registerConsumptionRequest]), consumes
+         * available solutions. For consumptions marked with [ConsumeQuerySolutionsCommand.SolutionHandling.RETURN],
+         * invoked the given callback with the solution.
          *
-         * @param limit Maximum number of solutions to calculate. Must be less than [Integer.MAX_VALUE]
-         * @return The number of solutions actually added. Is less than the requested
-         *         limit if the solutions are depleted.
+         * If one of the completed consumption requests had [ConsumeQuerySolutionsCommand.closeAfterwards] set to true,
+         * closes the context (see [close]). If [ConsumeQuerySolutionsCommand.notifyAboutClose] was also true,
+         * invokes the given closeNotifier.
+         *
+         * If the query errors, closes the context (see [close]) and invokes the given errorHandler. Also invokes
+         * the given [closeNotifier].
+         *
+         * If the query was depleted due to consuming solutions, closes the context and invokes the given [closeNotifier].
+         *
+         * @return Whether the context was closed as a result of this call.
          */
-        fun calculateSolutionsInto(target: MutableCollection<in Unification>, limit: Int): Int {
-            if (limit >= Integer.MAX_VALUE) {
-                throw IllegalArgumentException("Limit must be less than ${Integer.MAX_VALUE}")
+        fun consumeSolutions(solutionHandler: (Unification) -> Any?, errorHandler: (Throwable) -> Any?, closeNotifier: (QueryClosedMessage.CloseReason) -> Any?): Boolean {
+            var currentRequest = consumptionRequests.peek() ?: return false
+
+            solutionAvailable@while (solutions.state == LazySequence.State.RESULTS_AVAILABLE) {
+                while (currentRequest.amount != null && currentlyConsumed >= currentRequest.amount!!) {
+                    if (currentRequest.closeAfterwards) {
+                        if (currentRequest.notifyAboutClose) {
+                            closeNotifier(QueryClosedMessage.CloseReason.ABORTED_ON_USER_REQUEST)
+                        }
+                        close()
+                        return true
+                    }
+
+                    currentlyConsumed = 0
+                    consumptionRequests.pop()
+                    currentRequest = consumptionRequests.peek() ?: break@solutionAvailable
+                }
+
+                solutionHandler(solutions.tryAdvance()!!)
+                currentlyConsumed++
             }
 
-            var added = 0
-            while (added < limit) {
-                val solution = try {
-                    solutions.tryAdvance()
+            when(solutions.state) {
+                LazySequence.State.FAILED -> {
+                    val ex = try { solutions.tryAdvance(); null } catch (ex: Throwable) { ex }!!
+                    errorHandler(ex)
+                    closeNotifier(QueryClosedMessage.CloseReason.FAILED)
+                    close()
+                    return true
                 }
-                catch (ex: PrologRuntimeException) {
-                    throw QueryRelatedException(
-                        QueryRelatedError(
-                            queryId,
-                            QueryRelatedError.Kind.ERROR_GENERIC,
-                            ex.message,
-                            mapOf("prologStackTrace" to ex.prettyPrint())
-                        )
-                    )
+                LazySequence.State.DEPLETED -> {
+                    closeNotifier(QueryClosedMessage.CloseReason.SOLUTIONS_DEPLETED)
+                    close()
+                    return true
                 }
-                catch (ex: Throwable) {
-                    throw NetworkProtocolException(
-                        "Internal server error",
-                        ex
-                    )
-                }
-
-                if (solution == null) break
-
-                target.add(solution)
-                added++
+                else -> return false
             }
-
-            return added
         }
 
         /**
@@ -156,45 +151,6 @@ internal class QueryContext(
          */
         fun close() {
             solutions.close()
-            precalculations.clear()
         }
-
-        var precalculationLimit: Long
-            get() = this@QueryContext.precalculationLimit
-            set(value) {
-                if (value < 0) throw IllegalArgumentException("Cannot set negative precalculation limiu")
-                this@QueryContext.precalculationLimit = value
-            }
     }
-}
-
-private fun PrologRuntimeException.prettyPrint(): String {
-    val b = StringBuilder()
-    prettyPrint(b)
-    return b.toString()
-}
-
-private fun PrologRuntimeException.prettyPrint(toBuilder: StringBuilder) {
-    toBuilder.append("M: ")
-    toBuilder.append(message ?: "null")
-    toBuilder.append("\n")
-    for (sf in prologStackTrace) {
-        toBuilder.append("\t")
-        toBuilder.append(sf.toString())
-        toBuilder.append("\n")
-    }
-
-    val _cause = cause
-    if (_cause != null && _cause is PrologRuntimeException) {
-        toBuilder.append("caused by: ")
-        _cause.prettyPrint(toBuilder)
-    }
-
-    (suppressed
-        .asSequence()
-        .filter { it is PrologRuntimeException } as Sequence<PrologRuntimeException>)
-        .forEach {
-            toBuilder.append("suppressed: ")
-            it.prettyPrint(toBuilder)
-        }
 }

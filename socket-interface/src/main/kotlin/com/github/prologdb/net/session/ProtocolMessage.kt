@@ -54,7 +54,6 @@ data class ConsumeQuerySolutionsCommand(
     val queryId: Int,
     val amount: Int?,
     val closeAfterwards: Boolean,
-    val precalculateLimitUpdate: Long?,
     val notifyAboutClose: Boolean,
     val handling: SolutionHandling
 ) : ProtocolMessage() {

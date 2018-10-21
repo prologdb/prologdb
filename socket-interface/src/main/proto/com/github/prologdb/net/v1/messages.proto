@@ -64,15 +64,8 @@ message QueryInitialization {
      */
     map<string, Term> instantiations = 3;
 
-    /* The server will try to have this number of solutions already calculated and waiting
-     * when a fetch request comes in. When undefined, the server uses the defaults.
-     */
-    optional uint32 precalculate_amount = 4;
-
     /* The server will artificially limit the number of solutions to this number;
-     * pre-calculation is also affected (will not precalculate past the limit)
-     * If absent, the server assumes that the client will possibly consume all
-     * solutions.
+     * If absent, the server assumes that the client will consume all solutions.
      */
     optional uint64 limit = 5;
 
@@ -113,12 +106,6 @@ message QuerySolutionConsumption {
      * the given number of solutions even if there are more remaining.
      */
     optional bool close_afterwards = 4 [default = false];
-
-    /**
-     * If given, updates the precalculation_amount for the query.
-     * Does not discard precalculated solutions when lowered.
-     */
-    optional uint32 update_precalculate_amount = 101;
 
     /* If close_afterwards is true AND this field is true, the server will
      * send a QueryClosedEvent after closing the query.
