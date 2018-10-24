@@ -7,7 +7,9 @@ import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.net.util.unsingedIntHexString
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.unification.Unification
+import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
+import io.reactivex.subjects.SingleSubject
 import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.nio.channels.AsynchronousServerSocketChannel
@@ -22,33 +24,27 @@ class ServerInterface(
     private val queryHandler: QueryHandler,
 
     /**
-     * The number of worker threads to spawn. The worker threads will spawn the actual
-     * queries through [QueryHandler.startQuery] and [QueryHandler.startDirective] as well
-     * as calculate the solutions using [LazySequence.step].
-     */
-    private val nWorkerThreads: Int = Runtime.getRuntime().availableProcessors(),
-
-    /**
      * Used to do the handshakes. This is where support for multiple protocols can be added.
      */
     private val sessionInitializer: SessionInitializer,
 
     /** The port to bind to. Use null to bind to an arbitrary available port. */
-    givenPort: Int? = null
+    givenPort: Int? = null,
+
+    /**
+     * Provides the number of worker threads to maintain. Is consulted on a regular interval.
+     * The worker threads will spawn the actual queries through [QueryHandler.startQuery] and
+     * [QueryHandler.startDirective] as well as calculate the solutions using [LazySequence.step].
+     */
+    private val nWorkerThreadsSource: () -> Int = Runtime.getRuntime()::availableProcessors
 ) {
     init {
-        if (nWorkerThreads < 1) {
-            throw IllegalArgumentException("The number of worker threads must be at least 1")
-        }
         if (givenPort != null && (givenPort < 1 || givenPort > 65535)) {
             throw IllegalArgumentException("The port must be in range [1, 65535]")
         }
     }
 
     private val serverChannel = AsynchronousServerSocketChannel.open()
-    init {
-        serverChannel.bind(givenPort?.let { InetSocketAddress(it) })
-    }
 
     val localAddress: SocketAddress
         get() = serverChannel.localAddress
@@ -88,10 +84,6 @@ class ServerInterface(
                 }
             )
         }
-    }
-
-    private val workerZookeeperThread = thread {
-
     }
 
     private fun handleMessage(message: ProtocolMessage, handle: SessionHandle) {
@@ -179,19 +171,40 @@ class ServerInterface(
          */
         private var currentSessionHandle: SessionHandle? = null
 
+        private var closed = false
+
+        /**
+         * When closed gracefully through either [close] or [ServerInterface.closed],
+         * completes. Emits an error that crashed the worker.
+         */
+        val completedEv: Single<Unit> = SingleSubject.create<Unit>()
+
         override fun run() {
-            while (!closed) {
-                for ((sessionHandle, contexts) in queryContexts) {
-                    for (context in contexts.values) {
-                        context.ifAvailable {
-                            currentSessionHandle = sessionHandle
-                            it.step()
-                            it.consumeSolutions(this)
-                            currentSessionHandle = null
+            try {
+                while (!this@ServerInterface.closed && !this@WorkerRunnable.closed) {
+                    for ((sessionHandle, contexts) in queryContexts) {
+                        for (context in contexts.values) {
+                            context.ifAvailable {
+                                currentSessionHandle = sessionHandle
+                                it.step()
+                                it.consumeSolutions(this)
+                                currentSessionHandle = null
+                            }
                         }
                     }
                 }
+
+                (completedEv as SingleSubject<Unit>).onSuccess(Unit)
             }
+            catch (ex: Throwable) {
+                (completedEv as SingleSubject<Unit>).onError(ex)
+            }
+        }
+
+        fun close(): Single<Unit> {
+            this@WorkerRunnable.closed = true
+
+            return completedEv
         }
 
         override fun onReturnSolution(queryId: Int, solution: Unification) {
@@ -215,5 +228,68 @@ class ServerInterface(
             ))
             currentSessionHandle!!.queueMessage(QueryClosedMessage(queryId, QueryClosedMessage.CloseReason.FAILED))
         }
+    }
+
+    private val workers: MutableSet<Pair<WorkerRunnable, Thread>> = Collections.newSetFromMap(ConcurrentHashMap())
+
+    private val workerZookeeper = object : TimerTask() {
+
+        /** To keep the thread names for workers unique, this is an increment */
+        private var workerIncrement: Long = 0
+
+        override fun run() {
+            try {
+                val nDesiredWorkers = nWorkerThreadsSource()
+                if (nDesiredWorkers < 1) {
+                    // TODO: log properly
+                    return
+                }
+
+                pruneDeadWorkers()
+                while (nDesiredWorkers > workers.size) {
+                    val runnable = WorkerRunnable()
+                    val thread = Thread(runnable, "prologdb-interface-$localAddress-worker-$workerIncrement")
+                    workerIncrement++
+                    workers.add(Pair(runnable, thread))
+                    thread.start()
+                    // TODO: log
+                }
+
+                while (nDesiredWorkers < workers.size) {
+                    val entry = workers.first()
+                    entry.first.close()
+                    workers.remove(entry)
+                    // TODO: log
+                }
+            }
+            catch (ex: Throwable) {
+                // TODO: log properly
+            }
+        }
+
+        private fun pruneDeadWorkers() {
+            val dead = workers.filterNot { it.second.isAlive }
+            workers.removeAll(dead)
+
+            dead.forEach {
+                it.first.completedEv.doOnError { ex ->
+                    // TODO: log
+                }
+                it.first.completedEv.doOnSuccess { _ ->
+                    // TODO: log
+                    // this is far more interesting than error because nothing else
+                    // should be closing workers but apparently still does.
+                }
+            }
+        }
+    }
+
+    private val zookeeperTimer: Timer
+
+    init {
+        serverChannel.bind(givenPort?.let { InetSocketAddress(it) })
+
+        zookeeperTimer = Timer("prologdb-interface-$localAddress-worker-zookeeper")
+        zookeeperTimer.scheduleAtFixedRate(workerZookeeper, 1000L, 10000)
     }
 }
