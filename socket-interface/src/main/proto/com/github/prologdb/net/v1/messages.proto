@@ -104,13 +104,12 @@ message QuerySolutionConsumption {
 
     /* If true, the server will close the query after having consumed
      * the given number of solutions even if there are more remaining.
+     * In this case, the close reason will be ABORTED_ON_USER_REQUEST.
+     * However, if the solutions are depleted before reaching the
+     * the requested amount (or no amount specified), the close reason
+     * will still be DEPLETED.
      */
     optional bool close_afterwards = 4 [default = false];
-
-    /* If close_afterwards is true AND this field is true, the server will
-     * send a QueryClosedEvent after closing the query.
-     */
-    optional bool notify_about_close = 100 [default = true];
 
     reserved 5 to 15;
 
