@@ -126,7 +126,7 @@ internal class QueryContext(
                 LazySequence.State.FAILED -> {
                     val ex = try { solutions.tryAdvance(); null } catch (ex: Throwable) { ex }!!
                     close()
-                    listener.onError(ex)
+                    listener.onError(queryId, ex)
                 }
                 LazySequence.State.DEPLETED -> {
                     close()
@@ -148,24 +148,24 @@ internal class QueryContext(
          * The given solution should be returned to the client as per a
          * [ConsumeQuerySolutionsCommand]
          */
-        fun onReturnSolution(forQueryId: Int, solution: Unification)
+        fun onReturnSolution(queryId: Int, solution: Unification)
 
         /**
          * Called when the query was closed due to depletion of the
          * [QueryContext.solutions].
          */
-        fun onSolutionsDepleted(forQueryId: Int)
+        fun onSolutionsDepleted(queryId: Int)
 
         /**
          * Called after processing a [ConsumeQuerySolutionsCommand] with
          * [ConsumeQuerySolutionsCommand.closeAfterwards] set to `true` and
          * closing the context as a result.
          */
-        fun onAbortedByRequest(forQueryId: Int)
+        fun onAbortedByRequest(queryId: Int)
 
         /**
          * Called after closing the query due to the given error.
          */
-        fun onError(ex: Throwable)
+        fun onError(queryId: Int, ex: Throwable)
     }
 }

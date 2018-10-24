@@ -1,8 +1,11 @@
 package com.github.prologdb.net
 
+import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.*
 import com.github.prologdb.net.session.handle.SessionHandle
+import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.net.util.unsingedIntHexString
+import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.unification.Unification
 import io.reactivex.rxkotlin.subscribeBy
 import java.net.InetSocketAddress
@@ -12,7 +15,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
-class AsyncInterface(
+class ServerInterface(
     /**
      * The instance MUST be thread-safe.
      */
@@ -88,7 +91,7 @@ class AsyncInterface(
     }
 
     private val workerZookeeperThread = thread {
-        // TODO: code from other machine missing :/
+
     }
 
     private fun handleMessage(message: ProtocolMessage, handle: SessionHandle) {
@@ -120,8 +123,7 @@ class AsyncInterface(
         // initialize the context
         val queryContext = QueryContext(
             command.desiredQueryId,
-            command.startUsing(queryHandler),
-            command.initialPrecalculationLimit
+            command.startUsing(queryHandler)
         )
 
         // catch the race condition
@@ -129,6 +131,9 @@ class AsyncInterface(
         if (queryIdPresent) {
             refuseForDuplicateID()
         }
+
+        // send query opened
+        handle.queueMessage(QueryOpenedMessage(command.desiredQueryId))
     }
 
     private fun consumeQuerySolutions(command: ConsumeQuerySolutionsCommand, handle: SessionHandle) {
@@ -144,7 +149,7 @@ class AsyncInterface(
         }
 
         context.doWith {
-            // TODO: code from other machine missing :/
+            it.registerConsumptionRequest(command)
         }
     }
 
@@ -163,6 +168,52 @@ class AsyncInterface(
         return when (kind) {
             InitializeQueryCommand.Kind.QUERY     -> handler.startQuery(instruction, totalLimit)
             InitializeQueryCommand.Kind.DIRECTIVE -> handler.startDirective(instruction, totalLimit)
+        }
+    }
+
+    private inner class WorkerRunnable : Runnable, QueryContext.SolutionConsumptionListener {
+
+        /**
+         * Is set within [run] so that callbacks from [QueryContext] the
+         * additional information that they need.
+         */
+        private var currentSessionHandle: SessionHandle? = null
+
+        override fun run() {
+            while (!closed) {
+                for ((sessionHandle, contexts) in queryContexts) {
+                    for (context in contexts.values) {
+                        context.ifAvailable {
+                            currentSessionHandle = sessionHandle
+                            it.step()
+                            it.consumeSolutions(this)
+                            currentSessionHandle = null
+                        }
+                    }
+                }
+            }
+        }
+
+        override fun onReturnSolution(queryId: Int, solution: Unification) {
+            currentSessionHandle!!.queueMessage(QuerySolutionMessage(queryId, solution))
+        }
+
+        override fun onSolutionsDepleted(queryId: Int) {
+            currentSessionHandle!!.queueMessage(QueryClosedMessage(queryId, QueryClosedMessage.CloseReason.SOLUTIONS_DEPLETED))
+        }
+
+        override fun onAbortedByRequest(queryId: Int) {
+            currentSessionHandle!!.queueMessage(QueryClosedMessage(queryId, QueryClosedMessage.CloseReason.ABORTED_ON_USER_REQUEST))
+        }
+
+        override fun onError(queryId: Int, ex: Throwable) {
+            currentSessionHandle!!.queueMessage(QueryRelatedError(
+                queryId,
+                QueryRelatedError.Kind.ERROR_GENERIC,
+                ex.message,
+                if (ex is PrologRuntimeException) mapOf("prologStackTrace" to ex.prettyPrint()) else emptyMap()
+            ))
+            currentSessionHandle!!.queueMessage(QueryClosedMessage(queryId, QueryClosedMessage.CloseReason.FAILED))
         }
     }
 }
