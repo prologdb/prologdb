@@ -1,19 +1,6 @@
-package com.github.prologdb.net
+package com.github.prologdb.net.util
 
-import com.github.prologdb.net.session.QueryRelatedError
 import com.github.prologdb.runtime.PrologRuntimeException
-
-fun Int.unsingedIntHexString(): String = toLong().and(0xFFFFFFFFL).toString(16)
-
-fun Throwable.queryRelatedErrorToMessage(queryId: Int): QueryRelatedError = QueryRelatedError(
-    queryId,
-    QueryRelatedError.Kind.ERROR_GENERIC,
-    message,
-    when (this) {
-        is PrologRuntimeException -> mapOf("prologStackTrace" to this.prettyPrint())
-        else -> emptyMap()
-    }
-)
 
 fun PrologRuntimeException.prettyPrint(): String {
     val b = StringBuilder()
@@ -45,3 +32,6 @@ fun PrologRuntimeException.prettyPrint(toBuilder: StringBuilder) {
             it.prettyPrint(toBuilder)
         }
 }
+
+// TODO: correct typo
+fun Int.unsingedIntHexString(): String = toLong().and(0xFFFFFFFFL).toString(16)

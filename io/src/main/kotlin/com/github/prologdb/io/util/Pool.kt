@@ -1,4 +1,4 @@
-package com.github.prologdb.util.concurrency
+package com.github.prologdb.io.util
 
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -6,7 +6,13 @@ import java.util.concurrent.LinkedBlockingQueue
  * A pool of objects for use by multiple threads.
  * @param <T>
  */
-class Pool<T>(val minSize: Int, private val initializer: () -> T) {
+class Pool<T>(
+    val minSize: Int,
+    private val initializer: () -> T,
+
+    /** Is called when objects are returned to the pool. */
+    private val sanitizer: (T) -> Any? =  { _ -> }
+) {
     private val storage = LinkedBlockingQueue<T>(minSize)
 
     init {
@@ -27,8 +33,17 @@ class Pool<T>(val minSize: Int, private val initializer: () -> T) {
     fun <R> using(action: (T) -> R): R {
         val o = storage.poll() ?: initializer()
         val r = action(o)
-        storage.offer(o)
+        free(o)
 
         return r
+    }
+
+    fun get(): T {
+        return storage.poll() ?: initializer()
+    }
+
+    fun free(o: T) {
+        sanitizer(o)
+        storage.offer(o)
     }
 }

@@ -1,6 +1,7 @@
 package com.github.prologdb.net.session.handle
 
 import com.github.prologdb.net.session.ProtocolMessage
+import io.reactivex.Observable
 import java.net.Socket
 
 /**
@@ -12,10 +13,9 @@ import java.net.Socket
  */
 interface SessionHandle {
     /**
-     * @return waits for the next message incoming in this session.
-     *         The incoming message is one of those annotated with [ToServer].
+     * The incoming message is one of those annotated with [ToServer].
      */
-    fun popNextIncomingMessage(): ProtocolMessage
+    val incomingMessages: Observable<ProtocolMessage>
 
     /**
      * Queues the given message for later sending. The order
@@ -23,18 +23,6 @@ interface SessionHandle {
      * sending.
      */
     fun queueMessage(message: ProtocolMessage)
-
-    /**
-     * Directly sends the given message, flushing previously
-     * sent messages to preserve order.
-     */
-    fun sendMessage(message: ProtocolMessage)
-
-    /**
-     * Flushes queued outgoing messages.
-     * @return the number of messages sent to the client
-     */
-    fun flushOutbox(): Int
 
     /**
      * Closes the session.

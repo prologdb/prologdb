@@ -4,13 +4,13 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologDeserializationException
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
-import com.github.prologdb.net.NetworkProtocolException
-import com.github.prologdb.net.PrologDeserializationException
-import com.github.prologdb.net.PrologParseException
+import com.github.prologdb.net.*
 import com.github.prologdb.net.session.*
+import com.github.prologdb.net.util.writeDelimitedTo
 import com.github.prologdb.net.v1.messages.*
 import com.github.prologdb.net.v1.messages.GeneralError
 import com.github.prologdb.net.v1.messages.QueryRelatedError
+import com.github.prologdb.net.v1.messages.ToClient
 import com.github.prologdb.net.v1.messages.ToServer
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.parser.PrologParser
@@ -19,30 +19,65 @@ import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
 import com.github.prologdb.runtime.term.Term
 import com.google.protobuf.ByteString
 import com.google.protobuf.GeneratedMessageV3
+import io.reactivex.Observable
 import java.io.DataOutputStream
-import java.net.Socket
-import java.util.*
+import java.nio.channels.AsynchronousByteChannel
 
 internal class ProtocolVersion1SessionHandle(
-    private val socket: Socket,
+    private val channel: AsynchronousByteChannel,
     private val termReader: ProtocolVersion1TermReader,
     private val termWriter: ProtocolVersion1TermWriter
 ) : SessionHandle {
 
-    private val inputStream = socket.getInputStream()
-    private val outputStream = socket.getOutputStream()
+    override val incomingMessages: Observable<ProtocolMessage>
 
-    private val outQueue: Queue<GeneratedMessageV3> = ArrayDeque()
+    init {
+        val incomingVersionMessages = AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel).observable
 
-    override fun popNextIncomingMessage(): ProtocolMessage {
-        val versionMessage = ToServer.parseDelimitedFrom(inputStream)
+        incomingMessages = incomingVersionMessages
+            .map { versionMessage ->
+                when (versionMessage.commandCase!!) {
+                    ToServer.CommandCase.CONSUME_RESULTS -> versionMessage.consumeResults.toIndependent()
+                    ToServer.CommandCase.INIT_QUERY -> try {
+                        versionMessage.initQuery.toIndependent(termReader)
+                    }
+                    catch (ex: Throwable) {
+                        val kind = when(ex) {
+                            is BinaryPrologDeserializationException,
+                            is PrologParseException
+                            -> com.github.prologdb.net.session.QueryRelatedError.Kind.INVALID_TERM_SYNTAX
+                            else -> com.github.prologdb.net.session.QueryRelatedError.Kind.ERROR_GENERIC
+                        }
 
-        return when (versionMessage.commandCase!!) {
-            ToServer.CommandCase.CONSUME_RESULTS -> versionMessage.consumeResults.toIndependent()
-            ToServer.CommandCase.INIT_QUERY -> versionMessage.initQuery.toIndependent(termReader)
-            ToServer.CommandCase.ERROR -> versionMessage.error.toIndependent()
-            ToServer.CommandCase.COMMAND_NOT_SET -> throw NetworkProtocolException("command field of ToServer message not set")
-        }
+                        throw QueryRelatedException(com.github.prologdb.net.session.QueryRelatedError(
+                            versionMessage.initQuery.queryId,
+                            kind,
+                            ex.message,
+                            emptyMap()
+                        ))
+                    }
+                    ToServer.CommandCase.ERROR -> versionMessage.error.toIndependent()
+                    ToServer.CommandCase.COMMAND_NOT_SET -> throw NetworkProtocolException("command field of ToServer message not set")
+                }
+            }
+            .doOnError { ex ->
+                if (ex is QueryRelatedException) {
+                    ToClient.newBuilder()
+                        .setQueryError(ex.errorObject.toProtocol())
+                        .build()
+                        .writeDelimitedTo(channel)
+                } else {
+                    ToClient.newBuilder()
+                        .setServerError(GeneralError.newBuilder()
+                            .setMessage(ex.message)
+                            .build()
+                        )
+                        .build()
+                        .writeDelimitedTo(channel)
+
+                    closeSession()
+                }
+            }
     }
 
     override fun queueMessage(message: ProtocolMessage) {
@@ -50,32 +85,11 @@ internal class ProtocolVersion1SessionHandle(
             throw IllegalArgumentException("Can only send messages intended for the client; see the ToClient annotation")
         }
 
-        outQueue.add(message.toProtocol(termWriter))
-    }
-
-    override fun sendMessage(message: ProtocolMessage) {
-        flushOutbox()
-        internalSendDirectly(message.toProtocol(termWriter))
-    }
-
-    private fun internalSendDirectly(message: GeneratedMessageV3) {
-        message.writeDelimitedTo(outputStream)
-    }
-
-    override fun flushOutbox(): Int {
-        var nFlushed = 0
-        outQueue.forEach {
-            internalSendDirectly(it)
-            nFlushed++
-        }
-
-        return nFlushed
+        message.toProtocol(termWriter).writeDelimitedTo(channel)
     }
 
     override fun closeSession() {
-        inputStream.close()
-        outputStream.close()
-        socket.close()
+        channel.close()
     }
 }
 
