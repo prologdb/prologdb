@@ -1,6 +1,6 @@
 package com.github.prologdb.net.session
 
-import com.github.prologdb.runtime.lazysequence.LazySequence
+import com.github.prologdb.async.LazySequence
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 
@@ -9,7 +9,7 @@ import com.github.prologdb.runtime.unification.Unification
  * protocol. This is the interaction between the actual DB and the code
  * responsible for the networking.
  *
- * Implementations need not be thread-safe.
+ * Implementations **MUST BE THREAD SAFE!**
  */
 interface QueryHandler {
     /**
