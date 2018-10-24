@@ -2,7 +2,6 @@ package com.github.prologdb.net
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
-import com.github.prologdb.net.session.QueryClosedMessage
 import com.github.prologdb.runtime.unification.Unification
 import java.util.*
 import java.util.concurrent.locks.Lock
@@ -93,31 +92,21 @@ internal class QueryContext(
 
         /**
          * If there are open consumption requests (see [registerConsumptionRequest]), consumes
-         * available solutions. For consumptions marked with [ConsumeQuerySolutionsCommand.SolutionHandling.RETURN],
-         * invoked the given callback with the solution.
+         * available solutions and calls the appropriate methods on the given [listener].
          *
-         * If one of the completed consumption requests had [ConsumeQuerySolutionsCommand.closeAfterwards] set to true,
-         * closes the context (see [close]). If [ConsumeQuerySolutionsCommand.notifyAboutClose] was also true,
-         * invokes the given closeNotifier.
-         *
-         * If the query errors, closes the context (see [close]) and invokes the given errorHandler. Also invokes
-         * the given [closeNotifier].
-         *
-         * If the query was depleted due to consuming solutions, closes the context and invokes the given [closeNotifier].
-         *
-         * @return Whether the context was closed as a result of this call.
+         * It is guaranteed that, before this method returns, all calls to the given
+         * listener have returned. In other words: methods of the given listener will not be invoked
+         * as a result of an invocation of this method after this method has returned.
          */
-        fun consumeSolutions(solutionHandler: (Unification) -> Any?, errorHandler: (Throwable) -> Any?, closeNotifier: (QueryClosedMessage.CloseReason) -> Any?): Boolean {
-            var currentRequest = consumptionRequests.peek() ?: return false
+        fun consumeSolutions(listener: SolutionConsumptionListener) {
+            var currentRequest = consumptionRequests.peek() ?: return
 
             solutionAvailable@while (solutions.state == LazySequence.State.RESULTS_AVAILABLE) {
                 while (currentRequest.amount != null && currentlyConsumed >= currentRequest.amount!!) {
                     if (currentRequest.closeAfterwards) {
-                        if (currentRequest.notifyAboutClose) {
-                            closeNotifier(QueryClosedMessage.CloseReason.ABORTED_ON_USER_REQUEST)
-                        }
                         close()
-                        return true
+                        listener.onAbortedByRequest(queryId)
+                        return
                     }
 
                     currentlyConsumed = 0
@@ -125,24 +114,24 @@ internal class QueryContext(
                     currentRequest = consumptionRequests.peek() ?: break@solutionAvailable
                 }
 
-                solutionHandler(solutions.tryAdvance()!!)
+                val solution = solutions.tryAdvance()!!
+                if (currentRequest.handling == ConsumeQuerySolutionsCommand.SolutionHandling.RETURN) {
+                    listener.onReturnSolution(queryId, solution)
+                }
+
                 currentlyConsumed++
             }
 
             when(solutions.state) {
                 LazySequence.State.FAILED -> {
                     val ex = try { solutions.tryAdvance(); null } catch (ex: Throwable) { ex }!!
-                    errorHandler(ex)
-                    closeNotifier(QueryClosedMessage.CloseReason.FAILED)
                     close()
-                    return true
+                    listener.onError(ex)
                 }
                 LazySequence.State.DEPLETED -> {
-                    closeNotifier(QueryClosedMessage.CloseReason.SOLUTIONS_DEPLETED)
                     close()
-                    return true
+                    listener.onSolutionsDepleted(queryId)
                 }
-                else -> return false
             }
         }
 
@@ -152,5 +141,31 @@ internal class QueryContext(
         fun close() {
             solutions.close()
         }
+    }
+
+    interface SolutionConsumptionListener {
+        /**
+         * The given solution should be returned to the client as per a
+         * [ConsumeQuerySolutionsCommand]
+         */
+        fun onReturnSolution(forQueryId: Int, solution: Unification)
+
+        /**
+         * Called when the query was closed due to depletion of the
+         * [QueryContext.solutions].
+         */
+        fun onSolutionsDepleted(forQueryId: Int)
+
+        /**
+         * Called after processing a [ConsumeQuerySolutionsCommand] with
+         * [ConsumeQuerySolutionsCommand.closeAfterwards] set to `true` and
+         * closing the context as a result.
+         */
+        fun onAbortedByRequest(forQueryId: Int)
+
+        /**
+         * Called after closing the query due to the given error.
+         */
+        fun onError(ex: Throwable)
     }
 }
