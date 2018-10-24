@@ -26,7 +26,6 @@ data class InitializeQueryCommand(
     val desiredQueryId: Int,
     val instruction: Term,
     val kind: Kind = Kind.QUERY,
-    val initialPrecalculationLimit: Long,
     val totalLimit: Long?
 ) : ProtocolMessage() {
     enum class Kind {
@@ -54,7 +53,6 @@ data class ConsumeQuerySolutionsCommand(
     val queryId: Int,
     val amount: Int?,
     val closeAfterwards: Boolean,
-    val notifyAboutClose: Boolean,
     val handling: SolutionHandling
 ) : ProtocolMessage() {
     enum class SolutionHandling {
