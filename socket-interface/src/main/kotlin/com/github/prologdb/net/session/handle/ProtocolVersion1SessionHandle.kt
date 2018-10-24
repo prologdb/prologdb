@@ -62,10 +62,7 @@ internal class ProtocolVersion1SessionHandle(
             }
             .doOnError { ex ->
                 if (ex is QueryRelatedException) {
-                    ToClient.newBuilder()
-                        .setQueryError(ex.errorObject.toProtocol())
-                        .build()
-                        .writeDelimitedTo(channel)
+                    ex.errorObject.toProtocol().writeDelimitedTo(channel)
                 } else {
                     ToClient.newBuilder()
                         .setServerError(GeneralError.newBuilder()
@@ -144,7 +141,6 @@ private fun QueryInitialization.toIndependent(termReader: ProtocolVersion1TermRe
     queryId,
     termReader.toRuntimeTerm(instruction, SOURCE_UNIT_INSTRUCTION),
     kind.toIndependent(),
-    if (hasPrecalculateAmount()) precalculateAmount.toLong() else 0,
     if (hasLimit()) limit else null
 )
 
@@ -157,8 +153,6 @@ private fun QuerySolutionConsumption.toIndependent() = ConsumeQuerySolutionsComm
     queryId,
     if (hasAmount()) amount else null,
     closeAfterwards,
-    if (hasUpdatePrecalculateAmount()) (updatePrecalculateAmount.toLong() and 0xFFFFFFFF) else null,
-    notifyAboutClose,
     handling.toIndependent()
 )
 
@@ -181,8 +175,12 @@ private fun ProtocolMessage.toProtocol(termWriter: ProtocolVersion1TermWriter): 
     else -> throw IllegalArgumentException("Cannot convert message of type ${this.javaClass.name} to protocol version 1 because that is not a to-client message")
 }
 
-private fun QueryOpenedMessage.toProtocol() = QueryOpenedEvent.newBuilder()
-    .setQueryId(queryId)
+private fun QueryOpenedMessage.toProtocol() = ToClient.newBuilder()
+    .setQueryOpened(
+        QueryOpenedEvent.newBuilder()
+        .setQueryId(queryId)
+        .build()
+    )
     .build()
 
 private fun QueryClosedMessage.CloseReason.toProtocol() = when(this) {
@@ -191,21 +189,33 @@ private fun QueryClosedMessage.CloseReason.toProtocol() = when(this) {
     QueryClosedMessage.CloseReason.FAILED -> QueryClosedEvent.Reason.FAILED
 }
 
-private fun QueryClosedMessage.toProtocol() = QueryClosedEvent.newBuilder()
-    .setQueryId(queryId)
-    .setReason(reason.toProtocol())
+private fun QueryClosedMessage.toProtocol() = ToClient.newBuilder()
+    .setQueryClosed(
+        QueryClosedEvent.newBuilder()
+        .setQueryId(queryId)
+        .setReason(reason.toProtocol())
+        .build()
+    )
     .build()
 
-private fun com.github.prologdb.net.session.GeneralError.toProtocol() = GeneralError.newBuilder()
-    .setMessage(message)
-    .putAllAdditionalInformation(additionalInformation)
+private fun com.github.prologdb.net.session.GeneralError.toProtocol() = ToClient.newBuilder()
+    .setServerError(
+        GeneralError.newBuilder()
+        .setMessage(message)
+        .putAllAdditionalInformation(additionalInformation)
+        .build()
+    )
     .build()
 
-private fun com.github.prologdb.net.session.QueryRelatedError.toProtocol() = QueryRelatedError.newBuilder()
-    .setQueryId(queryId)
-    .setKind(kind.toProtocol())
-    .setShortMessage(shortMessage)
-    .putAllAdditionalInformation(additionalFields)
+private fun com.github.prologdb.net.session.QueryRelatedError.toProtocol() = ToClient.newBuilder()
+    .setQueryError(
+        QueryRelatedError.newBuilder()
+        .setQueryId(queryId)
+        .setKind(kind.toProtocol())
+        .setShortMessage(shortMessage)
+        .putAllAdditionalInformation(additionalFields)
+        .build()
+    )
     .build()
 
 private fun com.github.prologdb.net.session.QueryRelatedError.Kind.toProtocol() = when(this) {
@@ -217,7 +227,7 @@ private fun com.github.prologdb.net.session.QueryRelatedError.Kind.toProtocol() 
     com.github.prologdb.net.session.QueryRelatedError.Kind.QUERY_ID_ALREADY_IN_USE -> QueryRelatedError.Kind.QUERY_ID_ALREADY_IN_USE
 }
 
-private fun QuerySolutionMessage.toProtocol(termWriter: ProtocolVersion1TermWriter): QuerySolution {
+private fun QuerySolutionMessage.toProtocol(termWriter: ProtocolVersion1TermWriter): ToClient {
     val builder = QuerySolution.newBuilder()
         .setQueryId(queryId)
 
@@ -228,5 +238,7 @@ private fun QuerySolutionMessage.toProtocol(termWriter: ProtocolVersion1TermWrit
         }
     }
 
-    return builder.build()
+    return ToClient.newBuilder()
+        .setSolution(builder.build())
+        .build()
 }
