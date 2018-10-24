@@ -292,4 +292,16 @@ class ServerInterface(
         zookeeperTimer = Timer("prologdb-interface-$localAddress-worker-zookeeper")
         zookeeperTimer.scheduleAtFixedRate(workerZookeeper, 1000L, 10000)
     }
+
+    fun close() {
+        closed = true
+        zookeeperTimer.cancel()
+        workers
+            .map { it.first.close() }
+            .forEach { it.blockingGet() }
+
+        // TODO: notify clients!
+
+        serverChannel.close()
+    }
 }
