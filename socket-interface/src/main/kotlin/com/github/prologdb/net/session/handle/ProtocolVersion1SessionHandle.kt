@@ -38,24 +38,36 @@ internal class ProtocolVersion1SessionHandle(
             .map { versionMessage ->
                 when (versionMessage.commandCase!!) {
                     ToServer.CommandCase.CONSUME_RESULTS -> versionMessage.consumeResults.toIndependent()
-                    ToServer.CommandCase.INIT_QUERY -> try {
-                        versionMessage.initQuery.toIndependent(termReader)
-                    }
-                    catch (ex: Throwable) {
-                        val kind = when(ex) {
-                            is BinaryPrologDeserializationException,
-                            is PrologParseException
-                            -> com.github.prologdb.net.session.QueryRelatedError.Kind.INVALID_TERM_SYNTAX
-                            else -> com.github.prologdb.net.session.QueryRelatedError.Kind.ERROR_GENERIC
+                    ToServer.CommandCase.INIT_QUERY ->
+                        try {
+                            versionMessage.initQuery.toIndependent(termReader)
                         }
+                        catch (ex: Throwable) {
+                            val kind: com.github.prologdb.net.session.QueryRelatedError.Kind
+                            val additional = mutableMapOf<String, String>()
 
-                        throw QueryRelatedException(com.github.prologdb.net.session.QueryRelatedError(
-                            versionMessage.initQuery.queryId,
-                            kind,
-                            ex.message,
-                            emptyMap()
-                        ))
-                    }
+                            when(ex) {
+                                is BinaryPrologDeserializationException -> {
+                                    kind = com.github.prologdb.net.session.QueryRelatedError.Kind.INVALID_TERM_SYNTAX
+                                }
+                                is PrologParseException -> {
+                                    kind = com.github.prologdb.net.session.QueryRelatedError.Kind.INVALID_TERM_SYNTAX
+                                    ex.errors.forEachIndexed { index, reporting ->
+                                        additional["error_$index"] = "${reporting.message} in ${reporting.location}"
+                                    }
+                                }
+                                else -> {
+                                    kind = com.github.prologdb.net.session.QueryRelatedError.Kind.ERROR_GENERIC
+                                }
+                            }
+
+                            throw QueryRelatedException(com.github.prologdb.net.session.QueryRelatedError(
+                                versionMessage.initQuery.queryId,
+                                kind,
+                                ex.message,
+                                additional
+                            ))
+                        }
                     ToServer.CommandCase.ERROR -> versionMessage.error.toIndependent()
                     ToServer.CommandCase.COMMAND_NOT_SET -> throw NetworkProtocolException("command field of ToServer message not set")
                 }
@@ -111,7 +123,7 @@ internal class ProtocolVersion1TermReader(
                 if (result.isSuccess) {
                     result.item!!
                 } else {
-                    throw PrologParseException(result.reportings)
+                    throw PrologParseException(result)
                 }
             }
         }

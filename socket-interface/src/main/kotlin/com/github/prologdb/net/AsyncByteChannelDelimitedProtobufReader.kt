@@ -42,17 +42,18 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
 
     // for reading the object
     private val _observable = PublishSubject.create<T>()
-    val observable: Observable<T> = _observable
+    val observable: Observable<T>
+    init {
+        val publicObsv = _observable.replay()
+        publicObsv.connect()
+        observable = publicObsv
+    }
 
     /**
      * The number of messages that can still be read from the channel. If negative,
      * there is not limit.
      */
     private var remaining = totalLimit
-
-    init {
-        readAndContinue()
-    }
 
     private fun readAndContinue() {
         when (mode) {
@@ -86,13 +87,19 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
         }
 
         // not done yet, otherwise this code wouldn't execute
+        if (buffer.position() == buffer.limit()) {
+            buffer.position(0)
+            buffer.mark()
+            buffer.limit(buffer.capacity())
+        }
+
         channel.read(buffer, null, handler)
     }
 
     private fun readAndContinueMessage() {
         val messageLength = carry.toInt()
         val amountAlreadyPresent = buffer.remaining()
-        if (amountAlreadyPresent <= messageLength) {
+        if (amountAlreadyPresent >= messageLength) {
             try {
                 _observable.onNext(createMessage(buffer, messageLength))
             }
@@ -142,17 +149,26 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
                     // EOF within message || EOF within varint
                     _observable.onError(InvalidProtocolBufferException("Encountered EOF within a variable uint32"))
                 }
+                else {
+                    _observable.onComplete()
+                }
 
-                _observable.onComplete()
                 return
             }
 
+            buffer.flip()
             readAndContinue()
         }
 
         override fun failed(ex: Throwable?, attachment: Nothing?) {
             _observable.onError(ex ?: IOException("Unknown channel read error"))
-            _observable.onComplete()
         }
+    }
+
+    init {
+        buffer.position(0)
+        buffer.limit(0)
+
+        readAndContinue()
     }
 }

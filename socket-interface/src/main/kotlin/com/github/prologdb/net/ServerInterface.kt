@@ -11,7 +11,6 @@ import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.subjects.SingleSubject
 import java.net.InetSocketAddress
-import java.net.SocketAddress
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -46,8 +45,8 @@ class ServerInterface(
 
     private val serverChannel = AsynchronousServerSocketChannel.open()
 
-    val localAddress: SocketAddress
-        get() = serverChannel.localAddress
+    val localAddress: InetSocketAddress
+        get() = serverChannel.localAddress as InetSocketAddress
 
     var closed: Boolean = false
         private set
@@ -55,36 +54,6 @@ class ServerInterface(
     private val openSessions: MutableSet<SessionHandle> = Collections.newSetFromMap(ConcurrentHashMap())
 
     private val queryContexts: MutableMap<SessionHandle, MutableMap<Int, QueryContext>> = ConcurrentHashMap()
-
-    private val accepterThread = thread {
-        while (!closed) {
-            val channel = try {
-                serverChannel.accept().get()
-            } catch (ex: Throwable) {
-                // TODO: log
-                continue
-            }
-
-            sessionInitializer.init(channel).subscribeBy(
-                onSuccess= { handle ->
-                    openSessions.add(handle)
-                    handle.incomingMessages.subscribeBy(
-                        onNext = { handleMessage(it, handle) },
-                        onError = {
-                            // TODO: log
-                        },
-                        onComplete = {
-                            openSessions.remove(handle)
-                        }
-                    )
-                },
-                onError = {
-                    // TODO: log
-                    channel.close()
-                }
-            )
-        }
-    }
 
     private fun handleMessage(message: ProtocolMessage, handle: SessionHandle) {
         when (message) {
@@ -291,6 +260,37 @@ class ServerInterface(
 
         zookeeperTimer = Timer("prologdb-interface-$localAddress-worker-zookeeper")
         zookeeperTimer.scheduleAtFixedRate(workerZookeeper, 1000L, 10000)
+    }
+
+    private val accepterThread = thread {
+        while (!closed) {
+            val channel = try {
+                serverChannel.accept().get()
+            } catch (ex: Throwable) {
+                // TODO: log
+                continue
+            }
+
+            sessionInitializer.init(channel).subscribeBy(
+                onSuccess= { handle ->
+                    openSessions.add(handle)
+                    handle.incomingMessages.subscribeBy(
+                        onNext = { handleMessage(it, handle) },
+                        onError = {
+                            // TODO: log
+                        },
+                        onComplete = {
+                            openSessions.remove(handle)
+                        }
+                    )
+                },
+                onError = { ex ->
+                    // TODO: log
+                    ex.printStackTrace(System.err)
+                    channel.close()
+                }
+            )
+        }
     }
 
     fun close() {

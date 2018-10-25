@@ -30,8 +30,7 @@ class ByteArrayOutputStream(
      * A [ByteBuffer] that always points to the internal data of this output stream.
      * Calls to [write] and [reset] will modify the [ByteBuffer.limit] of this.
      */
-    // lateinit: the initial value for data calls the custom setter which sets this field
-    lateinit var bufferOfData: ByteBuffer
+    var bufferOfData: ByteBuffer = ByteBuffer.wrap(data)
         private set
 
     /**

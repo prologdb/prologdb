@@ -30,7 +30,7 @@ class SessionInitializer(
      * [SessionHandle] instance for the negotiated parameters.
      */
     fun init(channel: AsynchronousByteChannel): Single<SessionHandle> {
-        return AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel).observable
+        return AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel, 1).observable
             .take(1)
             .firstOrError()
             .flatMap {
@@ -46,9 +46,7 @@ class SessionInitializer(
                         .lastOrNull()
                 }
 
-                if (targetVersion == null) {
-                    throw HandshakeFailedException("Failed to negotiate protocol version; no common version.")
-                }
+                targetVersion ?: throw HandshakeFailedException("Failed to negotiate protocol version; no common version.")
 
                 val shb = ServerHello.newBuilder()
                 shb.version = serverVersion
@@ -69,14 +67,17 @@ class SessionInitializer(
                     is InvalidProtocolBufferException ->
                         ServerError.newBuilder()
                             .setKind(ServerError.Kind.INVALID_WIRE_FORMAT)
-                            .setMessage(ex.message)
+                            .setMessage(ex.message ?: "Failed to parse term from message")
                             .build()
                     else ->
                         ServerError.newBuilder()
                             .setKind(ServerError.Kind.GENERIC)
-                            .setMessage(ex.message)
+                            .setMessage(ex.message ?: "Unknown error")
                             .build()
                 }
+
+                // TODO: log properly
+                ex.printStackTrace(System.err)
 
                 ToClient.newBuilder()
                     .setError(error)
