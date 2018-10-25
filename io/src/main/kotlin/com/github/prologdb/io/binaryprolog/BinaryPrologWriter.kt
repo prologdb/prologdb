@@ -2,17 +2,16 @@ package com.github.prologdb.io.binaryprolog
 
 import com.github.prologdb.runtime.term.*
 import java.io.DataOutput
-import kotlin.reflect.KClass
 
 class BinaryPrologWriter {
-    private val termWriters = mutableMapOf<KClass<out Term>, TermWriter<*>>()
+    private val termWriters = mutableMapOf<Class<out Term>, TermWriter<*>>()
 
     /**
      * Subsequence calls to XXX will use the given writer to write terms of
      * the given [termClass]. Overwrites previous invocations with the same
      * [termClass].
      */
-    fun <T : Term> registerWriter(termClass: KClass<T>, writer: TermWriter<T>) {
+    fun <T : Term> registerWriter(termClass: Class<T>, writer: TermWriter<T>) {
         termWriters[termClass] = writer
     }
 
@@ -20,17 +19,17 @@ class BinaryPrologWriter {
      * @throws BinaryPrologSerializationException
      */
     fun writeTermTo(term: Term, out: DataOutput) {
-        val writer = findWriter(term::class)
-            ?: throw BinaryPrologSerializationException("No writer for term class ${term::class.simpleName} registered.")
+        val writer = findWriter(term::class.java)
+            ?: throw BinaryPrologSerializationException("No writer for term class ${term::class.java.simpleName} registered.")
 
         writer.writeTermTo(term, out, this)
     }
 
-    private fun <T : Term> findWriter(forType: KClass<out T>): TermWriter<T>? {
+    private fun <T : Term> findWriter(forType: Class<out T>): TermWriter<T>? {
         val byDirectMatch = termWriters[forType]
         if (byDirectMatch != null) return byDirectMatch as TermWriter<T>
 
-        val keyBySubtype = termWriters.keys.firstOrNull { it.java.isAssignableFrom(forType.java) }
+        val keyBySubtype = termWriters.keys.firstOrNull { it.isAssignableFrom(forType) }
         return if (keyBySubtype == null) null else termWriters[keyBySubtype] as TermWriter<T>
     }
 
@@ -51,14 +50,14 @@ class BinaryPrologWriter {
         fun getDefaultInstance(): BinaryPrologWriter {
             val writer = BinaryPrologWriter()
 
-            writer.registerWriter(PrologInteger::class, IntegerWriter)
-            writer.registerWriter(PrologDecimal::class, DecimalWriter)
-            writer.registerWriter(Variable::class, VariableWriter)
-            writer.registerWriter(PrologString::class, StringWriter)
-            writer.registerWriter(Atom::class, AtomWriter)
-            writer.registerWriter(Predicate::class, PredicateWriter)
-            writer.registerWriter(PrologList::class, ListWriter)
-            writer.registerWriter(PrologDictionary::class, DictionaryWriter)
+            writer.registerWriter(PrologInteger::class.java, IntegerWriter)
+            writer.registerWriter(PrologDecimal::class.java, DecimalWriter)
+            writer.registerWriter(Variable::class.java, VariableWriter)
+            writer.registerWriter(PrologString::class.java, StringWriter)
+            writer.registerWriter(Atom::class.java, AtomWriter)
+            writer.registerWriter(Predicate::class.java, PredicateWriter)
+            writer.registerWriter(PrologList::class.java, ListWriter)
+            writer.registerWriter(PrologDictionary::class.java, DictionaryWriter)
 
             return writer
         }

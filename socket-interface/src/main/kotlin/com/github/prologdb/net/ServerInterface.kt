@@ -6,6 +6,7 @@ import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.net.util.unsingedIntHexString
 import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.query.PredicateQuery
 import com.github.prologdb.runtime.unification.Unification
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
@@ -82,9 +83,23 @@ class ServerInterface(
         }
 
         // initialize the context
+        val initialized = try {
+            command.startUsing(queryHandler)
+        }
+        catch (ex: Throwable) {
+            handle.queueMessage(QueryRelatedError(
+                command.desiredQueryId,
+                QueryRelatedError.Kind.ERROR_GENERIC,
+                (ex as? PrologRuntimeException)?.message ?: "Unknown Error",
+                if (ex is PrologRuntimeException) mapOf("prologStackTrace" to ex.prettyPrint()) else emptyMap()
+            ))
+            handle.queueMessage(QueryClosedMessage(command.desiredQueryId, QueryClosedMessage.CloseReason.FAILED))
+            return
+        }
+
         val queryContext = QueryContext(
             command.desiredQueryId,
-            command.startUsing(queryHandler)
+            initialized
         )
 
         // catch the race condition
@@ -126,9 +141,13 @@ class ServerInterface(
     }
 
     private fun InitializeQueryCommand.startUsing(handler: QueryHandler): LazySequence<Unification> {
+        if (kind == InitializeQueryCommand.Kind.DIRECTIVE && instruction !is PredicateQuery) {
+            throw PrologRuntimeException("Directives must consist of a single predicate, found compound query.")
+        }
+
         return when (kind) {
             InitializeQueryCommand.Kind.QUERY     -> handler.startQuery(instruction, totalLimit)
-            InitializeQueryCommand.Kind.DIRECTIVE -> handler.startDirective(instruction, totalLimit)
+            InitializeQueryCommand.Kind.DIRECTIVE -> handler.startDirective((instruction as PredicateQuery).predicate, totalLimit)
         }
     }
 
@@ -166,6 +185,7 @@ class ServerInterface(
                 (completedEv as SingleSubject<Unit>).onSuccess(Unit)
             }
             catch (ex: Throwable) {
+                ex.printStackTrace(System.err)
                 (completedEv as SingleSubject<Unit>).onError(ex)
             }
         }
@@ -242,6 +262,7 @@ class ServerInterface(
 
             dead.forEach {
                 it.first.completedEv.doOnError { ex ->
+                    ex.printStackTrace(System.err)
                     // TODO: log
                 }
                 it.first.completedEv.doOnSuccess { _ ->
@@ -271,25 +292,30 @@ class ServerInterface(
                 continue
             }
 
-            sessionInitializer.init(channel).subscribeBy(
-                onSuccess= { handle ->
-                    openSessions.add(handle)
-                    handle.incomingMessages.subscribeBy(
-                        onNext = { handleMessage(it, handle) },
-                        onError = {
-                            // TODO: log
-                        },
-                        onComplete = {
-                            openSessions.remove(handle)
-                        }
-                    )
-                },
-                onError = { ex ->
-                    // TODO: log
-                    ex.printStackTrace(System.err)
-                    channel.close()
-                }
-            )
+            try {
+                sessionInitializer.init(channel).subscribeBy(
+                    onSuccess= { handle ->
+                        openSessions.add(handle)
+                        handle.incomingMessages.subscribeBy(
+                            onNext = { handleMessage(it, handle) },
+                            onError = {
+                                // TODO: log
+                            },
+                            onComplete = {
+                                openSessions.remove(handle)
+                            }
+                        )
+                    },
+                    onError = { ex ->
+                        // TODO: log
+                        ex.printStackTrace(System.err)
+                        channel.close()
+                    }
+                )
+            }
+            catch (ex: Throwable) {
+                // TODO: log
+            }
         }
     }
 

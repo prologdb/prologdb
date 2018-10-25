@@ -139,6 +139,7 @@ internal class QueryContext(
          * Closes the context, releasing any open resources.
          */
         fun close() {
+            closed = true
             solutions.close()
         }
     }

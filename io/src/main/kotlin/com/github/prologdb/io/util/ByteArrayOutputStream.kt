@@ -94,6 +94,7 @@ class ByteArrayOutputStream(
      */
     fun reset() {
         count = 0
+        bufferOfData.position(0)
     }
 }
 

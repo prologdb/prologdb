@@ -11,18 +11,21 @@ import com.github.prologdb.net.session.SessionInitializer
 import com.github.prologdb.net.session.handle.ProtocolVersion1SessionHandle
 import com.github.prologdb.net.session.handle.ProtocolVersion1TermReader
 import com.github.prologdb.net.session.handle.ProtocolVersion1TermWriter
+import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.v1.messages.QueryInitialization
 import com.github.prologdb.net.v1.messages.QuerySolutionConsumption
 import com.github.prologdb.net.v1.messages.ToClient
 import com.github.prologdb.net.v1.messages.ToServer
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.runtime.knowledge.library.DefaultOperatorRegistry
+import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Predicate
-import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.term.PrologString
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.google.protobuf.ByteString
+import io.reactivex.subjects.SingleSubject
 import java.net.Socket
 import java.nio.charset.Charset
 import java.util.*
@@ -34,19 +37,23 @@ fun main(args: Array<String>) {
         queryHandler,
         SessionInitializer("prologdb", serverSoftwareVersion, mapOf(
             ProtocolVersion1SemVer to { channel, _ ->
-                ProtocolVersion1SessionHandle(
+                val source = SingleSubject.create<SessionHandle>()
+                source.onSuccess(ProtocolVersion1SessionHandle(
                     channel,
                     ProtocolVersion1TermReader(
                         PrologParser(),
-                        BinaryPrologReader(),
+                        BinaryPrologReader.getDefaultInstance(),
                         DefaultOperatorRegistry()
                     ),
                     ProtocolVersion1TermWriter(
-                        BinaryPrologWriter()
+                        BinaryPrologWriter.getDefaultInstance()
                     )
-                )
+                ))
+                source
             }
-        ))
+        )),
+        null,
+        { 1 }
     )
 
     val socket = Socket("localhost", intf.localAddress.port)
@@ -65,7 +72,7 @@ fun main(args: Array<String>) {
             .setKind(QueryInitialization.Kind.QUERY)
             .setInstruction(com.github.prologdb.net.v1.messages.Term.newBuilder()
                 .setType(com.github.prologdb.net.v1.messages.Term.Type.STRING)
-                .setData(ByteString.copyFrom("foo(bar(Z))", Charset.defaultCharset()))
+                .setData(ByteString.copyFrom("foo(bar(Z)).", Charset.defaultCharset()))
             )
             .setQueryId(1)
             .build()
@@ -105,15 +112,15 @@ private val ProtocolVersion1SemVer = SemanticVersion.newBuilder()
     .build()
 
 private val queryHandler = object : QueryHandler {
-    override fun startQuery(term: Term, totalLimit: Long?): LazySequence<Unification> {
+    override fun startQuery(query: Query, totalLimit: Long?): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
             val vars = VariableBucket()
-            vars.instantiate(Variable("A"), Predicate("?-", arrayOf(term)))
+            vars.instantiate(Variable("A"), Predicate("?-", arrayOf(PrologString(query.toString()))))
             yield(Unification(vars))
         }
     }
 
-    override fun startDirective(command: Term, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(command: Predicate, totalLimit: Long?): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
             val vars = VariableBucket()
             vars.instantiate(Variable("A"), Predicate(":-", arrayOf(command)))

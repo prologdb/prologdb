@@ -6,7 +6,6 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.net.*
 import com.github.prologdb.net.session.*
-import com.github.prologdb.net.util.writeDelimitedTo
 import com.github.prologdb.net.v1.messages.*
 import com.github.prologdb.net.v1.messages.GeneralError
 import com.github.prologdb.net.v1.messages.QueryRelatedError
@@ -16,6 +15,7 @@ import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
+import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Term
 import com.google.protobuf.ByteString
 import com.google.protobuf.GeneratedMessageV3
@@ -128,6 +128,23 @@ internal class ProtocolVersion1TermReader(
             }
         }
     }
+
+    fun toRuntimeQuery(protoTerm: com.github.prologdb.net.v1.messages.Term, source: SourceUnit): Query {
+        return when (protoTerm.type!!) {
+            com.github.prologdb.net.v1.messages.Term.Type.BINARY -> {
+                TODO("Binary query?")
+            }
+            com.github.prologdb.net.v1.messages.Term.Type.STRING -> {
+                val lexer = Lexer(source, protoTerm.data.toStringUtf8().iterator())
+                val result = parser.parseQuery(lexer, operatorRegistry)
+                if (result.isSuccess) {
+                    result.item!!
+                } else {
+                    throw PrologParseException(result)
+                }
+            }
+        }
+    }
 }
 
 internal class ProtocolVersion1TermWriter(
@@ -149,12 +166,17 @@ internal class ProtocolVersion1TermWriter(
 
 private val SOURCE_UNIT_INSTRUCTION = SourceUnit("instruction")
 
-private fun QueryInitialization.toIndependent(termReader: ProtocolVersion1TermReader) = InitializeQueryCommand(
-    queryId,
-    termReader.toRuntimeTerm(instruction, SOURCE_UNIT_INSTRUCTION),
-    kind.toIndependent(),
-    if (hasLimit()) limit else null
-)
+private fun QueryInitialization.toIndependent(termReader: ProtocolVersion1TermReader): InitializeQueryCommand {
+    val cmd = InitializeQueryCommand(
+        queryId,
+        termReader.toRuntimeQuery(instruction, SOURCE_UNIT_INSTRUCTION),
+        kind.toIndependent(),
+        if (hasLimit()) limit else null
+    )
+
+    return cmd
+}
+// TODO: prepared statement
 
 private fun QueryInitialization.Kind.toIndependent() = when(this) {
     QueryInitialization.Kind.DIRECTIVE -> InitializeQueryCommand.Kind.DIRECTIVE

@@ -1,6 +1,6 @@
 package com.github.prologdb.net.session
 
-import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.unification.Unification
 
 annotation class ToServer
@@ -24,7 +24,7 @@ data class GeneralError(
 @ToServer
 data class InitializeQueryCommand(
     val desiredQueryId: Int,
-    val instruction: Term,
+    val instruction: Query,
     val kind: Kind = Kind.QUERY,
     val totalLimit: Long?
 ) : ProtocolMessage() {
