@@ -11,6 +11,7 @@ import com.github.prologdb.runtime.unification.Unification
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.subjects.SingleSubject
+import java.lang.Math.floor
 import java.net.InetSocketAddress
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.util.*
@@ -170,6 +171,7 @@ class ServerInterface(
         override fun run() {
             try {
                 while (!this@ServerInterface.closed && !this@WorkerRunnable.closed) {
+                    var nContextsWorkedOn = 0
                     for ((sessionHandle, contexts) in queryContexts) {
                         for (context in contexts.values) {
                             context.ifAvailable {
@@ -177,8 +179,16 @@ class ServerInterface(
                                 it.step()
                                 it.consumeSolutions(this)
                                 currentSessionHandle = null
+
+                                nContextsWorkedOn++
                             }
                         }
+                    }
+
+                    if (nContextsWorkedOn == 0) {
+                        // apparently there is nothing to do, wait a little
+                        // as not to waste CPU time (between 200 and 800 ms)
+                        Thread.sleep(floor(Math.random() * 600.0).toLong() + 200)
                     }
                 }
 
