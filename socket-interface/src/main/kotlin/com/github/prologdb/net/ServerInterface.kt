@@ -12,6 +12,8 @@ import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.subjects.SingleSubject
 import java.lang.Math.floor
+import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetSocketAddress
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.util.*
@@ -49,6 +51,19 @@ class ServerInterface(
 
     val localAddress: InetSocketAddress
         get() = serverChannel.localAddress as InetSocketAddress
+
+    private val localAddressPretty: String
+        get() {
+            val localAddr = localAddress.address
+
+            return if (localAddr is Inet4Address && localAddr.isAnyLocalAddress
+                || localAddr is Inet6Address && localAddr.isAnyLocalAddress)
+            {
+                "*:" + localAddress.port
+            } else {
+                localAddress.toString()
+            }
+        }
 
     var closed: Boolean = false
         private set
@@ -247,7 +262,7 @@ class ServerInterface(
                 pruneDeadWorkers()
                 while (nDesiredWorkers > workers.size) {
                     val runnable = WorkerRunnable()
-                    val thread = Thread(runnable, "prologdb-interface-$localAddress-worker-$workerIncrement")
+                    val thread = Thread(runnable, "prologdb-interface-$localAddressPretty-worker-$workerIncrement")
                     workerIncrement++
                     workers.add(Pair(runnable, thread))
                     thread.start()
@@ -289,11 +304,11 @@ class ServerInterface(
     init {
         serverChannel.bind(givenPort?.let { InetSocketAddress(it) })
 
-        zookeeperTimer = Timer("prologdb-interface-$localAddress-worker-zookeeper")
+        zookeeperTimer = Timer("prologdb-interface-$localAddressPretty-worker-zookeeper")
         zookeeperTimer.scheduleAtFixedRate(workerZookeeper, 1000L, 10000)
     }
 
-    private val accepterThread = thread {
+    private val accepterThread = thread(name = "prologdb-interface-$localAddressPretty-accepter") {
         while (!closed) {
             val channel = try {
                 serverChannel.accept().get()

@@ -4,20 +4,16 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
-import com.github.prologdb.net.negotiation.ClientHello
-import com.github.prologdb.net.negotiation.SemanticVersion
-import com.github.prologdb.net.negotiation.ToClient
-import com.github.prologdb.net.negotiation.ToServer
+import com.github.prologdb.net.negotiation.*
 import com.github.prologdb.net.session.QueryHandler
 import com.github.prologdb.net.session.SessionInitializer
 import com.github.prologdb.net.session.handle.ProtocolVersion1SessionHandle
 import com.github.prologdb.net.session.handle.ProtocolVersion1TermReader
 import com.github.prologdb.net.session.handle.ProtocolVersion1TermWriter
 import com.github.prologdb.net.session.handle.SessionHandle
-import com.github.prologdb.net.v1.messages.QueryClosedEvent
-import com.github.prologdb.net.v1.messages.QueryInitialization
-import com.github.prologdb.net.v1.messages.QuerySolutionConsumption
+import com.github.prologdb.net.v1.messages.*
 import com.github.prologdb.parser.parser.PrologParser
+import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.knowledge.library.DefaultOperatorRegistry
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Predicate
@@ -37,6 +33,8 @@ import java.lang.Math.ceil
 import java.net.Socket
 import java.nio.charset.Charset
 import java.util.*
+import com.github.prologdb.net.negotiation.ToClient as ToClientHS
+import com.github.prologdb.net.negotiation.ToServer as ToServerHS
 
 class ServerInterfaceIntegrationTest : FreeSpec() {
 
@@ -68,6 +66,11 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
             )
         }
 
+        override fun beforeTest(description: Description) {
+            queryHandler.errorOnQuery = false
+            queryHandler.errorOnDirective = false
+        }
+
         override fun afterSpec(description: Description, spec: Spec) {
             interfaceInstance.close()
         }
@@ -75,29 +78,9 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
 
     init {
         "simple query" {
-            val socket = Socket("localhost", interfaceInstance.localAddress.port)
-            ToServer.newBuilder()
-                .setHello(ClientHello.newBuilder()
-                    .addDesiredProtocolVersion(ProtocolVersion1SemVer)
-                    .build()
-                )
-                .build()
-                .writeDelimitedTo(socket.getOutputStream())
+            val (_, socket) = initConnection(interfaceInstance)
 
-            ToClient.parseDelimitedFrom(socket.getInputStream()).hello!!
-
-            com.github.prologdb.net.v1.messages.ToServer.newBuilder()
-                .setInitQuery(QueryInitialization.newBuilder()
-                    .setKind(QueryInitialization.Kind.QUERY)
-                    .setInstruction(com.github.prologdb.net.v1.messages.Term.newBuilder()
-                        .setType(com.github.prologdb.net.v1.messages.Term.Type.STRING)
-                        .setData(ByteString.copyFrom("foo(bar(Z)).", Charset.defaultCharset()))
-                    )
-                    .setQueryId(1)
-                    .build()
-                )
-                .build()
-                .writeDelimitedTo(socket.getOutputStream())
+            socket.startQuery(1, "foo(bar(Z))")
 
             com.github.prologdb.net.v1.messages.ToServer.newBuilder()
                 .setConsumeResults(QuerySolutionConsumption.newBuilder()
@@ -111,15 +94,23 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
 
 
             val queryOpened = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
-                .queryOpened
+                .let {
+                    it.eventCase shouldBe ToClient.EventCase.QUERY_OPENED
+                    it.queryOpened
+                }
 
             queryOpened shouldNotBe null
+            queryOpened.isInitialized shouldBe true
             queryOpened.queryId shouldBe 1
 
             val solution = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
-                .solution
+                .let {
+                    it.eventCase shouldBe ToClient.EventCase.SOLUTION
+                    it.solution
+                }
 
             solution shouldNotBe null
+            solution.isInitialized shouldBe true
             solution.queryId shouldBe 1
             solution.instantiationsMap.size shouldBe 1
             val Avalue = solution.instantiationsMap["A"]
@@ -128,9 +119,64 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
             AvalueParsed shouldBe Predicate("?-", arrayOf(PrologString("foo(bar(Z))")))
 
             val queryClosed = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
-                .queryClosed
+                .let {
+                    it.eventCase shouldBe ToClient.EventCase.QUERY_CLOSED
+                    it.queryClosed
+                }
+
             queryClosed.queryId shouldBe 1
             queryClosed.reason shouldBe QueryClosedEvent.Reason.SOLUTIONS_DEPLETED
+
+            socket.close()
+        }
+
+        "duplicate query id" {
+            val (_, socket) = initConnection(interfaceInstance)
+
+            socket.startQuery(1, "foo(X).")
+
+            val queryOpened = ToClient.parseDelimitedFrom(socket.getInputStream())
+                .let {
+                    it.eventCase shouldBe ToClient.EventCase.QUERY_OPENED
+                    it.queryOpened
+                }
+
+            queryOpened.queryId shouldBe 1
+
+            socket.startQuery(1, "bar(X).")
+
+            val queryError = ToClient.parseDelimitedFrom(socket.getInputStream())
+                .let {
+                    it.eventCase shouldBe ToClient.EventCase.QUERY_ERROR
+                    it.queryError
+                }
+
+            queryError.queryId shouldBe 1
+            queryError.kind shouldBe QueryRelatedError.Kind.QUERY_ID_ALREADY_IN_USE
+
+            socket.close()
+        }
+
+        "consume for query that was not initialized" {
+            val (_, socket) = initConnection(interfaceInstance)
+
+            ToServer.newBuilder()
+                .setConsumeResults(QuerySolutionConsumption.newBuilder()
+                    .setQueryId(2013)
+                    .setHandling(QuerySolutionConsumption.PostConsumptionAction.RETURN)
+                )
+                .build()
+                .writeDelimitedTo(socket.getOutputStream())
+
+            val queryError = ToClient.parseDelimitedFrom(socket.getInputStream())
+                .let {
+                    it.eventCase shouldBe ToClient.EventCase.QUERY_ERROR
+                    it.queryError
+                }
+
+            queryError shouldNotBe null
+            queryError.queryId shouldBe 1
+            queryError.kind shouldBe QueryRelatedError.Kind.QUERY_ID_NOT_IN_USE
 
             socket.close()
         }
@@ -152,19 +198,74 @@ private val ProtocolVersion1SemVer = SemanticVersion.newBuilder()
     .build()
 
 private val queryHandler = object : QueryHandler {
-    override fun startQuery(query: Query, totalLimit: Long?): LazySequence<Unification> {
+
+    var errorOnQuery: Boolean = false
+    var errorOnDirective: Boolean = false
+
+    override fun startQuery(term: Query, totalLimit: Long?): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
-            val vars = VariableBucket()
-            vars.instantiate(Variable("A"), Predicate("?-", arrayOf(PrologString(query.toString()))))
-            yield(Unification(vars))
+            if (errorOnQuery) {
+                throw PrologRuntimeException("Error :(")
+            } else {
+                val vars = VariableBucket()
+                vars.instantiate(Variable("A"), Predicate("?-", arrayOf(PrologString(term.toString()))))
+                yield(Unification(vars))
+            }
         }
     }
 
     override fun startDirective(command: Predicate, totalLimit: Long?): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
-            val vars = VariableBucket()
-            vars.instantiate(Variable("A"), Predicate(":-", arrayOf(command)))
-            yield(Unification(vars))
+            if (errorOnDirective) {
+                throw PrologRuntimeException("Error directive :(")
+            } else {
+                val vars = VariableBucket()
+                vars.instantiate(Variable("A"), Predicate(":-", arrayOf(command)))
+                yield(Unification(vars))
+            }
         }
     }
+}
+
+private fun initConnection(serverInterface: ServerInterface): Pair<ServerHello, Socket> {
+    val socket = Socket("localhost", serverInterface.localAddress.port)
+    ToServerHS.newBuilder()
+        .setHello(ClientHello.newBuilder()
+            .addDesiredProtocolVersion(ProtocolVersion1SemVer)
+            .build()
+        )
+        .build()
+        .writeDelimitedTo(socket.getOutputStream())
+
+    return Pair(ToClientHS.parseDelimitedFrom(socket.getInputStream()).hello!!, socket)
+}
+
+private fun Socket.startQuery(id: Int, query: String) {
+    ToServer.newBuilder()
+        .setInitQuery(QueryInitialization.newBuilder()
+            .setKind(QueryInitialization.Kind.QUERY)
+            .setInstruction(com.github.prologdb.net.v1.messages.Term.newBuilder()
+                .setType(com.github.prologdb.net.v1.messages.Term.Type.STRING)
+                .setData(ByteString.copyFrom(query, Charset.defaultCharset()))
+            )
+            .setQueryId(id)
+            .build()
+        )
+        .build()
+        .writeDelimitedTo(getOutputStream())
+}
+
+private fun Socket.startDirective(id: Int, command: String) {
+    ToServer.newBuilder()
+        .setInitQuery(QueryInitialization.newBuilder()
+            .setKind(QueryInitialization.Kind.DIRECTIVE)
+            .setInstruction(com.github.prologdb.net.v1.messages.Term.newBuilder()
+                .setType(com.github.prologdb.net.v1.messages.Term.Type.STRING)
+                .setData(ByteString.copyFrom(command, Charset.defaultCharset()))
+            )
+            .setQueryId(id)
+            .build()
+        )
+        .build()
+        .writeDelimitedTo(getOutputStream())
 }
