@@ -122,7 +122,7 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
         }
         // else:
         val wholeMessageBuffer = currentWholeMessageBuffer!!
-        val neededForMessage = currentMessageLength - wholeMessageBuffer.limit()
+        val neededForMessage = wholeMessageBuffer.remaining()
         if (neededForMessage <= buffer.remaining()) {
 
             // copy from buffer, only as much as needed
@@ -132,9 +132,10 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
             buffer.limit(bufferLimitBefore)
 
             // publish message
-            wholeMessageBuffer.flip()
+            wholeMessageBuffer.position(0)
             _observable.onNext(createMessage(wholeMessageBuffer, currentMessageLength))
 
+            wholeMessageBuffer.clear()
             maximizeBufferRemaining()
 
             // plough ahead
@@ -166,6 +167,7 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
             currentWholeMessageBuffer!!.clear()
         }
 
+        currentWholeMessageBuffer!!.limit(currentMessageLength)
         currentWholeMessageBuffer!!.put(buffer)
     }
 
