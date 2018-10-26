@@ -240,21 +240,6 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
     }
 }
 
-fun ByteBuffer.putVarUInt32(value: Int) {
-    if (value < 0) throw IllegalArgumentException()
-
-    var carry = value
-    do {
-        var byteValue = carry and 0b01111111
-        carry = carry ushr 7
-        if (carry != 0) {
-            // not the last
-            byteValue = -byteValue
-        }
-        put(byteValue.toByte())
-    } while (carry > 0)
-}
-
 fun GeneratedMessageV3.writeDelimitedTo(out: AsynchronousByteChannel): Single<Unit> {
     val bufferStream = FourKBufferPool.get()
     writeDelimitedTo(bufferStream)
