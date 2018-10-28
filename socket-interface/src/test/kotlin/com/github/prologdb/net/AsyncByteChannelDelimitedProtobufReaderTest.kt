@@ -1,8 +1,8 @@
 package com.github.prologdb.net
 
 import com.github.prologdb.io.util.ByteArrayOutputStream
+import com.github.prologdb.net.v1.messages.Query
 import com.github.prologdb.net.v1.messages.QueryInitialization
-import com.github.prologdb.net.v1.messages.Term
 import com.github.prologdb.net.v1.messages.ToServer
 import com.google.protobuf.ByteString
 import io.kotlintest.matchers.beGreaterThan
@@ -23,10 +23,10 @@ class AsyncByteChannelDelimitedProtobufReaderTest : FreeSpec({
         .setInitQuery(QueryInitialization.newBuilder()
             .setQueryId(1)
             .setKind(QueryInitialization.Kind.QUERY)
-            .setInstruction(Term.newBuilder()
-                .setType(Term.Type.STRING)
+            .setInstruction(Query.newBuilder()
+                .setType(Query.Type.STRING)
                 .setData(ByteString.copyFrom(
-                    "foo(baz(Z), 2, 3, { a: 3 }, \"this is intentionally long as to test" +
+                    "foo(baz(Z), 2), bar(3, { a: 3 }, \"this is intentionally long as to test" +
                     "the varint decoding. It really comes to play with lengths over 128 bytes." +
                     "So this should pose a real test for the varint decoding.\")",
                     Charset.defaultCharset()

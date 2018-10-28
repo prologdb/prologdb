@@ -44,6 +44,26 @@ message Term {
     }
 }
 
+/* A prolog query. It may either be encoded using binary prolog (see the io module)
+ * or as a string (with UTF-8 encoding) as regular prolog code.
+ * Clients are free to choose what to send. The server will always respond with
+ * binary prolog.
+ */
+message Query {
+    required Type type = 1;
+    required bytes data = 2;
+
+    reserved 3 to 10;
+
+    enum Type {
+        BINARY = 0;
+        STRING = 1;
+
+        reserved 2 to 10;
+    }
+}
+
+
 /* Client-to-Server
  * Starts a new query or directive execution.
  */
@@ -54,7 +74,7 @@ message QueryInitialization {
 
     /* The actual query content.
      */
-    required Term instruction = 2;
+    required Query instruction = 2;
 
     optional Kind kind = 100 [default = QUERY];
 

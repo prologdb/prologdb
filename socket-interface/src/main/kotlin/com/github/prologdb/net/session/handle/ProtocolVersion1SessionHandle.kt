@@ -12,7 +12,11 @@ import com.github.prologdb.net.v1.messages.QueryRelatedError
 import com.github.prologdb.net.v1.messages.ToClient
 import com.github.prologdb.net.v1.messages.ToServer
 import com.github.prologdb.parser.lexer.Lexer
+import com.github.prologdb.parser.lexer.Operator
+import com.github.prologdb.parser.lexer.OperatorToken
+import com.github.prologdb.parser.lexer.Token
 import com.github.prologdb.parser.parser.PrologParser
+import com.github.prologdb.parser.sequence.TransactionalSequence
 import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
 import com.github.prologdb.runtime.query.Query
@@ -25,8 +29,8 @@ import java.nio.channels.AsynchronousByteChannel
 
 internal class ProtocolVersion1SessionHandle(
     private val channel: AsynchronousByteChannel,
-    private val termReader: ProtocolVersion1TermReader,
-    private val termWriter: ProtocolVersion1TermWriter
+    private val prologReader: ProtocolVersion1PrologReader,
+    private val prologWriter: ProtocolVersion1PrologWriter
 ) : SessionHandle {
 
     override val incomingMessages: Observable<ProtocolMessage>
@@ -40,7 +44,7 @@ internal class ProtocolVersion1SessionHandle(
                     ToServer.CommandCase.CONSUME_RESULTS -> versionMessage.consumeResults.toIndependent()
                     ToServer.CommandCase.INIT_QUERY ->
                         try {
-                            versionMessage.initQuery.toIndependent(termReader)
+                            versionMessage.initQuery.toIndependent(prologReader)
                         }
                         catch (ex: Throwable) {
                             val kind: com.github.prologdb.net.session.QueryRelatedError.Kind
@@ -94,7 +98,7 @@ internal class ProtocolVersion1SessionHandle(
             throw IllegalArgumentException("Can only send messages intended for the client; see the ToClient annotation")
         }
 
-        message.toProtocol(termWriter).writeDelimitedTo(channel)
+        message.toProtocol(prologWriter).writeDelimitedTo(channel)
     }
 
     override fun closeSession() {
@@ -102,7 +106,7 @@ internal class ProtocolVersion1SessionHandle(
     }
 }
 
-internal class ProtocolVersion1TermReader(
+internal class ProtocolVersion1PrologReader(
     private val parser: PrologParser,
     private val binaryPrologReader: BinaryPrologReader,
     private val operatorRegistry: OperatorRegistry
@@ -119,7 +123,7 @@ internal class ProtocolVersion1TermReader(
             }
             com.github.prologdb.net.v1.messages.Term.Type.STRING -> {
                 val lexer = Lexer(source, protoTerm.data.toStringUtf8().iterator())
-                val result = parser.parseTerm(lexer, operatorRegistry, { it.hasNext() })
+                val result = parser.parseTerm(lexer, operatorRegistry, PrologParser.STOP_AT_EOF)
                 if (result.isSuccess) {
                     result.item!!
                 } else {
@@ -129,25 +133,36 @@ internal class ProtocolVersion1TermReader(
         }
     }
 
-    fun toRuntimeQuery(protoTerm: com.github.prologdb.net.v1.messages.Term, source: SourceUnit): Query {
-        return when (protoTerm.type!!) {
-            com.github.prologdb.net.v1.messages.Term.Type.BINARY -> {
-                TODO("Binary query?")
+    fun toRuntimeQuery(protoQuery: com.github.prologdb.net.v1.messages.Query, source: SourceUnit): Query {
+        return when (protoQuery.type!!) {
+            com.github.prologdb.net.v1.messages.Query.Type.BINARY -> {
+                binaryPrologReader.readQueryFrom(protoQuery.data.asReadOnlyByteBuffer())
             }
-            com.github.prologdb.net.v1.messages.Term.Type.STRING -> {
-                val lexer = Lexer(source, protoTerm.data.toStringUtf8().iterator())
-                val result = parser.parseQuery(lexer, operatorRegistry)
+            com.github.prologdb.net.v1.messages.Query.Type.STRING -> {
+                val lexer = Lexer(source, protoQuery.data.toStringUtf8().iterator())
+                val result = parser.parseQuery(lexer, operatorRegistry, STOP_AT_EOF_OR_FULL_STOP)
                 if (result.isSuccess) {
                     result.item!!
                 } else {
                     throw PrologParseException(result)
                 }
+            }
+        }
+    }
+
+    private companion object {
+        val STOP_AT_EOF_OR_FULL_STOP: (TransactionalSequence<Token>) -> Boolean = {
+            if (!it.hasNext()) true else {
+                it.mark()
+                val next = it.next()
+                it.rollback()
+                next is OperatorToken && next.operator == Operator.FULL_STOP
             }
         }
     }
 }
 
-internal class ProtocolVersion1TermWriter(
+internal class ProtocolVersion1PrologWriter(
     private val binaryPrologWriter: BinaryPrologWriter
 ) {
     private val buffer = ThreadLocal.withInitial { val stream = ByteArrayOutputStream(512); Pair(stream, DataOutputStream(stream)) }
@@ -162,14 +177,25 @@ internal class ProtocolVersion1TermWriter(
             .setData(ByteString.copyFrom(bufferStream.bufferOfData))
             .build()
     }
+
+    fun write(query: Query): com.github.prologdb.net.v1.messages.Query {
+        val (bufferStream, dataOut) = buffer.get()
+        bufferStream.reset()
+        binaryPrologWriter.writeQueryTo(query, dataOut)
+
+        return com.github.prologdb.net.v1.messages.Query.newBuilder()
+            .setType(com.github.prologdb.net.v1.messages.Query.Type.BINARY)
+            .setData(ByteString.copyFrom(bufferStream.bufferOfData))
+            .build()
+    }
 }
 
 private val SOURCE_UNIT_INSTRUCTION = SourceUnit("instruction")
 
-private fun QueryInitialization.toIndependent(termReader: ProtocolVersion1TermReader): InitializeQueryCommand {
+private fun QueryInitialization.toIndependent(prologReader: ProtocolVersion1PrologReader): InitializeQueryCommand {
     val cmd = InitializeQueryCommand(
         queryId,
-        termReader.toRuntimeQuery(instruction, SOURCE_UNIT_INSTRUCTION),
+        prologReader.toRuntimeQuery(instruction, SOURCE_UNIT_INSTRUCTION),
         kind.toIndependent(),
         if (hasLimit()) limit else null
     )
@@ -200,12 +226,12 @@ private fun GeneralError.toIndependent() = com.github.prologdb.net.session.Gener
     additionalInformationMap
 )
 
-private fun ProtocolMessage.toProtocol(termWriter: ProtocolVersion1TermWriter): GeneratedMessageV3 = when(this) {
+private fun ProtocolMessage.toProtocol(prologWriter: ProtocolVersion1PrologWriter): GeneratedMessageV3 = when(this) {
     is com.github.prologdb.net.session.GeneralError -> toProtocol()
     is QueryOpenedMessage -> toProtocol()
     is QueryClosedMessage -> toProtocol()
     is com.github.prologdb.net.session.QueryRelatedError -> toProtocol()
-    is QuerySolutionMessage -> toProtocol(termWriter)
+    is QuerySolutionMessage -> toProtocol(prologWriter)
     else -> throw IllegalArgumentException("Cannot convert message of type ${this.javaClass.name} to protocol version 1 because that is not a to-client message")
 }
 
@@ -261,14 +287,14 @@ private fun com.github.prologdb.net.session.QueryRelatedError.Kind.toProtocol() 
     com.github.prologdb.net.session.QueryRelatedError.Kind.QUERY_ID_ALREADY_IN_USE -> QueryRelatedError.Kind.QUERY_ID_ALREADY_IN_USE
 }
 
-private fun QuerySolutionMessage.toProtocol(termWriter: ProtocolVersion1TermWriter): ToClient {
+private fun QuerySolutionMessage.toProtocol(prologWriter: ProtocolVersion1PrologWriter): ToClient {
     val builder = QuerySolution.newBuilder()
         .setQueryId(queryId)
 
     solution.variableValues.values.forEach {
         val term = it.second
         if (term != null) {
-            builder.putInstantiations(it.first.name, termWriter.write(term))
+            builder.putInstantiations(it.first.name, prologWriter.write(term))
         }
     }
 
