@@ -5,7 +5,7 @@ import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.net.negotiation.*
-import com.github.prologdb.net.session.QueryHandler
+import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.net.session.SessionInitializer
 import com.github.prologdb.net.session.handle.ProtocolVersion1PrologReader
 import com.github.prologdb.net.session.handle.ProtocolVersion1PrologWriter
@@ -307,24 +307,32 @@ private val ProtocolVersion1SemVer = SemanticVersion.newBuilder()
     .addPreReleaseLabels("ALPHA")
     .build()
 
-private val queryHandler = object : QueryHandler {
+private val queryHandler = object : DatabaseEngine<Map<String, String>> {
 
     var errorOnQuery: Boolean = false
     var errorOnDirective: Boolean = false
 
-    override fun startQuery(term: Query, totalLimit: Long?): LazySequence<Unification> {
+    override fun initializeSession(): Map<String, String> {
+        return mutableMapOf()
+    }
+
+    override fun onSessionDestroyed(state: Map<String, String>) {
+
+    }
+
+    override fun startQuery(session: Map<String, String>, query: Query, totalLimit: Long?): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
             if (errorOnQuery) {
                 throw PrologRuntimeException("Error :(")
             } else {
                 val vars = VariableBucket()
-                vars.instantiate(Variable("A"), Predicate("?-", arrayOf(PrologString(term.toString()))))
+                vars.instantiate(Variable("A"), Predicate("?-", arrayOf(PrologString(query.toString()))))
                 yield(Unification(vars))
             }
         }
     }
 
-    override fun startDirective(command: Predicate, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(session: Map<String, String>, command: Predicate, totalLimit: Long?): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
             if (errorOnDirective) {
                 throw PrologRuntimeException("Error directive :(")

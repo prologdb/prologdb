@@ -24,7 +24,7 @@ class ServerInterface(
     /**
      * The instance MUST be thread-safe.
      */
-    private val queryHandler: QueryHandler,
+    databaseEngine: DatabaseEngine<*>,
 
     /**
      * Used to do the handshakes. This is where support for multiple protocols can be added.
@@ -36,8 +36,8 @@ class ServerInterface(
 
     /**
      * Provides the number of worker threads to maintain. Is consulted on a regular interval.
-     * The worker threads will spawn the actual queries through [QueryHandler.startQuery] and
-     * [QueryHandler.startDirective] as well as calculate the solutions using [LazySequence.step].
+     * The worker threads will spawn the actual queries through [DatabaseEngine.startQuery] and
+     * [DatabaseEngine.startDirective] as well as calculate the solutions using [LazySequence.step].
      */
     private val nWorkerThreadsSource: () -> Int = Runtime.getRuntime()::availableProcessors
 ) {
@@ -46,6 +46,9 @@ class ServerInterface(
             throw IllegalArgumentException("The port must be in range [1, 65535]")
         }
     }
+
+    private val databaseEngine: DatabaseEngine<Any?> = databaseEngine as DatabaseEngine<Any?>
+    /* type erasure is okay since we'll only pass in what we get out of it. */
 
     private val serverChannel = AsynchronousServerSocketChannel.open()
 
@@ -100,7 +103,7 @@ class ServerInterface(
 
         // initialize the context
         val initialized = try {
-            command.startUsing(queryHandler)
+            command.startUsing(handle.sessionState, databaseEngine)
         }
         catch (ex: Throwable) {
             handle.queueMessage(QueryRelatedError(
@@ -156,14 +159,14 @@ class ServerInterface(
         handle.closeSession()
     }
 
-    private fun InitializeQueryCommand.startUsing(handler: QueryHandler): LazySequence<Unification> {
+    private fun InitializeQueryCommand.startUsing(sessionState: Any?, engine: DatabaseEngine<Any?>): LazySequence<Unification> {
         if (kind == InitializeQueryCommand.Kind.DIRECTIVE && instruction !is PredicateQuery) {
             throw PrologRuntimeException("Directives must consist of a single predicate, found compound query.")
         }
 
         return when (kind) {
-            InitializeQueryCommand.Kind.QUERY     -> handler.startQuery(instruction, totalLimit)
-            InitializeQueryCommand.Kind.DIRECTIVE -> handler.startDirective((instruction as PredicateQuery).predicate, totalLimit)
+            InitializeQueryCommand.Kind.QUERY     -> engine.startQuery(sessionState, instruction, totalLimit)
+            InitializeQueryCommand.Kind.DIRECTIVE -> engine.startDirective(sessionState, (instruction as PredicateQuery).predicate, totalLimit)
         }
     }
 
@@ -318,9 +321,15 @@ class ServerInterface(
             }
 
             try {
-                sessionInitializer.init(channel).subscribeBy(
-                    onSuccess= { handle ->
+                sessionInitializer.init(channel)
+                    .map {
+                        Pair(it, this@ServerInterface.databaseEngine.initializeSession())
+                    }
+                    .subscribeBy(
+                    onSuccess= { (handle, sessionState) ->
+                        handle.sessionState = sessionState
                         openSessions.add(handle)
+
                         handle.incomingMessages.subscribeBy(
                             onNext = { handleMessage(it, handle) },
                             onError = { ex ->
@@ -334,6 +343,7 @@ class ServerInterface(
                             },
                             onComplete = {
                                 openSessions.remove(handle)
+                                this@ServerInterface.databaseEngine.onSessionDestroyed(handle.sessionState)
                             }
                         )
                     },

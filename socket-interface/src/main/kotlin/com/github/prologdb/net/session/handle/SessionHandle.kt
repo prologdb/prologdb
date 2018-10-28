@@ -9,6 +9,8 @@ import java.net.Socket
  * information relevant to that session.
  * These objects also take care of handling the actual protocol version.
  *
+ * @param SessionState Session state as obtained and managed by the [DatabaseEngine].
+ *
  * Session handles are generally **NOT THREAD SAFE!**
  */
 interface SessionHandle {
@@ -16,6 +18,11 @@ interface SessionHandle {
      * The incoming message is one of those annotated with [ToServer].
      */
     val incomingMessages: Observable<ProtocolMessage>
+
+    /**
+     * Simple storage variable. Implementations supposed not to tinker with this object.
+     */
+    var sessionState: Any?
 
     /**
      * Queues the given message for later sending. The order

@@ -33,6 +33,8 @@ internal class ProtocolVersion1SessionHandle(
     private val prologWriter: ProtocolVersion1PrologWriter
 ) : SessionHandle {
 
+    override var sessionState: Any? = null
+
     override val incomingMessages: Observable<ProtocolMessage>
 
     init {
