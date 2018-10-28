@@ -4,6 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.*
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.util.prettyPrint
+import com.github.prologdb.net.util.sortForSubstitution
 import com.github.prologdb.net.util.unsingedIntHexString
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.query.PredicateQuery
@@ -164,6 +165,29 @@ class ServerInterface(
             throw PrologRuntimeException("Directives must consist of a single predicate, found compound query.")
         }
 
+        val instruction = if (preInstantiations == null || preInstantiations.isEmpty) instruction else {
+            var _instruction = this.instruction
+            val sortedSubstitutions = try {
+                preInstantiations.sortForSubstitution()
+            }
+            catch (ex: PrologRuntimeException) {
+                throw QueryRelatedException(
+                    QueryRelatedError(
+                        desiredQueryId,
+                        QueryRelatedError.Kind.ERROR_GENERIC,
+                        ex.message ?: "Failed to apply pre-instantiations"
+                    ),
+                    ex
+                )
+            }
+
+            sortedSubstitutions.forEach {
+                _instruction = _instruction.substituteVariables(it)
+            }
+
+            _instruction
+        }
+
         return when (kind) {
             InitializeQueryCommand.Kind.QUERY     -> engine.startQuery(sessionState, instruction, totalLimit)
             InitializeQueryCommand.Kind.DIRECTIVE -> engine.startDirective(sessionState, (instruction as PredicateQuery).predicate, totalLimit)
@@ -289,15 +313,17 @@ class ServerInterface(
             workers.removeAll(dead)
 
             dead.forEach {
-                it.first.completedEv.doOnError { ex ->
-                    ex.printStackTrace(System.err)
-                    // TODO: log
-                }
-                it.first.completedEv.doOnSuccess { _ ->
-                    // TODO: log
-                    // this is far more interesting than error because nothing else
-                    // should be closing workers but apparently still does.
-                }
+                it.first.completedEv.subscribeBy(
+                    onError = { ex ->
+                        ex.printStackTrace(System.err)
+                        // TODO: log
+                    },
+                    onSuccess = { _ ->
+                        // TODO: log
+                        // this is far more interesting than error because nothing else
+                        // should be closing workers but apparently still does.
+                    }
+                )
             }
         }
     }

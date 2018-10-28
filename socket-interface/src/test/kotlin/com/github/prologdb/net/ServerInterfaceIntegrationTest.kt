@@ -289,6 +289,58 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
 
                 socket.close()
             }
+
+            "pre-instantiations" {
+                val (_, socket) = initConnection(interfaceInstance)
+
+                socket.startQuery(1, "foo(X)", mapOf("Y" to "X", "X" to "5587"))
+
+                com.github.prologdb.net.v1.messages.ToServer.newBuilder()
+                    .setConsumeResults(QuerySolutionConsumption.newBuilder()
+                        .setQueryId(1)
+                        .setCloseAfterwards(false)
+                        .setHandling(QuerySolutionConsumption.PostConsumptionAction.RETURN)
+                        .build()
+                    )
+                    .build()
+                    .writeDelimitedTo(socket.getOutputStream())
+
+                val queryOpened = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
+                    .let {
+                        it.eventCase shouldBe ToClient.EventCase.QUERY_OPENED
+                        it.queryOpened
+                    }
+
+                queryOpened shouldNotBe null
+                queryOpened.isInitialized shouldBe true
+                queryOpened.queryId shouldBe 1
+
+                val solution = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
+                    .let {
+                        it.eventCase shouldBe ToClient.EventCase.SOLUTION
+                        it.solution
+                    }
+
+                solution shouldNotBe null
+                solution.isInitialized shouldBe true
+                solution.queryId shouldBe 1
+                solution.instantiationsMap.size shouldBe 1
+                val Avalue = solution.instantiationsMap["A"]
+                Avalue!!
+                val AvalueParsed = BinaryPrologReader.getDefaultInstance().readTermFrom(Avalue.data.asReadOnlyByteBuffer())
+                AvalueParsed shouldBe Predicate("?-", arrayOf(PrologString("foo(5587)")))
+
+                val queryClosed = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
+                    .let {
+                        it.eventCase shouldBe ToClient.EventCase.QUERY_CLOSED
+                        it.queryClosed
+                    }
+
+                queryClosed.queryId shouldBe 1
+                queryClosed.reason shouldBe QueryClosedEvent.Reason.SOLUTIONS_DEPLETED
+
+                socket.close()
+            }
         }
     }
 }
@@ -358,17 +410,25 @@ private fun initConnection(serverInterface: ServerInterface): Pair<ServerHello, 
     return Pair(ToClientHS.parseDelimitedFrom(socket.getInputStream()).hello!!, socket)
 }
 
-private fun Socket.startQuery(id: Int, query: String) {
-    ToServer.newBuilder()
-        .setInitQuery(QueryInitialization.newBuilder()
-            .setKind(QueryInitialization.Kind.QUERY)
-            .setInstruction(com.github.prologdb.net.v1.messages.Query.newBuilder()
-                .setType(com.github.prologdb.net.v1.messages.Query.Type.STRING)
-                .setData(ByteString.copyFrom(query, Charset.defaultCharset()))
-            )
-            .setQueryId(id)
+private fun Socket.startQuery(id: Int, query: String, instantiations: Map<String, String> = emptyMap()) {
+    val initBuilder = QueryInitialization.newBuilder()
+        .setKind(QueryInitialization.Kind.QUERY)
+        .setInstruction(com.github.prologdb.net.v1.messages.Query.newBuilder()
+            .setType(com.github.prologdb.net.v1.messages.Query.Type.STRING)
+            .setData(ByteString.copyFrom(query, Charset.defaultCharset()))
+        )
+        .setQueryId(id)
+
+    for ((varName, termText) in instantiations) {
+        initBuilder.putInstantiations(varName, Term.newBuilder()
+            .setType(Term.Type.STRING)
+            .setData(ByteString.copyFrom(termText, Charset.defaultCharset()))
             .build()
         )
+    }
+
+    ToServer.newBuilder()
+        .setInitQuery(initBuilder.build())
         .build()
         .writeDelimitedTo(getOutputStream())
 }
