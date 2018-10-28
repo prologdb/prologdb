@@ -75,6 +75,10 @@ to that term type.
 |            0x32 | list without tail       |
 |            0x40 | dict with tail          |
 |            0x41 | dict without tail       |
+|            0x60 | *reserved (see queries)*|
+|            0x61 | *reserved (see queries)*|
+|            0x62 | *reserved (see queries)*|
+|            0x63 | *reserved (see queries)*|
 
 ### Integers
 
@@ -216,3 +220,49 @@ Layout:
 |---------------------------|------------------------------------------------|
 |`{f:"b", x:2}`             |`0x41 0x82 0x81 0x66 0x24 0x81 0x62 0x81 0x78 0x10 0x81 0x02`|
 |<code>{a:b &#124; X}</code>|`0x40 0x81 0x58 0x81 0x81 0x61 0x22 0x81 0x62`  |
+
+## Query Encoding
+
+There are two types of queries: predicate queries and combined queries.
+Combined queries are have a logical operator attached to them.
+
+### Predicate Query
+
+| Order # | Element                                                          |
+|---------|------------------------------------------------------------------|
+|1        | literal byte `0x60`                                                     |
+|2        | Predicate of the query. Encoded predicate without type byte.     |
+
+### Combined Query
+
+| Order # | Element                                                          |
+|---------|------------------------------------------------------------------|
+|1        | literal byte `0x61`                                              |
+|2        | logical operator (single byte, see below)                        |
+|3        | Number of nested queries encoded with the integer encoding       |
+|4        | The queries, as many as specified in 3                           |
+
+#### Logical Operators
+
+| Value                | Operator            |
+|----------------------|---------------------|
+|`0x00`                | `AND`               |
+|`0x01`                | `OR`                |
+|`0x02` through `0xFF` | currently undefined |
+
+### Examples
+
+`foo(5)` encoded is
+
+    0x60 0x81 0x83 0x66 0x6F 0x6F 0x10 0x81 0x05
+    
+`foo(X), bar(Z, 1)` encoded is
+
+    0x61 0x00 0x82 0x60 0x81 0x83 0x66 0x6F 0x6F 0x20 0x81 0x58
+    0x60 0x82 0x83 0x62 0x61 0x72 0x20 0x81 0x5A 0x10 0x81 0x01
+
+`(foo(X) ; bar(X)), fuzz(Y)` encoded is
+
+    0x61 0x00 0x82 0x61 0x01 0x82 0x60 0x81 0x83 0x66 0x6F 0x6F
+    0x20 0x81 0x58 0x60 0x81 0x83 0x62 0x61 0x72 0x20 0x81 0x58
+    0x60 0x81 0x84 0x66 0x75 0x7A 0x7A 0x20 0x81 0x59 

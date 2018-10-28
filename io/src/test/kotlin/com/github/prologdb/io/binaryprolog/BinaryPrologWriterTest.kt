@@ -1,6 +1,8 @@
 package com.github.prologdb.io.binaryprolog
 
-import arrow.core.toT
+import com.github.prologdb.runtime.query.AndQuery
+import com.github.prologdb.runtime.query.OrQuery
+import com.github.prologdb.runtime.query.PredicateQuery
 import com.github.prologdb.runtime.term.*
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.FreeSpec
@@ -274,6 +276,45 @@ class BinaryPrologWriterTest : FreeSpec({
             bufferData shouldBe byteArrayOf(0x41, 0x82.toByte(), 0x81.toByte(), 0x66,
                 0x24, 0x81.toByte(), 0x62, 0x81.toByte(), 0x78, 0x10, 0x88.toByte(),
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)
+        }
+    }
+
+    "query" - {
+        "A" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeQueryTo(
+                PredicateQuery(Predicate("foo", arrayOf(PrologInteger(5)))),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(0x60, 0x81.toByte(), 0x83.toByte(), 0x66,
+                0x6F, 0x6F, 0x10, 0x88.toByte(), 0, 0, 0, 0, 0, 0, 0, 0x05)
+        }
+
+        "B" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeQueryTo(
+                AndQuery(arrayOf(
+                   OrQuery(arrayOf(
+                       PredicateQuery(Predicate("foo", arrayOf(Variable("X")))),
+                       PredicateQuery(Predicate("bar", arrayOf(Variable("X"))))
+                   )),
+                   PredicateQuery(Predicate("fuzz", arrayOf(Variable("Y"))))
+                )),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(0x61, 0x00, 0x82.toByte(), 0x61, 0x01,
+                0x82.toByte(), 0x60, 0x81.toByte(), 0x83.toByte(), 0x66, 0x6F,
+                0x6F, 0x20, 0x81.toByte(), 0x58, 0x60, 0x81.toByte(), 0x83.toByte(),
+                0x62, 0x61, 0x72, 0x20, 0x81.toByte(), 0x58, 0x60, 0x81.toByte(),
+                0x84.toByte(), 0x66, 0x75, 0x7A, 0x7A, 0x20, 0x81.toByte(), 0x59)
         }
     }
 })

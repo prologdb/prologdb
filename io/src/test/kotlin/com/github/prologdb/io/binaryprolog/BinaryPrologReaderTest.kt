@@ -1,8 +1,14 @@
 package com.github.prologdb.io.binaryprolog
 
+import com.github.prologdb.runtime.query.AndQuery
+import com.github.prologdb.runtime.query.OrQuery
+import com.github.prologdb.runtime.query.PredicateQuery
 import com.github.prologdb.runtime.term.*
+import io.kotlintest.forOne
+import io.kotlintest.matchers.beInstanceOf
 import io.kotlintest.matchers.plusOrMinus
-import io.kotlintest.matchers.shouldBe
+import io.kotlintest.should
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.FreeSpec
 import java.nio.ByteBuffer
 
@@ -218,6 +224,55 @@ class BinaryPrologReaderTest : FreeSpec({
             result.pairs[Atom("x")] shouldBe PrologInteger(2)
 
             result.tail shouldBe null
+        }
+    }
+
+    "query" - {
+        "A" {
+            val buffer = ByteBuffer.wrap(byteArrayOf(0x60, 0x81.toByte(), 0x83.toByte(), 0x66,
+                0x6F, 0x6F, 0x10, 0x81.toByte(), 0x05))
+
+            val result = BinaryPrologReader.getDefaultInstance().readQueryFrom(buffer)
+
+            buffer.position() shouldBe 9
+            result as PredicateQuery
+
+            result.predicate shouldBe Predicate("foo", arrayOf(PrologInteger(5)))
+        }
+
+        "B" {
+            val buffer = ByteBuffer.wrap(byteArrayOf(0x61, 0x00, 0x82.toByte(), 0x61, 0x01,
+                0x82.toByte(), 0x60, 0x81.toByte(), 0x83.toByte(), 0x66, 0x6F,
+                0x6F, 0x20, 0x81.toByte(), 0x58, 0x60, 0x81.toByte(), 0x83.toByte(),
+                0x62, 0x61, 0x72, 0x20, 0x81.toByte(), 0x58, 0x60, 0x81.toByte(),
+                0x84.toByte(), 0x66, 0x75, 0x7A, 0x7A, 0x20, 0x81.toByte(), 0x59))
+
+            val result = BinaryPrologReader.getDefaultInstance().readQueryFrom(buffer)
+
+            buffer.position() shouldBe 34
+
+            result as AndQuery
+            result.goals.size shouldBe 2
+            forOne(result.goals) {
+                it should beInstanceOf(PredicateQuery::class)
+                it as PredicateQuery
+                it.predicate shouldBe Predicate("fuzz", arrayOf(Variable("Y")))
+            }
+            forOne(result.goals) { outer ->
+                outer should beInstanceOf(OrQuery::class)
+                outer as OrQuery
+                outer.goals.size shouldBe 2
+                forOne(outer.goals) {
+                    it should beInstanceOf(PredicateQuery::class)
+                    it as PredicateQuery
+                    it.predicate shouldBe Predicate("foo", arrayOf(Variable("X")))
+                }
+                forOne(outer.goals) {
+                    it should beInstanceOf(PredicateQuery::class)
+                    it as PredicateQuery
+                    it.predicate shouldBe Predicate("bar", arrayOf(Variable("X")))
+                }
+            }
         }
     }
 })

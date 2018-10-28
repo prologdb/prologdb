@@ -1,5 +1,9 @@
 package com.github.prologdb.io.binaryprolog
 
+import com.github.prologdb.runtime.query.AndQuery
+import com.github.prologdb.runtime.query.OrQuery
+import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.*
 import java.io.DataOutput
 
@@ -23,6 +27,10 @@ class BinaryPrologWriter {
             ?: throw BinaryPrologSerializationException("No writer for term class ${term::class.java.simpleName} registered.")
 
         writer.writeTermTo(term, out, this)
+    }
+
+    fun writeQueryTo(query: Query, out: DataOutput) {
+        QueryWriter.writeQueryTo(query, out, this)
     }
 
     private fun <T : Term> findWriter(forType: Class<out T>): TermWriter<T>? {
@@ -175,6 +183,10 @@ object PredicateWriter : BinaryPrologWriter.TermWriter<Predicate> {
 
     override fun writeTermTo(term: Predicate, out: DataOutput, writerRef: BinaryPrologWriter) {
         out.writeByte(TYPE_BYTE)
+        writeWithoutTypeByteTo(term, out, writerRef)
+    }
+
+    fun writeWithoutTypeByteTo(term: Predicate, out: DataOutput, writerRef: BinaryPrologWriter) {
         out.writeIntEncoded(term.arity)
         AtomWriter.writeWithoutTypeByte(term.name, out)
         for (argument in term.arguments) {
@@ -252,5 +264,30 @@ object DictionaryWriter : BinaryPrologWriter.TermWriter<PrologDictionary> {
     private fun writeEntry(entry: Map.Entry<Atom, Term>, out: DataOutput, writerRef: BinaryPrologWriter) {
         AtomWriter.writeWithoutTypeByte(entry.key.name, out)
         writerRef.writeTermTo(entry.value, out)
+    }
+}
+
+private object QueryWriter {
+    fun writeQueryTo(query: Query, out: DataOutput, writerRef: BinaryPrologWriter) {
+        when (query) {
+            is PredicateQuery -> writePredicateQueryTo(query, out, writerRef)
+            is AndQuery -> writeCombinedQueryTo(0x00, query.goals, out, writerRef)
+            is OrQuery -> writeCombinedQueryTo(0x01, query.goals, out, writerRef)
+            else -> throw BinaryPrologSerializationException("Query type ${query::class.java.name} not supported by binary prolog 1.0")
+        }
+    }
+
+    private fun writePredicateQueryTo(query: PredicateQuery, out: DataOutput, writerRef: BinaryPrologWriter) {
+        out.writeByte(0x60)
+        PredicateWriter.writeWithoutTypeByteTo(query.predicate, out, writerRef)
+    }
+
+    private fun writeCombinedQueryTo(operatorByte: Int, queries: Array<out Query>, out: DataOutput, writerRef: BinaryPrologWriter) {
+        out.writeByte(0x61)
+        out.writeByte(operatorByte)
+        out.writeIntEncoded(queries.size)
+        for (subQuery in queries) {
+            writeQueryTo(subQuery, out, writerRef)
+        }
     }
 }

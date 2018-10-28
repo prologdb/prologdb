@@ -1,5 +1,9 @@
 package com.github.prologdb.io.binaryprolog
 
+import com.github.prologdb.runtime.query.AndQuery
+import com.github.prologdb.runtime.query.OrQuery
+import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.*
 import java.nio.ByteBuffer
 
@@ -39,6 +43,10 @@ class BinaryPrologReader {
             buffer.position(initialPosition)
             throw BinaryPrologDeserializationException("Failed to read term of type ${termReader.prologTypeName} at position $initialPosition", ex)
         }
+    }
+
+    fun readQueryFrom(buffer: ByteBuffer): Query {
+        return QueryReader.readQueryFrom(buffer, this)
     }
 
     /**
@@ -272,5 +280,37 @@ object DictionaryWithoutTailReader : BinaryPrologReader.TermReader<PrologDiction
         }
 
         return PrologDictionary(dictMap, null)
+    }
+}
+
+private object QueryReader {
+    fun readQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): Query {
+        val type = buffer.get()
+        return when (type) {
+            0x60.toByte() -> readPredicateQueryFrom(buffer, readerRef)
+            0x61.toByte() -> readCombinedQueryFrom(buffer, readerRef)
+            else -> throw BinaryPrologDeserializationException("Unsupported query type $type")
+        }
+    }
+
+    private fun readPredicateQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): PredicateQuery {
+        return PredicateQuery(PredicateReader.readTermFrom(buffer, readerRef))
+    }
+
+    private fun readCombinedQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): Query {
+        val operator = buffer.get()
+        val nSubQueries = buffer.readEncodedIntegerAsInt()
+        val subQueries = Array<Query?>(nSubQueries, { null })
+        for (iSubQuery in 0 until nSubQueries) {
+            subQueries[iSubQuery] = readQueryFrom(buffer, readerRef)
+        }
+
+        subQueries as Array<Query> // all fields set, remove null typing
+
+        return when (operator) {
+            0x00.toByte() -> AndQuery(subQueries)
+            0x01.toByte() -> OrQuery(subQueries)
+            else -> throw BinaryPrologDeserializationException("Unsupported combined query operator $operator")
+        }
     }
 }
