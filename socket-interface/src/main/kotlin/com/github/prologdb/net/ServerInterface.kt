@@ -323,8 +323,14 @@ class ServerInterface(
                         openSessions.add(handle)
                         handle.incomingMessages.subscribeBy(
                             onNext = { handleMessage(it, handle) },
-                            onError = {
-                                // TODO: log
+                            onError = { ex ->
+                                if (ex is QueryRelatedException) {
+                                    handle.queueMessage(ex.errorObject)
+                                } else {
+                                    // TODO: log properly
+                                    ex.printStackTrace(System.err)
+                                    handle.closeSession()
+                                }
                             },
                             onComplete = {
                                 openSessions.remove(handle)

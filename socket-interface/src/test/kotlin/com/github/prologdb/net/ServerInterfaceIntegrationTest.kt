@@ -130,7 +130,7 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
         }
 
         "duplicate query id" {
-            /*val (_, socket) = initConnection(interfaceInstance)
+            val (_, socket) = initConnection(interfaceInstance)
 
             socket.startQuery(1, "foo(X).")
 
@@ -153,11 +153,11 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
             queryError.queryId shouldBe 1
             queryError.kind shouldBe QueryRelatedError.Kind.QUERY_ID_ALREADY_IN_USE
 
-            socket.close()*/
+            socket.close()
         }
 
         "consume for query that was not initialized" {
-            /*val (_, socket) = initConnection(interfaceInstance)
+            val (_, socket) = initConnection(interfaceInstance)
 
             ToServer.newBuilder()
                 .setConsumeResults(QuerySolutionConsumption.newBuilder()
@@ -174,10 +174,10 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
                 }
 
             queryError shouldNotBe null
-            queryError.queryId shouldBe 1
+            queryError.queryId shouldBe 2013
             queryError.kind shouldBe QueryRelatedError.Kind.QUERY_ID_NOT_IN_USE
 
-            socket.close()*/
+            socket.close()
         }
     }
 }
