@@ -93,15 +93,18 @@ internal class ProtocolVersion1SessionHandle(
             }
     }
 
+    private val outQueue = AsyncChannelProtobufOutgoingQueue(channel)
+
     override fun queueMessage(message: ProtocolMessage) {
         if (message.javaClass.getAnnotation(com.github.prologdb.net.session.ToClient::class.java) == null) {
             throw IllegalArgumentException("Can only send messages intended for the client; see the ToClient annotation")
         }
 
-        message.toProtocol(prologWriter).writeDelimitedTo(channel)
+        outQueue.queue(message.toProtocol(prologWriter))
     }
 
     override fun closeSession() {
+        outQueue.close()
         channel.close()
     }
 }
