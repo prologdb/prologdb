@@ -88,6 +88,7 @@ class SessionInitializer(
             SemanticVersion::getMajor,
             SemanticVersion::getMinor,
             SemanticVersion::getPatch
+            // TODO: prerelease labels lexicographically
         )
     }
 }

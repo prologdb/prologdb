@@ -22,15 +22,15 @@ import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.google.protobuf.ByteString
-import io.kotlintest.Description
-import io.kotlintest.Spec
+import io.kotlintest.*
 import io.kotlintest.extensions.TestListener
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
+import io.kotlintest.matchers.collections.contain
 import io.kotlintest.specs.FreeSpec
+import io.reactivex.Single
 import io.reactivex.subjects.SingleSubject
 import java.lang.Math.ceil
 import java.net.Socket
+import java.nio.channels.AsynchronousByteChannel
 import java.nio.charset.Charset
 import java.util.*
 import com.github.prologdb.net.negotiation.ToClient as ToClientHS
@@ -45,21 +45,7 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
             interfaceInstance = ServerInterface(
                 queryHandler,
                 SessionInitializer("prologdb", serverSoftwareVersion, mapOf(
-                    ProtocolVersion1SemVer to { channel, _ ->
-                        val source = SingleSubject.create<SessionHandle>()
-                        source.onSuccess(ProtocolVersion1SessionHandle(
-                            channel,
-                            ProtocolVersion1PrologReader(
-                                PrologParser(),
-                                BinaryPrologReader.getDefaultInstance(),
-                                DefaultOperatorRegistry()
-                            ),
-                            ProtocolVersion1PrologWriter(
-                                BinaryPrologWriter.getDefaultInstance()
-                            )
-                        ))
-                        source
-                    }
+                    ProtocolVersion1SemVer to ProtoclVersion1HandleFactory
                 )),
                 null,
                 { ceil(Runtime.getRuntime().availableProcessors().toDouble() / 4.0).toInt() }
@@ -77,107 +63,232 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
     })
 
     init {
-        "simple query" {
-            val (_, socket) = initConnection(interfaceInstance)
+        "handshake" - {
+            "given client wants unsupported protocol: server responds with error" {
+                val versionNotSupported = SemanticVersion.newBuilder()
+                    .setMajor(0)
+                    .setMinor(5)
+                    .setPatch(0)
+                    .addPreReleaseLabels("BETA")
 
-            socket.startQuery(1, "foo(bar(Z))")
-
-            com.github.prologdb.net.v1.messages.ToServer.newBuilder()
-                .setConsumeResults(QuerySolutionConsumption.newBuilder()
-                    .setQueryId(1)
-                    .setCloseAfterwards(false)
-                    .setHandling(QuerySolutionConsumption.PostConsumptionAction.RETURN)
+                val socket = Socket("localhost", interfaceInstance.localAddress.port)
+                ToServerHS.newBuilder()
+                    .setHello(ClientHello.newBuilder()
+                        .addDesiredProtocolVersion(versionNotSupported)
+                        .build()
+                    )
                     .build()
+                    .writeDelimitedTo(socket.getOutputStream())
+
+                val toClientHS = ToClientHS.parseDelimitedFrom(socket.getInputStream())
+                toClientHS.messageCase shouldBe com.github.prologdb.net.negotiation.ToClient.MessageCase.ERROR
+                val error = toClientHS.error
+                error.kind shouldBe ServerError.Kind.GENERIC
+            }
+
+            "given server supports newer protocols than client: server chooses latest of client" {
+                // SETUP
+                val versionOneDotTwo = SemanticVersion.newBuilder()
+                    .setMajor(1)
+                    .setMinor(2)
+                    .setPatch(0)
+                    .build()
+
+                val versionOneDotThree = SemanticVersion.newBuilder()
+                    .setMajor(1)
+                    .setMinor(3)
+                    .setPatch(0)
+                    .build()
+
+                // assure that this test case makes sens
+                assert(versionOneDotTwo.major >= ProtocolVersion1SemVer.major)
+                assert(versionOneDotTwo.minor > ProtocolVersion1SemVer.minor)
+                assert(versionOneDotTwo.patch >= ProtocolVersion1SemVer.patch)
+
+                val secondInterface = ServerInterface(
+                    queryHandler,
+                    SessionInitializer("prologdb", serverSoftwareVersion, mapOf(
+                        ProtocolVersion1SemVer to ProtoclVersion1HandleFactory,
+                        versionOneDotTwo to ProtoclVersion1HandleFactory,
+                        versionOneDotThree to ProtoclVersion1HandleFactory
+                    )),
+                    null,
+                    { ceil(Runtime.getRuntime().availableProcessors().toDouble() / 4.0).toInt() }
                 )
-                .build()
-                .writeDelimitedTo(socket.getOutputStream())
 
-            val queryOpened = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
-                .let {
-                    it.eventCase shouldBe ToClient.EventCase.QUERY_OPENED
-                    it.queryOpened
+                // ACT
+                try {
+                    Socket("localhost", secondInterface.localAddress.port).use { socket ->
+                        ToServerHS.newBuilder()
+                            .setHello(ClientHello.newBuilder()
+                                .addDesiredProtocolVersion(ProtocolVersion1SemVer)
+                                .addDesiredProtocolVersion(versionOneDotTwo)
+                                .build()
+                            )
+                            .build()
+                            .writeDelimitedTo(socket.getOutputStream())
+
+                        val toClientHS = ToClientHS.parseDelimitedFrom(socket.getInputStream())
+                        toClientHS.messageCase shouldBe com.github.prologdb.net.negotiation.ToClient.MessageCase.HELLO
+                        toClientHS.hello.chosenProtocolVersion shouldBe versionOneDotTwo
+                        toClientHS.hello.supportedProtocolVersionsList should contain(ProtocolVersion1SemVer)
+                        toClientHS.hello.supportedProtocolVersionsList should contain(versionOneDotThree)
+                    }
                 }
-
-            queryOpened shouldNotBe null
-            queryOpened.isInitialized shouldBe true
-            queryOpened.queryId shouldBe 1
-
-            val solution = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
-                .let {
-                    it.eventCase shouldBe ToClient.EventCase.SOLUTION
-                    it.solution
+                finally {
+                    secondInterface.close()
                 }
+            }
 
-            solution shouldNotBe null
-            solution.isInitialized shouldBe true
-            solution.queryId shouldBe 1
-            solution.instantiationsMap.size shouldBe 1
-            val Avalue = solution.instantiationsMap["A"]
-            Avalue!!
-            val AvalueParsed = BinaryPrologReader.getDefaultInstance().readTermFrom(Avalue.data.asReadOnlyByteBuffer())
-            AvalueParsed shouldBe Predicate("?-", arrayOf(PrologString("foo(bar(Z))")))
+            "given client does not specify a protocol: server chooses latest supported" {
+                // SETUP
+                val versionOneDotTwo = SemanticVersion.newBuilder()
+                    .setMajor(1)
+                    .setMinor(2)
+                    .setPatch(0)
+                    .build()
 
-            val queryClosed = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
-                .let {
-                    it.eventCase shouldBe ToClient.EventCase.QUERY_CLOSED
-                    it.queryClosed
+                // assure that this test case makes sens
+                assert(versionOneDotTwo.major >= ProtocolVersion1SemVer.major)
+                assert(versionOneDotTwo.minor > ProtocolVersion1SemVer.minor)
+                assert(versionOneDotTwo.patch >= ProtocolVersion1SemVer.patch)
+
+                val secondInterface = ServerInterface(
+                    queryHandler,
+                    SessionInitializer("prologdb", serverSoftwareVersion, mapOf(
+                        ProtocolVersion1SemVer to ProtoclVersion1HandleFactory,
+                        versionOneDotTwo to ProtoclVersion1HandleFactory
+                    )),
+                    null,
+                    { ceil(Runtime.getRuntime().availableProcessors().toDouble() / 4.0).toInt() }
+                )
+
+                // ACT
+                try {
+                    Socket("localhost", secondInterface.localAddress.port).use { socket ->
+                        ToServerHS.newBuilder()
+                            .setHello(ClientHello.newBuilder()
+                                .clearDesiredProtocolVersion()
+                                .build()
+                            )
+                            .build()
+                            .writeDelimitedTo(socket.getOutputStream())
+
+                        val toClientHS = ToClientHS.parseDelimitedFrom(socket.getInputStream())
+                        toClientHS.messageCase shouldBe com.github.prologdb.net.negotiation.ToClient.MessageCase.HELLO
+                        toClientHS.hello.chosenProtocolVersion shouldBe versionOneDotTwo
+                        toClientHS.hello.supportedProtocolVersionsList should contain(ProtocolVersion1SemVer)
+                    }
                 }
-
-            queryClosed.queryId shouldBe 1
-            queryClosed.reason shouldBe QueryClosedEvent.Reason.SOLUTIONS_DEPLETED
-
-            socket.close()
+                finally {
+                    secondInterface.close()
+                }
+            }
         }
 
-        "duplicate query id" {
-            val (_, socket) = initConnection(interfaceInstance)
+        "query" - {
+            "simple query" {
+                val (_, socket) = initConnection(interfaceInstance)
 
-            socket.startQuery(1, "foo(X).")
+                socket.startQuery(1, "foo(bar(Z))")
 
-            val queryOpened = ToClient.parseDelimitedFrom(socket.getInputStream())
-                .let {
-                    it.eventCase shouldBe ToClient.EventCase.QUERY_OPENED
-                    it.queryOpened
-                }
+                com.github.prologdb.net.v1.messages.ToServer.newBuilder()
+                    .setConsumeResults(QuerySolutionConsumption.newBuilder()
+                        .setQueryId(1)
+                        .setCloseAfterwards(false)
+                        .setHandling(QuerySolutionConsumption.PostConsumptionAction.RETURN)
+                        .build()
+                    )
+                    .build()
+                    .writeDelimitedTo(socket.getOutputStream())
 
-            queryOpened.queryId shouldBe 1
+                val queryOpened = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
+                    .let {
+                        it.eventCase shouldBe ToClient.EventCase.QUERY_OPENED
+                        it.queryOpened
+                    }
 
-            socket.startQuery(1, "bar(X).")
+                queryOpened shouldNotBe null
+                queryOpened.isInitialized shouldBe true
+                queryOpened.queryId shouldBe 1
 
-            val queryError = ToClient.parseDelimitedFrom(socket.getInputStream())
-                .let {
-                    it.eventCase shouldBe ToClient.EventCase.QUERY_ERROR
-                    it.queryError
-                }
+                val solution = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
+                    .let {
+                        it.eventCase shouldBe ToClient.EventCase.SOLUTION
+                        it.solution
+                    }
 
-            queryError.queryId shouldBe 1
-            queryError.kind shouldBe QueryRelatedError.Kind.QUERY_ID_ALREADY_IN_USE
+                solution shouldNotBe null
+                solution.isInitialized shouldBe true
+                solution.queryId shouldBe 1
+                solution.instantiationsMap.size shouldBe 1
+                val Avalue = solution.instantiationsMap["A"]
+                Avalue!!
+                val AvalueParsed = BinaryPrologReader.getDefaultInstance().readTermFrom(Avalue.data.asReadOnlyByteBuffer())
+                AvalueParsed shouldBe Predicate("?-", arrayOf(PrologString("foo(bar(Z))")))
 
-            socket.close()
-        }
+                val queryClosed = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
+                    .let {
+                        it.eventCase shouldBe ToClient.EventCase.QUERY_CLOSED
+                        it.queryClosed
+                    }
 
-        "consume for query that was not initialized" {
-            val (_, socket) = initConnection(interfaceInstance)
+                queryClosed.queryId shouldBe 1
+                queryClosed.reason shouldBe QueryClosedEvent.Reason.SOLUTIONS_DEPLETED
 
-            ToServer.newBuilder()
-                .setConsumeResults(QuerySolutionConsumption.newBuilder()
-                    .setQueryId(2013)
-                    .setHandling(QuerySolutionConsumption.PostConsumptionAction.RETURN)
-                )
-                .build()
-                .writeDelimitedTo(socket.getOutputStream())
+                socket.close()
+            }
 
-            val queryError = ToClient.parseDelimitedFrom(socket.getInputStream())
-                .let {
-                    it.eventCase shouldBe ToClient.EventCase.QUERY_ERROR
-                    it.queryError
-                }
+            "duplicate query id" {
+                val (_, socket) = initConnection(interfaceInstance)
 
-            queryError shouldNotBe null
-            queryError.queryId shouldBe 2013
-            queryError.kind shouldBe QueryRelatedError.Kind.QUERY_ID_NOT_IN_USE
+                socket.startQuery(1, "foo(X).")
 
-            socket.close()
+                val queryOpened = ToClient.parseDelimitedFrom(socket.getInputStream())
+                    .let {
+                        it.eventCase shouldBe ToClient.EventCase.QUERY_OPENED
+                        it.queryOpened
+                    }
+
+                queryOpened.queryId shouldBe 1
+
+                socket.startQuery(1, "bar(X).")
+
+                val queryError = ToClient.parseDelimitedFrom(socket.getInputStream())
+                    .let {
+                        it.eventCase shouldBe ToClient.EventCase.QUERY_ERROR
+                        it.queryError
+                    }
+
+                queryError.queryId shouldBe 1
+                queryError.kind shouldBe QueryRelatedError.Kind.QUERY_ID_ALREADY_IN_USE
+
+                socket.close()
+            }
+
+            "consume for query that was not initialized" {
+                val (_, socket) = initConnection(interfaceInstance)
+
+                ToServer.newBuilder()
+                    .setConsumeResults(QuerySolutionConsumption.newBuilder()
+                        .setQueryId(2013)
+                        .setHandling(QuerySolutionConsumption.PostConsumptionAction.RETURN)
+                    )
+                    .build()
+                    .writeDelimitedTo(socket.getOutputStream())
+
+                val queryError = ToClient.parseDelimitedFrom(socket.getInputStream())
+                    .let {
+                        it.eventCase shouldBe ToClient.EventCase.QUERY_ERROR
+                        it.queryError
+                    }
+
+                queryError shouldNotBe null
+                queryError.queryId shouldBe 2013
+                queryError.kind shouldBe QueryRelatedError.Kind.QUERY_ID_NOT_IN_USE
+
+                socket.close()
+            }
         }
     }
 }
@@ -267,4 +378,20 @@ private fun Socket.startDirective(id: Int, command: String) {
         )
         .build()
         .writeDelimitedTo(getOutputStream())
+}
+
+private val ProtoclVersion1HandleFactory: (AsynchronousByteChannel, ClientHello) -> Single<SessionHandle> = { channel, _ ->
+    val source = SingleSubject.create<SessionHandle>()
+    source.onSuccess(ProtocolVersion1SessionHandle(
+        channel,
+        ProtocolVersion1PrologReader(
+            PrologParser(),
+            BinaryPrologReader.getDefaultInstance(),
+            DefaultOperatorRegistry()
+        ),
+        ProtocolVersion1PrologWriter(
+            BinaryPrologWriter.getDefaultInstance()
+        )
+    ))
+    source
 }
