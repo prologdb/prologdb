@@ -21,6 +21,8 @@ import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.term.Variable
+import com.github.prologdb.runtime.unification.VariableBucket
 import com.google.protobuf.ByteString
 import com.google.protobuf.GeneratedMessageV3
 import io.reactivex.Observable
@@ -201,13 +203,22 @@ private fun QueryInitialization.toIndependent(prologReader: ProtocolVersion1Prol
     val cmd = InitializeQueryCommand(
         queryId,
         prologReader.toRuntimeQuery(instruction, SOURCE_UNIT_INSTRUCTION),
+        if (instantiationsCount == 0) null else instantiationsMap.toBucket(prologReader),
         kind.toIndependent(),
         if (hasLimit()) limit else null
     )
 
     return cmd
 }
-// TODO: prepared statement
+
+private fun Map<String, com.github.prologdb.net.v1.messages.Term>.toBucket(prologReader: ProtocolVersion1PrologReader): VariableBucket {
+    val bucket = VariableBucket()
+    for ((variableName, term) in this) {
+        bucket.instantiate(Variable(variableName), prologReader.toRuntimeTerm(term, SourceUnit("parameter $variableName")))
+    }
+
+    return bucket
+}
 
 private fun QueryInitialization.Kind.toIndependent() = when(this) {
     QueryInitialization.Kind.DIRECTIVE -> InitializeQueryCommand.Kind.DIRECTIVE
