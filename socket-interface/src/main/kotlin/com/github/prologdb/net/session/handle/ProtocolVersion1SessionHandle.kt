@@ -190,17 +190,6 @@ internal class ProtocolVersion1PrologWriter(
             .setData(ByteString.copyFrom(bufferStream.bufferOfData))
             .build()
     }
-
-    fun write(query: Query): com.github.prologdb.net.v1.messages.Query {
-        val (bufferStream, dataOut) = buffer.get()
-        bufferStream.reset()
-        binaryPrologWriter.writeQueryTo(query, dataOut)
-
-        return com.github.prologdb.net.v1.messages.Query.newBuilder()
-            .setType(com.github.prologdb.net.v1.messages.Query.Type.BINARY)
-            .setData(ByteString.copyFrom(bufferStream.bufferOfData))
-            .build()
-    }
 }
 
 private val SOURCE_UNIT_INSTRUCTION = SourceUnit("instruction")

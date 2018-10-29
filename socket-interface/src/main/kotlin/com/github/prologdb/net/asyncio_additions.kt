@@ -38,7 +38,9 @@ class AsyncChannelProtobufOutgoingQueue(private val wrapped: AsynchronousByteCha
     private fun send(message: GeneratedMessageV3) {
         currentSending = message.writeDelimitedTo(wrapped)
         currentSending!!.subscribeBy {
-            currentSending = null
+            synchronized(currentSendingMutex) {
+                currentSending = null
+            }
 
             outQueue.poll()?.let { send(it) }
         }
