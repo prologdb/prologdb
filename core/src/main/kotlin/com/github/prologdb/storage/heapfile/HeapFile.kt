@@ -1,22 +1,24 @@
 package com.github.prologdb.storage.heapfile
 
-import com.github.prologdb.runtime.lazysequence.LazySequence
-import com.github.prologdb.runtime.lazysequence.buildLazySequence
+import com.github.prologdb.async.Principal
+import com.github.prologdb.async.WorkableFuture
+import com.github.prologdb.async.launchWorkableFuture
+import com.github.prologdb.io.util.Pool
 import com.github.prologdb.storage.*
 import com.github.prologdb.storage.predicate.PersistenceID
 import com.github.prologdb.util.concurrency.ClearableThreadLocal
-import com.github.prologdb.util.concurrency.RegionReadWriteLockManager
+import com.github.prologdb.util.concurrency.locks.RegionReadWriteLockManager
 import com.github.prologdb.util.memory.FirstFitHeapManager
 import com.github.prologdb.util.memory.HeapManager
 import java.io.Closeable
 import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
+import java.nio.channels.AsynchronousFileChannel
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.util.*
-import kotlin.concurrent.withLock
 import kotlin.math.min
 
 /**
@@ -48,8 +50,6 @@ private constructor(
             field = value
         }
 
-    private var randomAccessFile = RandomAccessFile(existingFile.toFile(), "rw")
-
     /**
      * Manages read and write locks on the file. One unit in the ranges of the manager
      * corresponds to one page (as opposed to one byte).
@@ -66,7 +66,9 @@ private constructor(
     private val heapManager: HeapManager
 
     init {
+        val randomAccessFile = RandomAccessFile(existingFile.toFile(), "rw")
         randomAccessFile.seek(0)
+
         val fileVersion = randomAccessFile.readInt()
         if (fileVersion != 0x00000001) {
             throw IllegalArgumentException("File version is not 0x00000001 (got 0x${fileVersion.toString(16)})")
@@ -77,22 +79,28 @@ private constructor(
         offsetToFirstPage = randomAccessFile.filePointer + header.alignmentPaddingSize
         heapManager = initializeHeapManagerFromFile()
         maxRecordSize = pageSize * Short.MAX_VALUE
+
+        randomAccessFile.close()
     }
 
     /**
-     * Each thread uses one file channel. Threads can read and write to their channel arbitrarily so long
-     * as they obtain the correct locks from [readWriteLockManager].
+     * All threads and principals use one file channel. So long as all code uses the absolute-offset methods
+     * and all code obtains the necessary locks from [heapManager], that's fine.
      */
-    private val fileChannel = ClearableThreadLocal<FileChannel>(defaultValue = { randomAccessFile.channel }, teardown = FileChannel::close)
+    private val fileChannel = AsynchronousFileChannel.open(existingFile, StandardOpenOption.READ, StandardOpenOption.WRITE)
 
     /**
      * Used to buffer writes; one per thread so avoid re-allocating them all the time.
      * The buffer is a result of [ByteBuffer.wrap]
      */
-    private val onePageBuffer = ClearableThreadLocal<Pair<ByteArray, ByteBuffer>>(
-        defaultValue = {
+    private val onePageBuffer = Pool<Pair<ByteArray, ByteBuffer>>(
+        minSize = 10,
+        initializer = {
             val arr = ByteArray(pageSize)
             Pair(arr, ByteBuffer.wrap(arr))
+        },
+        sanitizer = {
+            it.second.reset()
         }
     )
 
@@ -107,7 +115,7 @@ private constructor(
      *                    of invocations will *ruin* performance (less then 1 MiB/s write speed on a 7200rpm HDD).
      * @return A reference to be used to re-obtain the record.
      */
-    fun addRecord(data: ByteBuffer, flushToDisk: Boolean = false): PersistenceID {
+    fun addRecord(data: ByteBuffer, asPrincipal: Principal, flushToDisk: Boolean = false): WorkableFuture<PersistenceID> {
         if (closed) throw IOException("The heapfile is closed.")
 
         val recordSize = data.remaining()
@@ -121,61 +129,47 @@ private constructor(
                 ?: throw OutOfStorageMemoryException("Failed to allocate $pagesForRecord pages in the heap file $existingFile")
         }
 
-        println("""
-            {
-                "action": "add",
-                "recordSize": $recordSize,
-                "firstPage": ${pages.first},
-                "lastPage": ${pages.endInclusive}
+        return launchWorkableFuture(asPrincipal) {
+            awaitAndFinally(readWriteLockManager[pages].writeLock.acquireFor(asPrincipal)) {
+                synchronized(heapManager) {
+                    heapManager.free(pages)
+                }
             }
-            """.trimIndent())
 
-        try {
             val (bufferArr, bufferObj) = onePageBuffer.get()
 
-            readWriteLockManager[pages].writeLock().withLock {
-                val channel = fileChannel.get()
+            var nPageInRecord = 0
+            var offsetToCurrentPage = offsetToFirstPage + pages.first * pageSize
+            while (data.hasRemaining()) {
+                if (nPageInRecord == 0) {
+                    bufferArr[0] = PAGE_FLAGS_FIRST_RECORD_PAGE
+                    // record size
+                    bufferArr[1] = (recordSize ushr 24).toByte()
+                    bufferArr[2] = (recordSize ushr 16).toByte()
+                    bufferArr[3] = (recordSize ushr 8).toByte()
+                    bufferArr[4] = recordSize.toByte()
 
-                var nPageInRecord = 0
-                var offsetToCurrentPage = offsetToFirstPage + pages.first * pageSize
-                while (data.hasRemaining()) {
-                    if (nPageInRecord == 0) {
-                        bufferArr[0] = PAGE_FLAGS_FIRST_RECORD_PAGE
-                        // record size
-                        bufferArr[1] = (recordSize ushr 24).toByte()
-                        bufferArr[2] = (recordSize ushr 16).toByte()
-                        bufferArr[3] = (recordSize ushr 8).toByte()
-                        bufferArr[4] = recordSize.toByte()
+                    // get payload data from the payload buffer
+                    data.get(bufferArr, 5, min(data.remaining(), pageSize - 5))
+                } else {
+                    bufferArr[0] = PAGE_FLAGS_CONTINUATION_PAGE
 
-                        // get payload data from the payload buffer
-                        data.get(bufferArr, 5, min(data.remaining(), pageSize - 5))
-                    } else {
-                        bufferArr[0] = PAGE_FLAGS_CONTINUATION_PAGE
-
-                        // get payload data from the payload buffer
-                        data.get(bufferArr, 1, min(data.remaining(), pageSize - 1))
-                    }
-
-                    // write payload to channel
-                    bufferObj.position(0)
-                    bufferObj.limit(bufferArr.size)
-                    channel.write(bufferObj, offsetToCurrentPage)
-
-                    nPageInRecord++
-                    offsetToCurrentPage += pageSize
+                    // get payload data from the payload buffer
+                    data.get(bufferArr, 1, min(data.remaining(), pageSize - 1))
                 }
 
-                if (flushToDisk || diskFlushLottery()) channel.force(false)
+                // write payload to channel
+                bufferObj.position(0)
+                bufferObj.limit(bufferArr.size)
+                await(fileChannel.write(bufferObj, offsetToCurrentPage))
+
+                nPageInRecord++
+                offsetToCurrentPage += pageSize
             }
 
-            return toPersistenceID(pagesForRecord.toShort(), pages.first)
-        }
-        catch (ex: Throwable) {
-            // free the page again
-            synchronized(heapManager) {
-                heapManager.free(pages)
-            }
-            throw ex
+            if (flushToDisk || diskFlushLottery()) fileChannel.force(false)
+
+            return@launchWorkableFuture toPersistenceID(pagesForRecord.toShort(), pages.first)
         }
     }
 
