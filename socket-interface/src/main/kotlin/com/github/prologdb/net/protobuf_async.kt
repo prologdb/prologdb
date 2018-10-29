@@ -9,6 +9,7 @@ import io.reactivex.Single
 import io.reactivex.subjects.PublishSubject
 import io.reactivex.subjects.SingleSubject
 import java.io.IOException
+import java.lang.reflect.InvocationTargetException
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousByteChannel
 import java.nio.channels.CompletionHandler
@@ -201,6 +202,9 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
                 .getMethod("parseFrom", ByteBuffer::class.java)
                 .invoke(null, source) as T
         }
+        catch (ex: InvocationTargetException) {
+            throw ex.cause!!
+        }
         finally {
             // no matter what happens to the buffers pointers
             // set them to after the message
@@ -360,6 +364,9 @@ fun <T : GeneratedMessageV3> AsynchronousByteChannel.readSingleDelimited(typeCla
                         singleSubject.onSuccess(typeClass
                             .getMethod("parseFrom", ByteBuffer::class.java)
                             .invoke(null, buffer) as T)
+                    }
+                    catch (ex: InvocationTargetException) {
+                        singleSubject.onError(ex.cause!!)
                     }
                     catch (ex: Throwable) {
                         singleSubject.onError(ex)

@@ -64,7 +64,7 @@ class SessionInitializer(
                 is InvalidProtocolBufferException ->
                     ServerError.newBuilder()
                         .setKind(ServerError.Kind.INVALID_WIRE_FORMAT)
-                        .setMessage(ex.message ?: "Failed to parse term from message")
+                        .setMessage(ex.message ?: "Failed to parse protobuf message")
                         .build()
                 else ->
                     ServerError.newBuilder()

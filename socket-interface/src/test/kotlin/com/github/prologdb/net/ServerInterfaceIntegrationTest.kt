@@ -4,6 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
+import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.net.negotiation.*
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.net.session.SessionInitializer
@@ -183,6 +184,39 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
                 finally {
                     secondInterface.close()
                 }
+            }
+
+            "given invalid protobuf: handshake errors" {
+                val socket = Socket("localhost", interfaceInstance.localAddress.port)
+
+                val messageOut = ByteArrayOutputStream()
+                ToServerHS.newBuilder()
+                    .setHello(ClientHello.newBuilder()
+                        .addDesiredProtocolVersion(ProtocolVersion1SemVer)
+                        .build()
+                    )
+                    .build()
+                    .writeDelimitedTo(messageOut)
+
+                messageOut.bufferOfData.position(0)
+                messageOut.bufferOfData.put(21)
+                messageOut.bufferOfData.put(-121)
+                messageOut.bufferOfData.put(30)
+                messageOut.bufferOfData.put(1)
+                messageOut.bufferOfData.put(-100)
+                messageOut.bufferOfData.put(60)
+                messageOut.bufferOfData.put(120)
+                messageOut.bufferOfData.put(10)
+                messageOut.bufferOfData.put(52)
+                messageOut.bufferOfData.put(73)
+
+                socket.getOutputStream().write(messageOut.bufferOfData.array())
+
+                val toClientHS = ToClientHS.parseDelimitedFrom(socket.getInputStream())
+                socket.close()
+
+                toClientHS.messageCase shouldBe com.github.prologdb.net.negotiation.ToClient.MessageCase.ERROR
+                toClientHS.error.kind shouldBe ServerError.Kind.INVALID_WIRE_FORMAT
             }
         }
 
