@@ -55,7 +55,8 @@ internal class ProtocolVersion1SessionHandle(
                             val additional = mutableMapOf<String, String>()
 
                             when(ex) {
-                                is BinaryPrologDeserializationException -> {
+                                is BinaryPrologDeserializationException,
+                                is PrologDeserializationException -> {
                                     kind = com.github.prologdb.net.session.QueryRelatedError.Kind.INVALID_TERM_SYNTAX
                                 }
                                 is PrologParseException -> {
@@ -143,7 +144,12 @@ internal class ProtocolVersion1PrologReader(
     fun toRuntimeQuery(protoQuery: com.github.prologdb.net.v1.messages.Query, source: SourceUnit): Query {
         return when (protoQuery.type!!) {
             com.github.prologdb.net.v1.messages.Query.Type.BINARY -> {
-                binaryPrologReader.readQueryFrom(protoQuery.data.asReadOnlyByteBuffer())
+                try {
+                    binaryPrologReader.readQueryFrom(protoQuery.data.asReadOnlyByteBuffer())
+                }
+                catch (ex: BinaryPrologDeserializationException) {
+                    throw PrologDeserializationException(ex.message ?: "Failed to read binary prolog from $source", ex)
+                }
             }
             com.github.prologdb.net.v1.messages.Query.Type.STRING -> {
                 val lexer = Lexer(source, protoQuery.data.toStringUtf8().iterator())

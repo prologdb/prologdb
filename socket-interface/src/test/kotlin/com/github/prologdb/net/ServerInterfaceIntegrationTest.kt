@@ -375,6 +375,59 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
 
                 socket.close()
             }
+
+            "invalid binary prolog in query" {
+                val (_, socket) = initConnection(interfaceInstance)
+
+                ToServer.newBuilder()
+                    .setInitQuery(QueryInitialization.newBuilder()
+                        .setQueryId(2)
+                        .setInstruction(com.github.prologdb.net.v1.messages.Query.newBuilder()
+                            .setType(com.github.prologdb.net.v1.messages.Query.Type.BINARY)
+                            .setData(ByteString.copyFrom("not valid binary prolog", Charset.defaultCharset()))
+                            .build()
+                        )
+                        .build()
+                    )
+                    .build()
+                    .writeDelimitedTo(socket.getOutputStream())
+
+                val toClient = ToClient.parseDelimitedFrom(socket.getInputStream())
+                socket.close()
+
+                toClient.eventCase shouldBe ToClient.EventCase.QUERY_ERROR
+                toClient.queryError.kind shouldBe QueryRelatedError.Kind.INVALID_TERM_SYNTAX
+                toClient.queryError.queryId shouldBe 2
+            }
+
+            "invalid binary prolog in pre-instantiation" {
+                val (_, socket) = initConnection(interfaceInstance)
+
+                ToServer.newBuilder()
+                    .setInitQuery(QueryInitialization.newBuilder()
+                        .setQueryId(2)
+                        .setInstruction(com.github.prologdb.net.v1.messages.Query.newBuilder()
+                            .setType(com.github.prologdb.net.v1.messages.Query.Type.STRING)
+                            .setData(ByteString.copyFrom("foo(X)", Charset.defaultCharset()))
+                            .build()
+                        )
+                        .putInstantiations("X", Term.newBuilder()
+                            .setType(Term.Type.BINARY)
+                            .setData(ByteString.copyFrom("not valid binary prolog", Charset.defaultCharset()))
+                            .build()
+                        )
+                        .build()
+                    )
+                    .build()
+                    .writeDelimitedTo(socket.getOutputStream())
+
+                val toClient = ToClient.parseDelimitedFrom(socket.getInputStream())
+                socket.close()
+
+                toClient.eventCase shouldBe ToClient.EventCase.QUERY_ERROR
+                toClient.queryError.kind shouldBe QueryRelatedError.Kind.INVALID_TERM_SYNTAX
+                toClient.queryError.queryId shouldBe 2
+            }
         }
     }
 }
