@@ -1,11 +1,11 @@
 package com.github.prologdb.execplan
 
+import com.github.prologdb.async.LazySequenceBuilder
+import com.github.prologdb.async.filterRemainingNotNull
+import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
-import com.github.prologdb.runtime.lazysequence.LazySequence
-import com.github.prologdb.runtime.lazysequence.filterRemainingNotNull
-import com.github.prologdb.runtime.lazysequence.mapRemaining
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -19,12 +19,14 @@ class ScanStep(
 
     private val goalIndicator = PredicateIndicator.of(goal)
 
-    override fun execute(db: PrologDatabaseView, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
-        val predicateStore = db.predicateStores[goalIndicator] ?: return LazySequence.empty()
-
-        return predicateStore.all()
+    override val execute: suspend LazySequenceBuilder<Unification>.(PrologDatabaseView, RandomVariableScope, VariableBucket)-> Unit = { db, randomVarsScope, variables ->
+        val predicateStore = db.predicateStores[goalIndicator]
+        if (predicateStore != null) {
+            yieldAll(predicateStore.all(principal)
                 .mapRemaining { it.second.unify(goal, randomVarsScope) }
                 .filterRemainingNotNull()
+            )
+        }
     }
 
     override val explanation by lazy { Predicate("prove", arrayOf(goal)) }

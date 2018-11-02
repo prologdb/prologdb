@@ -1,8 +1,10 @@
 package com.github.prologdb.storage.predicate
 
+import com.github.prologdb.async.LazySequence
+import com.github.prologdb.async.Principal
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
-import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.term.Predicate
+import java.util.concurrent.Future
 
 /**
  * An identifier for individual predicates stored in a [PredicateStore].
@@ -24,14 +26,14 @@ interface PredicateStore {
      * ID.
      * @throws OutOfStorageSpaceException
      */
-    fun store(item: Predicate): PersistenceID
+    fun store(asPrincipal: Principal, item: Predicate): Future<PersistenceID>
 
     /**
      * @return The predicate that was [store]d with the given
      * [PersistenceID]; null if no such predicate was ever stored or when
      * it was [delete]d
      */
-    fun retrieve(id: PersistenceID): Predicate?
+    fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Predicate?>
 
     /**
      * Removes the predicate stored with the given ID from
@@ -41,12 +43,12 @@ interface PredicateStore {
      * @return Whether the given [PersistenceID] was assoicated with a
      * predicate.
      */
-    fun delete(id: PersistenceID): Boolean
+    fun delete(asPrincipal: Principal, id: PersistenceID): Future<Boolean>
 
     /**
      * @return A lazy sequence of all the predicates stored in this store.
      */
-    fun all(): LazySequence<Pair<PersistenceID, Predicate>>
+    fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, Predicate>>
 }
 
 /**

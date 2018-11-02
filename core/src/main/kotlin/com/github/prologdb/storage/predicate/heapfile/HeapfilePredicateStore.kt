@@ -1,10 +1,13 @@
 package com.github.prologdb.storage.predicate.heapfile
 
+import com.github.prologdb.async.LazySequence
+import com.github.prologdb.async.Principal
+import com.github.prologdb.async.launchWorkableFuture
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
+import com.github.prologdb.io.util.Pool
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
-import com.github.prologdb.runtime.lazysequence.LazySequence
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.heapfile.HeapFile
@@ -13,6 +16,7 @@ import com.github.prologdb.storage.predicate.PredicateStore
 import java.io.DataOutput
 import java.io.DataOutputStream
 import java.nio.ByteBuffer
+import java.util.concurrent.Future
 
 /**
  * An implementation of [PredicateStore] based on [HeapFile]
@@ -30,42 +34,56 @@ class HeapfilePredicateStore(
      * The [ByteArrayOutputStream] is the actual backing storage; the [DataOutput] just points
      * to that output stream.
      */
-    private val bufferOutStream: ThreadLocal<Pair<ByteArrayOutputStream, DataOutput>> = ThreadLocal.withInitial {
-        val buffer = ByteArrayOutputStream(1024)
-        val out = DataOutputStream(buffer)
-        Pair(buffer, out as DataOutput)
-    }
+    private val bufferOutStream: Pool<Pair<ByteArrayOutputStream, DataOutput>> = Pool(15,
+        initializer = {
+            val buffer = ByteArrayOutputStream(1024)
+            val out = DataOutputStream(buffer)
+            Pair(buffer, out as DataOutput)
+        },
+        sanitizer = {
+            it.first.reset()
+        }
+    )
 
-    override fun store(item: Predicate): PersistenceID {
+    override fun store(asPrincipal: Principal, item: Predicate): Future<PersistenceID> {
         if (item.arity != indicator.arity || item.name != indicator.name) {
             throw IllegalArgumentException("This predicate store is intended for instances of $indicator, got ${item.name}/${item.arity}")
         }
 
-        val (buffer, dataOut) = bufferOutStream.get()
-        buffer.reset()
+        return launchWorkableFuture(asPrincipal) {
+            val bufferHolder = bufferOutStream.get()
+            finally {
+                bufferOutStream.free(bufferHolder)
+            }
+            val (buffer, dataOut) = bufferHolder
 
-        for (argument in item.arguments) binaryWriter.writeTermTo(argument, dataOut)
-
-        val byteBuffer = buffer.bufferOfData
-        byteBuffer.position(0)
-        return heapFile.addRecord(byteBuffer)
-    }
-
-    override fun retrieve(id: PersistenceID): Predicate? {
-        return try {
-            heapFile.useRecord(id, this::readPredicateFrom)
-        }
-        catch (ex: InvalidPersistenceIDException) {
-            null
+            for (argument in item.arguments) binaryWriter.writeTermTo(argument, dataOut)
+            val byteBuffer = buffer.bufferOfData
+            byteBuffer.position(0)
+            return@launchWorkableFuture await(heapFile.addRecord(asPrincipal, byteBuffer))
         }
     }
 
-    override fun delete(id: PersistenceID): Boolean {
-        return heapFile.removeRecord(id)
+    override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Predicate?> {
+        return launchWorkableFuture(asPrincipal) {
+            return@launchWorkableFuture try {
+                await(heapFile.useRecord(asPrincipal, id, this@HeapfilePredicateStore::readPredicateFrom))
+            }
+            catch (ex: InvalidPersistenceIDException) { null }
+        }
     }
 
-    override fun all(): LazySequence<Pair<PersistenceID, Predicate>> {
-        return heapFile.allRecords(this::readPredicateFrom)
+    override fun delete(asPrincipal: Principal, id: PersistenceID): Future<Boolean> {
+        return launchWorkableFuture(asPrincipal) {
+            return@launchWorkableFuture  try {
+                await(heapFile.removeRecord(asPrincipal, id))
+            }
+            catch (ex: InvalidPersistenceIDException) { false }
+        }
+    }
+
+    override fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, Predicate>> {
+        return heapFile.allRecords(asPrincipal, this::readPredicateFrom)
     }
 
     private fun readPredicateFrom(data: ByteBuffer): Predicate {
