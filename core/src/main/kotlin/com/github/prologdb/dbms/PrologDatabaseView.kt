@@ -1,6 +1,8 @@
 package com.github.prologdb.dbms
 
 import com.github.prologdb.async.LazySequence
+import com.github.prologdb.async.Principal
+import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.indexing.IndexByArgumentMap
 import com.github.prologdb.runtime.RandomVariableScope
@@ -50,9 +52,11 @@ class PrologDatabaseView(
     val indexes: Map<PredicateIndicator, IndexByArgumentMap>
         get() = _indexes
 
-    fun execute(command: Query, randomVariableScope: RandomVariableScope = RandomVariableScope()): LazySequence<Unification> {
+    fun execute(command: Query, asPrincipal: Principal, randomVariableScope: RandomVariableScope = RandomVariableScope()): LazySequence<Unification> {
         val executionPlan = planner.planExecution(command, this, randomVariableScope)
-        return executionPlan.execute(this, randomVariableScope, VariableBucket())
+        return buildLazySequence(asPrincipal) {
+            executionPlan.execute(this, this@PrologDatabaseView, randomVariableScope, VariableBucket())
+        }
     }
 
     /**

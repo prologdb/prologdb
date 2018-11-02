@@ -1,12 +1,9 @@
 package com.github.prologdb.storage.heapfile
 
-import com.github.prologdb.async.Principal
-import com.github.prologdb.async.WorkableFuture
-import com.github.prologdb.async.launchWorkableFuture
+import com.github.prologdb.async.*
 import com.github.prologdb.io.util.Pool
 import com.github.prologdb.storage.*
 import com.github.prologdb.storage.predicate.PersistenceID
-import com.github.prologdb.util.concurrency.ClearableThreadLocal
 import com.github.prologdb.util.concurrency.locks.RegionReadWriteLockManager
 import com.github.prologdb.util.memory.FirstFitHeapManager
 import com.github.prologdb.util.memory.HeapManager
@@ -77,7 +74,7 @@ private constructor(
         val header = randomAccessFile.readStruct(HeapFileHeader::class)
         pageSize = header.pageSize
         offsetToFirstPage = randomAccessFile.filePointer + header.alignmentPaddingSize
-        heapManager = initializeHeapManagerFromFile()
+        heapManager = initializeHeapManagerFrom(randomAccessFile)
         maxRecordSize = pageSize * Short.MAX_VALUE
 
         randomAccessFile.close()
@@ -115,7 +112,7 @@ private constructor(
      *                    of invocations will *ruin* performance (less then 1 MiB/s write speed on a 7200rpm HDD).
      * @return A reference to be used to re-obtain the record.
      */
-    fun addRecord(data: ByteBuffer, asPrincipal: Principal, flushToDisk: Boolean = false): WorkableFuture<PersistenceID> {
+    fun addRecord(asPrincipal: Principal, data: ByteBuffer, flushToDisk: Boolean = false): WorkableFuture<PersistenceID> {
         if (closed) throw IOException("The heapfile is closed.")
 
         val recordSize = data.remaining()
@@ -137,7 +134,11 @@ private constructor(
                     writeLock.releaseFor(asPrincipal)
                 }
 
-                val (bufferArr, bufferObj) = onePageBuffer.get()
+                val bufferHolder = onePageBuffer.get()
+                finally {
+                    onePageBuffer.free(bufferHolder)
+                }
+                val (bufferArr, bufferObj) = bufferHolder
 
                 var nPageInRecord = 0
                 var offsetToCurrentPage = offsetToFirstPage + pages.first * pageSize
@@ -188,18 +189,20 @@ private constructor(
      *
      * @throws InvalidPersistenceIDException
     */
-    fun <T> useRecord(persistenceID: PersistenceID, asPrincipal: Principal, transform: (ByteBuffer) -> T) : WorkableFuture<T> {
+    fun <T> useRecord(asPrincipal: Principal, persistenceID: PersistenceID, transform: (ByteBuffer) -> T) : WorkableFuture<T> {
         if (closed) throw IOException("The heapfile is closed.")
 
-        val (bufferArr, bufferObj) = onePageBuffer.get()
-
-        // read the first page, then decide if we need more
-        bufferObj.reset()
         val (nPages, firstPageIndex) = persistenceID
         val pages = LongRange(firstPageIndex, firstPageIndex + nPages)
         val firstPageOffset = offsetToFirstPage + firstPageIndex * pageSize
 
         return launchWorkableFuture(asPrincipal) {
+            val bufferHolder = onePageBuffer.get()
+            finally {
+                onePageBuffer.free(bufferHolder)
+            }
+            val (bufferArr, bufferObj) = bufferHolder
+
             val rwLock = readWriteLockManager[pages]
             awaitAndFinally(rwLock.readLock.acquireFor(asPrincipal)) {
                 rwLock.readLock.releaseFor(asPrincipal)
@@ -272,25 +275,31 @@ private constructor(
      * @return The actual persistence ID for the record and the result of the transform.
      * @throws InvalidPersistenceIDException If the given page index is not the start of a valid record.
      */
-    private fun <T> tryUseRecordStartingAtPage(firstPageIndex: Long, asPrincipal: Principal, transform: (ByteBuffer) -> T): Pair<PersistenceID, T> {
+    private fun <T> tryUseRecordStartingAtPage(asPrincipal: Principal, firstPageIndex: Long, transform: (ByteBuffer) -> T): WorkableFuture<Pair<PersistenceID, T>> {
         if (closed) throw IOException("The heapfile is closed.")
 
-        val (bufferArr, bufferObj) = onePageBuffer.get()
-        val channel = fileChannel
-
         // read the first page, then decide if we need more
-        bufferObj.clear()
+
         val offsetFirstPageOfRecord = offsetToFirstPage + firstPageIndex * pageSize
         val firstPageReadLock = readWriteLockManager[firstPageIndex..firstPageIndex].readLock
 
         return launchWorkableFuture(asPrincipal) {
-            awaitAndFinally(firstPageReadLock.acquireFor(asPrincipal)) {
-                
+            val bufferHolder = onePageBuffer.get()
+            finally {
+                onePageBuffer.free(bufferHolder)
             }
-        }
-        withLock {
-            channel.position(offsetFirstPageOfRecord)
-            channel.read(bufferObj)
+            val (bufferArr, bufferObj) = bufferHolder
+
+            awaitAndFinally(firstPageReadLock.acquireFor(asPrincipal)) {
+                firstPageReadLock.releaseFor(asPrincipal)
+            }
+
+            // read entire page
+            while (bufferObj.hasRemaining()) {
+                if (await(fileChannel.read(bufferObj, offsetFirstPageOfRecord)) < 0) {
+                    throw InvalidPersistenceIDException(firstPageIndex, "EOF within page first page")
+                }
+            }
 
             val flags = bufferArr[0]
             if (flags hasFlag PAGE_FLAG_DELETED || flags hasFlag PAGE_FLAG_CONTINUATION || !(flags hasFlag PAGE_FLAG_FIRST_PAGE_OF_RECORD)) {
@@ -305,10 +314,10 @@ private constructor(
 
                 val actualPersistenceID = toPersistenceID(1, firstPageIndex)
 
-                return Pair(actualPersistenceID, transform(bufferObj))
+                return@launchWorkableFuture Pair(actualPersistenceID, transform(bufferObj))
             } else {
                 val additionalPages = (recordSize - (pageSize - 5) + pageSize - 1) / pageSize
-                val fullRecordBuffer = ByteBuffer.allocateDirect(recordSize)
+                val wholeRecordBuffer = ByteBuffer.allocateDirect(recordSize)
 
                 val actualPersistenceID = toPersistenceID((additionalPages + 1).toShort(), firstPageIndex)
 
@@ -317,44 +326,47 @@ private constructor(
 
                 // read the other pages
                 val pages = LongRange(firstPageIndex, firstPageIndex + additionalPages + 1)
-                readWriteLockManager[pages].readLock().withLock {
-                    val channel = fileChannel.get()
-                    channel.position(offsetFirstPageOfRecord)
-
-                    var bytesOfRecordRemaining = recordSize
-                    var isFirstPage = true
-                    while (bytesOfRecordRemaining > 0) {
-                        bufferObj.clear()
-                        bufferObj.limit(min(bufferObj.capacity(), bytesOfRecordRemaining + 1)) // +1 for the flag byte
-                        channel.read(bufferObj)
-
-                        val pageFlags = bufferArr[0]
-                        if (isFirstPage && !(pageFlags hasFlag PAGE_FLAG_FIRST_PAGE_OF_RECORD)) {
-                            throw InvalidPersistenceIDException(
-                                actualPersistenceID,
-                                "First page of record does not have the FIRST_PAGE_OF_RECORD flag.",
-                                ConcurrentModificationException("The record has been modified while reading.")
-                            )
-                        }
-                        else if (!isFirstPage && !(pageFlags hasFlag PAGE_FLAG_CONTINUATION)) {
-                            throw StorageException("Invalid internal state - record contains non-continuation flagged page (offset of first page in record: $offsetFirstPageOfRecord)")
-                        }
-
-                        bufferObj.flip()
-                        bufferObj.position(1) // skip the flag byte
-                        if (isFirstPage) {
-                            // skip the flag byte and record size
-                            bufferObj.position(5)
-                            isFirstPage = false
-                        }
-
-                        bytesOfRecordRemaining -= bufferObj.remaining()
-                        fullRecordBuffer.put(bufferObj)
-                    }
+                val wholeRecordWriteLock = readWriteLockManager[pages].writeLock
+                awaitAndFinally(wholeRecordWriteLock.acquireFor(asPrincipal)) {
+                    wholeRecordWriteLock.releaseFor(asPrincipal)
                 }
 
-                fullRecordBuffer.flip()
-                return Pair(actualPersistenceID, transform(fullRecordBuffer))
+                var isFirstPage = true
+                while (wholeRecordBuffer.hasRemaining()) {
+                    bufferObj.clear()
+                    bufferObj.limit(min(bufferObj.capacity(), wholeRecordBuffer.remaining() + 1)) // +1 for the flag byte
+
+                    while (bufferObj.hasRemaining()) {
+                        if (await(fileChannel.read(bufferObj, offsetToFirstPage + bufferObj.position())) < 0) {
+                            throw InvalidPersistenceIDException(actualPersistenceID, "EOF within record")
+                        }
+                    }
+
+                    val pageFlags = bufferArr[0]
+                    if (isFirstPage && !(pageFlags hasFlag PAGE_FLAG_FIRST_PAGE_OF_RECORD)) {
+                        throw InvalidPersistenceIDException(
+                            actualPersistenceID,
+                            "First page of record does not have the FIRST_PAGE_OF_RECORD flag.",
+                            ConcurrentModificationException("The record has been modified while reading.")
+                        )
+                    } else if (!isFirstPage && !(pageFlags hasFlag PAGE_FLAG_CONTINUATION)) {
+                        throw StorageException("Invalid internal state - record contains non-continuation flagged page (offset of first page in record: $offsetFirstPageOfRecord)")
+                    }
+
+                    bufferObj.flip()
+                    bufferObj.position(1) // skip the flag byte
+                    if (isFirstPage) {
+                        // skip the flag byte and record size
+                        bufferObj.position(5)
+                        isFirstPage = false
+                    }
+
+                    wholeRecordBuffer.put(bufferObj)
+                }
+
+                wholeRecordBuffer.flip()
+                val result = transform(wholeRecordBuffer)
+                return@launchWorkableFuture Pair(actualPersistenceID, result)
             }
         }
     }
@@ -367,13 +379,13 @@ private constructor(
      *                  the transform function returns.
      * @return The transformed records in [Pair.second] and the corresponding persistence id in [Pair.first]
      */
-    fun <T> allRecords(transform: (ByteBuffer) -> T): LazySequence<Pair<PersistenceID, T>> {
+    fun <T> allRecords(asPrincipal: Principal, transform: (ByteBuffer) -> T): LazySequence<Pair<PersistenceID, T>> {
         return buildLazySequence {
             var pageIndex: Long = 0
 
             while (pageIndex < heapManager.size) {
                 try {
-                    val result = tryUseRecordStartingAtPage(pageIndex, transform)
+                    val result = await(tryUseRecordStartingAtPage(asPrincipal, pageIndex, transform))
                     yield(Pair(result.first, result.second))
                     pageIndex += result.first.nPages
                 }
@@ -392,28 +404,31 @@ private constructor(
      *                    of invocations will *ruin* performance (less then 1 MiB/s write speed on a 7200rpm HDD).
      * @return Whether a record was actually removed as a result of this call.
      */
-    fun removeRecord(persistenceID: PersistenceID, flushToDisk: Boolean = false): Boolean {
+    fun removeRecord(asPrincipal: Principal, persistenceID: PersistenceID, flushToDisk: Boolean = false): WorkableFuture<Boolean> {
         if (closed) throw IOException("The heapfile is closed.")
 
         val (nPages, firstPageIndex) = persistenceID
         val pages = LongRange(firstPageIndex, firstPageIndex + nPages - 1)
         val firstPageOffset = offsetToFirstPage + firstPageIndex * pageSize
 
-        val (bufferArr, bufferObj) = onePageBuffer.get()
-        val channel = fileChannel.get()
+        val wholeRecordReadLock = readWriteLockManager[pages].readLock
 
-        bufferObj.clear()
-
-        println("""
-            {
-                "action": "remove",
-                "firstPage": ${pages.first},
-                "lastPage": ${pages.endInclusive}
+        return launchWorkableFuture(asPrincipal) {
+            awaitAndFinally(wholeRecordReadLock.acquireFor(asPrincipal)) {
+                wholeRecordReadLock.releaseFor(asPrincipal)
             }
-        """.trimIndent())
 
-        readWriteLockManager[pages].readLock().withLock {
-            channel.read(bufferObj, firstPageOffset)
+            val bufferHolder = onePageBuffer.get()
+            finally {
+                onePageBuffer.free(bufferHolder)
+            }
+            val (bufferArr, bufferObj) = onePageBuffer.get()
+
+            while (bufferObj.hasRemaining()) {
+                if (await(fileChannel.read(bufferObj, firstPageOffset + bufferObj.position())) < 0) {
+                    throw InvalidPersistenceIDException(persistenceID, "EOF within first page")
+                }
+            }
 
             val flags = bufferArr[0]
             if (flags hasFlag PAGE_FLAG_CONTINUATION) {
@@ -421,22 +436,24 @@ private constructor(
             }
             if (flags hasFlag PAGE_FLAG_DELETED) {
                 // already gone
-                return false
+                return@launchWorkableFuture false
             }
 
             bufferArr[0] = bufferArr[0] plusFlag PAGE_FLAG_DELETED
             bufferObj.position(0)
             bufferObj.limit(pageSize)
-            readWriteLockManager[pages.first..pages.first].writeLock().withLock {
-                channel.write(bufferObj, firstPageOffset)
+            val firstPageWriteLock = readWriteLockManager[pages.first..pages.first].writeLock
+            awaitAndFinally(firstPageWriteLock.acquireFor(asPrincipal)) {
+                firstPageWriteLock.releaseFor(asPrincipal)
             }
+
             synchronized(heapManager) {
                 heapManager.free(pages)
             }
 
-            if (flushToDisk || diskFlushLottery()) channel.force(false)
+            if (flushToDisk || diskFlushLottery()) fileChannel.force(false)
 
-            return true
+            return@launchWorkableFuture true
         }
     }
 
@@ -474,7 +491,7 @@ private constructor(
      * Scans through the entire file and [HeapManager.allocate]s all areas that contain data. Assumes
      * exclusive access to [randomAccessFile] and [heapManager].
      */
-    private fun initializeHeapManagerFromFile(): HeapManager {
+    private fun initializeHeapManagerFrom(randomAccessFile: RandomAccessFile): HeapManager {
         val builder = FirstFitHeapManager.fromExistingLayoutSubtractiveBuilder(1, 0.2f)
 
         randomAccessFile.seek(offsetToFirstPage)
