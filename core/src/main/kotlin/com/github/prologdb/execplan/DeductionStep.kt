@@ -1,13 +1,13 @@
 package com.github.prologdb.execplan
 
+import com.github.prologdb.async.LazySequence
+import com.github.prologdb.async.LazySequenceBuilder
+import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.VariableMapping
 import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
-import com.github.prologdb.runtime.lazysequence.LazySequence
-import com.github.prologdb.runtime.lazysequence.buildLazySequence
-import com.github.prologdb.runtime.lazysequence.mapRemaining
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -17,13 +17,11 @@ class DeductionStep(
 ) : PlanStep {
     private val goalIndicator = PredicateIndicator.of(goal)
 
-    override fun execute(db: PrologDatabaseView, randomVarsScope: RandomVariableScope, variables: VariableBucket): LazySequence<Unification> {
-        val rules = db.rules[goalIndicator] ?: return LazySequence.empty()
+    override val execute: suspend LazySequenceBuilder<Unification>.(PrologDatabaseView, RandomVariableScope, VariableBucket) -> Unit = { db, randomVarsScope, varsBucket ->
+        val rules = db.rules[goalIndicator] ?: emptyList<Rule>()
 
-        return buildLazySequence {
-            for (rule in rules.toList()) { // to list to avoid concurrent modification exceptions
-
-            }
+        for (rule in rules.toList()) { // to list to avoid concurrent modification exceptions
+            TODO()
         }
     }
 

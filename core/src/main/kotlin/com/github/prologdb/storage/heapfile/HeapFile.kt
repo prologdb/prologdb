@@ -380,13 +380,13 @@ private constructor(
      * @return The transformed records in [Pair.second] and the corresponding persistence id in [Pair.first]
      */
     fun <T> allRecords(asPrincipal: Principal, transform: (ByteBuffer) -> T): LazySequence<Pair<PersistenceID, T>> {
-        return buildLazySequence {
+        return buildLazySequence(asPrincipal) {
             var pageIndex: Long = 0
 
             while (pageIndex < heapManager.size) {
                 try {
                     val result = await(tryUseRecordStartingAtPage(asPrincipal, pageIndex, transform))
-                    yield(Pair(result.first, result.second))
+                    yield(result)
                     pageIndex += result.first.nPages
                 }
                 catch (ex: InvalidPersistenceIDException) {
