@@ -1,9 +1,15 @@
 package com.github.prologdb.storage.predicate
 
+import com.github.prologdb.async.LazySequence
+import com.github.prologdb.async.Principal
+import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.storage.AcceleratedStorage
 import com.github.prologdb.storage.VolatileStorage
+import com.sun.xml.internal.ws.util.CompletedFuture
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Future
 
 /**
  * A [PredicateStore] that works only in memory.
@@ -24,7 +30,7 @@ class MemoryPredicateStore(override val indicator: ClauseIndicator) : PredicateS
      */
     private val upscalingFactor = 1.5
 
-    override fun store(item: Predicate): PersistenceID {
+    override fun store(asPrincipal: Principal, item: Predicate): Future<PersistenceID> {
         if (item.arity != indicator.arity || item.name != indicator.name) {
             throw IllegalArgumentException("This store holds only predicates of type ${indicator.name}/${indicator.arity}")
         }
@@ -33,7 +39,7 @@ class MemoryPredicateStore(override val indicator: ClauseIndicator) : PredicateS
             for (index in store.indices) {
                 if (store[index] == null) {
                     store[index] = item
-                    return index.toLong()
+                    return CompletedFuture(index.toLong(), null)
                 }
             }
 
@@ -46,22 +52,28 @@ class MemoryPredicateStore(override val indicator: ClauseIndicator) : PredicateS
             val id = store.size.toLong()
             store = newStore
 
-            return id
+            return CompletedFuture(id, null)
         }
     }
 
-    override fun retrieve(id: PersistenceID): Predicate? {
+    override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Predicate?> {
         val idAsInt = id.toInt()
         if (idAsInt.toLong() != id) {
             throw IllegalArgumentException()
         }
 
+        val future = CompletableFuture<Predicate?>()
+
         val _store = store
-        if (idAsInt > _store.lastIndex) return null
-        return _store[idAsInt]
+        if (idAsInt > _store.lastIndex) {
+            future.complete(null)
+        } else {
+            future.complete(_store[idAsInt])
+        }
+        return future
     }
 
-    override fun delete(id: PersistenceID): Boolean {
+    override fun delete(asPrincipal: Principal, id: PersistenceID): Future<Boolean> {
         val idAsInt = id.toInt()
         if (idAsInt.toLong() != id) {
             throw IllegalArgumentException()
@@ -69,19 +81,19 @@ class MemoryPredicateStore(override val indicator: ClauseIndicator) : PredicateS
 
         synchronized(storeMutationMutex) {
             if (idAsInt > store.lastIndex) {
-                return false
+                return CompletedFuture(false, null)
             }
 
             val wasThere = store[idAsInt] != null
             store[idAsInt] = null
 
-            return wasThere
+            return CompletedFuture(wasThere, null)
         }
     }
 
-    override fun all(): LazySequence<Pair<PersistenceID, Predicate>> {
+    override fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, Predicate>> {
         val _store = store
-        return buildLazySequence {
+        return buildLazySequence(asPrincipal) {
             _store.forEachIndexed { persistenceIDAsInt, predicate ->
                 if (predicate == null) return@forEachIndexed
                 yield(Pair(persistenceIDAsInt.toLong(), predicate))
