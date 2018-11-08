@@ -7,10 +7,14 @@ import java.lang.reflect.InvocationTargetException
 import java.nio.channels.FileLock
 import java.nio.charset.Charset
 import javax.management.ReflectionException
+import kotlin.concurrent.thread
 
 /**
  * Implements a PID file that is used to lock access of multiple
  * processes to the same area on a drive.
+ *
+ * If not released manually, the lock is released when the JVM
+ * exits (see [Runtime.addShutdownHook]).
  */
 class PIDLockFile(val pidFile: File) {
     init {
@@ -123,10 +127,8 @@ class PIDLockFile(val pidFile: File) {
     }
 
     /** is registered as a shutdown hook that will release the lock */
-    private val releaseHook = object : Thread() {
-        override fun run() {
-            release()
-        }
+    private val releaseHook = thread(start = false) {
+        release()
     }
 }
 
