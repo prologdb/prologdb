@@ -1,8 +1,7 @@
 package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequenceBuilder
-import com.github.prologdb.dbms.PrologDatabaseView
-import com.github.prologdb.runtime.RandomVariableScope
+import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -17,7 +16,7 @@ interface PlanStep {
      * Loads the affected instances from the database and returns the unifications resulting from that.
      * @throws PrologQueryException
      */
-    val execute: suspend LazySequenceBuilder<Unification>.(PrologDatabaseView, RandomVariableScope, VariableBucket) -> Unit
+    val execute: suspend LazySequenceBuilder<Unification>.(DBProofSearchContext, VariableBucket) -> Unit
 
     /**
      * An explanation of this step in the official format (e.g. `prove(bar(X, a))`

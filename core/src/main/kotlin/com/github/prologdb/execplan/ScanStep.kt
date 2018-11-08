@@ -1,7 +1,9 @@
 package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequenceBuilder
-import com.github.prologdb.runtime.RandomVariableScope
+import com.github.prologdb.async.filterRemainingNotNull
+import com.github.prologdb.async.mapRemaining
+import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
@@ -16,11 +18,13 @@ class ScanStep(
 
     private val goalIndicator = ClauseIndicator.of(goal)
 
-    override val execute: suspend LazySequenceBuilder<Unification>.(PrologDatabaseView, RandomVariableScope, VariableBucket)-> Unit = { db, randomVarsScope, variables ->
-        val predicateStore = db.predicateStores[goalIndicator]
+    override val execute: suspend LazySequenceBuilder<Unification>.(DBProofSearchContext, VariableBucket)-> Unit = { ctxt, vars ->
+        val amendedGoal = goal.substituteVariables(vars.asSubstitutionMapper())
+
+        val predicateStore = ctxt.predicateStores[goalIndicator]
         if (predicateStore != null) {
             yieldAll(predicateStore.all(principal)
-                .mapRemaining { it.second.unify(goal, randomVarsScope) }
+                .mapRemaining { it.second.unify(amendedGoal, ctxt.randomVariableScope) }
                 .filterRemainingNotNull()
             )
         }

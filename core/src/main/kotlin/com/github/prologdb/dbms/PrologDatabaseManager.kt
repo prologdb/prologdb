@@ -1,7 +1,6 @@
 package com.github.prologdb.dbms
 
 import com.github.prologdb.execplan.planner.ExecutionPlanner
-import com.github.prologdb.runtime.knowledge.KnowledgeBase
 import java.nio.file.Path
 
 /**
@@ -11,6 +10,6 @@ import java.nio.file.Path
 class PrologDatabaseManager(
     val dataDirectory: Path,
     @Volatile var planner: ExecutionPlanner
-) : KnowledgeBase {
+) {
 
 }

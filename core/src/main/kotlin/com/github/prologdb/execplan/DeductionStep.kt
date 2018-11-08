@@ -2,6 +2,7 @@ package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.LazySequenceBuilder
+import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.VariableMapping
 import com.github.prologdb.runtime.knowledge.Rule
@@ -15,8 +16,8 @@ class DeductionStep(
 ) : PlanStep {
     private val goalIndicator = ClauseIndicator.of(goal)
 
-    override val execute: suspend LazySequenceBuilder<Unification>.(PrologDatabaseView, RandomVariableScope, VariableBucket) -> Unit = { db, randomVarsScope, varsBucket ->
-        val rules = db.rules[goalIndicator] ?: emptyList<Rule>()
+    override val execute: suspend LazySequenceBuilder<Unification>.(DBProofSearchContext, VariableBucket) -> Unit = { ctxt, vars ->
+        val rules = ctxt.rules[goalIndicator] ?: emptyList<Rule>()
 
         for (rule in rules.toList()) { // to list to avoid concurrent modification exceptions
             TODO()
