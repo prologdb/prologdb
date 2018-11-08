@@ -1,14 +1,10 @@
 package com.github.prologdb.execplan.index
 
 import com.github.prologdb.async.LazySequenceBuilder
-import com.github.prologdb.async.filterRemainingNotNull
-import com.github.prologdb.async.mapRemaining
-import com.github.prologdb.dbms.PrologDatabaseView
 import com.github.prologdb.execplan.PlanStep
 import com.github.prologdb.execplan.PlanStepInappropriateException
-import com.github.prologdb.execplan.toLazySequence
 import com.github.prologdb.runtime.RandomVariableScope
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
@@ -31,7 +27,7 @@ class IndexLookupStep private constructor(
         }
     }
 
-    private val targetPredicateIndicator = PredicateIndicator.of(predicateAsInQuery)
+    private val targetClauseIndicator = ClauseIndicator.of(predicateAsInQuery)
 
     protected val replacementVariable = randomVariableScope.createNewRandomVariable()
 
@@ -61,15 +57,15 @@ class IndexLookupStep private constructor(
     )
 
     override val execute: suspend LazySequenceBuilder<Unification>.(PrologDatabaseView, RandomVariableScope, VariableBucket) -> Unit = { db, randomVarsScope, variables ->
-        val indicesByIndicator = db.indexes[targetPredicateIndicator]
+        val indicesByIndicator = db.indexes[targetClauseIndicator]
             ?: throw PlanStepInappropriateException("Internal error: index lookup step configured for non-existent index")
         val indicesForArgument = indicesByIndicator[targetArgumentIndex]
         if (indicesForArgument.isEmpty())
-            throw PlanStepInappropriateException("No indices defined for argument #$targetArgumentIndex of $targetPredicateIndicator")
+            throw PlanStepInappropriateException("No indices defined for argument #$targetArgumentIndex of $targetClauseIndicator")
 
         val originalValueForArgument = predicateAsInQuery.arguments[targetArgumentIndex]
 
-        val predicateStore = db.predicateStores[targetPredicateIndicator]
+        val predicateStore = db.predicateStores[targetClauseIndicator]
             ?: throw PlanStepInappropriateException("Internal error: index lookup step configured for non-existent predicate-store")
 
         await(strategy.execute(

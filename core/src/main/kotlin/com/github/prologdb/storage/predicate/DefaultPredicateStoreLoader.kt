@@ -1,6 +1,6 @@
 package com.github.prologdb.storage.predicate
 
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.storage.StorageException
 import com.github.prologdb.util.metadata.MetadataRepository
 import com.github.prologdb.util.metadata.get
@@ -43,7 +43,7 @@ class DefaultPredicateStoreLoader(
         knownSpecializedLoaders.add(loader)
     }
 
-    override fun create(dbName: String, forPredicatesOf: PredicateIndicator, requiredFeatures: Set<PredicateStoreFeature>, desiredFeatures: Set<PredicateStoreFeature>): PredicateStore {
+    override fun create(dbName: String, forPredicatesOf: ClauseIndicator, requiredFeatures: Set<PredicateStoreFeature>, desiredFeatures: Set<PredicateStoreFeature>): PredicateStore {
         if (storeExists(dbName, forPredicatesOf)) {
             throw StorageException("A predicate store for $forPredicatesOf already exists in database $dbName")
         }
@@ -61,7 +61,7 @@ class DefaultPredicateStoreLoader(
         return store
     }
 
-    override fun load(dbName: String, forPredicatesOf: PredicateIndicator): PredicateStore? {
+    override fun load(dbName: String, forPredicatesOf: ClauseIndicator): PredicateStore? {
         val implementationClassName = findStoreImplementationClassName(dbName, forPredicatesOf) ?: return null
         val loader = knownSpecializedLoaders
             .firstOrNull { it.type.qualifiedName == implementationClassName }
@@ -70,7 +70,7 @@ class DefaultPredicateStoreLoader(
         return loader.createOrLoad(dbName, forPredicatesOf)
     }
 
-    private fun storeExists(dbName: String, forPredicatesOf: PredicateIndicator): Boolean {
+    private fun storeExists(dbName: String, forPredicatesOf: ClauseIndicator): Boolean {
         return findStoreImplementationClassName(dbName, forPredicatesOf) != null
     }
 
@@ -79,7 +79,7 @@ class DefaultPredicateStoreLoader(
      * store exists for the given database and predicate.
      * @see ExistingPredicateStore.implementationClassName
      */
-    private fun findStoreImplementationClassName(dbName: String, forPredicatesOf: PredicateIndicator): String? {
+    private fun findStoreImplementationClassName(dbName: String, forPredicatesOf: ClauseIndicator): String? {
         return metadataMirror.stores
             .firstOrNull {
                 it.predicateArity == forPredicatesOf.arity && it.dbName == dbName && it.predicateName == forPredicatesOf.name

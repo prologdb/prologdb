@@ -1,18 +1,18 @@
 package com.github.prologdb.indexing
 
 import com.github.prologdb.indexing.index.IndexFeature
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Term
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
 /**
- * For a particular [PredicateIndicator] and argument index, describes
+ * For a particular [ClauseIndicator] and argument index, describes
  * the [PredicateArgumentIndex] available for that argument, by type
  * of the indexed argument.
  */
 interface IndexByTypeMap {
-    val indicator: PredicateIndicator
+    val indicator: ClauseIndicator
 
     val argumentIndex: Int
 
@@ -37,7 +37,7 @@ interface IndexByTypeMap {
 }
 
 internal class DefaultIndeyByTypeMap(
-    override val indicator: PredicateIndicator,
+    override val indicator: ClauseIndicator,
     override val argumentIndex: Int,
     private val factories: Set<PredicateArgumentIndexFactory<out PredicateArgumentIndex>>
 ) : IndexByTypeMap {

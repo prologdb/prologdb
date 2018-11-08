@@ -2,7 +2,7 @@ package com.github.prologdb.storage.predicate
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.Principal
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import java.util.concurrent.Future
 
@@ -14,12 +14,12 @@ import java.util.concurrent.Future
 typealias PersistenceID = Long
 
 /**
- * Stores all predicates that match a given [PredicateIndicator].
+ * Stores all predicates that match a given [ClauseIndicator].
  * Implementations MUST be thread-safe.
  */
 interface PredicateStore {
     /** Indicates the kinds of predicates stored in this store. */
-    val indicator: PredicateIndicator
+    val indicator: ClauseIndicator
 
     /**
      * Stores the given predicate in the storage and returns the associated

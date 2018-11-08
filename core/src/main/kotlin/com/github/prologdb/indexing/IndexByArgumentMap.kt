@@ -1,13 +1,13 @@
 package com.github.prologdb.indexing
 
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 
 /**
  * A description of indices available for a particular kind of predicate
  * (see [indicator])
  */
 interface IndexByArgumentMap {
-    val indicator: PredicateIndicator
+    val indicator: ClauseIndicator
 
     /**
      * The available [PredicateArgumentIndex]es available for the given argument index, by
@@ -17,7 +17,7 @@ interface IndexByArgumentMap {
     operator fun get(argumentIndex: Int): IndexByTypeMap
 }
 
-class DefaultIndexByArgumentMap(override val indicator: PredicateIndicator) : IndexByArgumentMap {
+class DefaultIndexByArgumentMap(override val indicator: ClauseIndicator) : IndexByArgumentMap {
     private val byTypeMaps = mutableMapOf<Int, IndexByTypeMap>()
     private val indexFactories = mutableSetOf<PredicateArgumentIndexFactory<out PredicateArgumentIndex>>()
 

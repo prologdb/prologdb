@@ -7,7 +7,7 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.io.util.Pool
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.heapfile.HeapFile
@@ -22,7 +22,7 @@ import java.util.concurrent.Future
  * An implementation of [PredicateStore] based on [HeapFile]
  */
 class HeapfilePredicateStore(
-    override val indicator: PredicateIndicator,
+    override val indicator: ClauseIndicator,
     private val binaryReader: BinaryPrologReader,
     private val binaryWriter: BinaryPrologWriter,
     private val heapFile: HeapFile

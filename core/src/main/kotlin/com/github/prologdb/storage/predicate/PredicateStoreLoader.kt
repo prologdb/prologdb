@@ -1,10 +1,10 @@
 package com.github.prologdb.storage.predicate
 
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.storage.StorageException
 
 /**
- * Creates new [PredicateStore]s for given [PredicateIndicator]s.
+ * Creates new [PredicateStore]s for given [ClauseIndicator]s.
  *
  * Implementations need not be thread safe. Code using objects of this
  * type should synchronize on the loader object.
@@ -26,7 +26,7 @@ interface PredicateStoreLoader {
      */
     fun create(
         dbName: String,
-        forPredicatesOf: PredicateIndicator,
+        forPredicatesOf: ClauseIndicator,
         requiredFeatures: Set<PredicateStoreFeature>,
         desiredFeatures: Set<PredicateStoreFeature>
     ) : PredicateStore
@@ -39,6 +39,6 @@ interface PredicateStoreLoader {
      */
     fun load(
         dbName: String,
-        forPredicatesOf: PredicateIndicator
+        forPredicatesOf: ClauseIndicator
     ) : PredicateStore?
 }

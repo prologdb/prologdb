@@ -1,8 +1,6 @@
 package com.github.prologdb.storage.predicate
 
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
-import com.github.prologdb.runtime.lazysequence.LazySequence
-import com.github.prologdb.runtime.lazysequence.buildLazySequence
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.storage.AcceleratedStorage
 import com.github.prologdb.storage.VolatileStorage
@@ -12,7 +10,7 @@ import com.github.prologdb.storage.VolatileStorage
  */
 @VolatileStorage
 @AcceleratedStorage
-class MemoryPredicateStore(override val indicator: PredicateIndicator) : PredicateStore {
+class MemoryPredicateStore(override val indicator: ClauseIndicator) : PredicateStore {
 
     /** Stores predicates gets resized throughout the lifetime */
     private var store = Array<Predicate?>(100, { null })

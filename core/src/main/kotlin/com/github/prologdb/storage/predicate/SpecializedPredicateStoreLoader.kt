@@ -1,6 +1,6 @@
 package com.github.prologdb.storage.predicate
 
-import com.github.prologdb.runtime.knowledge.library.PredicateIndicator
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import kotlin.reflect.KClass
 
 /**
@@ -23,5 +23,5 @@ interface SpecializedPredicateStoreLoader<T : PredicateStore> {
      *                      the created [PredicateStore].
      * @throws StorageException
      */
-    fun createOrLoad(dbName: String, forPredicates: PredicateIndicator): T
+    fun createOrLoad(dbName: String, forPredicates: ClauseIndicator): T
 }
