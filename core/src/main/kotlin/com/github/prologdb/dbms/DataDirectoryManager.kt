@@ -17,6 +17,8 @@ class DataDirectoryManager private constructor(
 
     private val storeScopes: MutableMap<ClauseIndicator, PredicateStoreScope> = HashMap()
 
+    val metadata: KnowledgeBaseMetadata by lazy { KnowledgeBaseMetadata(TODO()) }
+
     fun scopedForPredicatesOf(indicator: ClauseIndicator): PredicateStoreScope {
         synchronized(mutex) {
             return storeScopes.computeIfAbsent(indicator) { PredicateStoreScope(indicator) }
@@ -27,7 +29,7 @@ class DataDirectoryManager private constructor(
      * Manages files in the data directory belonging to the predicate
      * store for the [indicator].
      */
-    inner class PredicateStoreScope(val indicator: ClauseIndicator) {
+    inner class PredicateStoreScope internal constructor(val indicator: ClauseIndicator) {
         /** Everything synchronizes on this for thread-safety. */
         private val mutex = Any()
     }
