@@ -27,6 +27,7 @@
         <kotlin.kotlintest.version>2.0.7</kotlin.kotlintest.version>
         <mockito.version>2.0</mockito.version>
         <prolog.runtime.version>1.0.0-SNAPSHOT</prolog.runtime.version>
+        <jackson.version>2.9.7</jackson.version>
     </properties>
 
     <dependencyManagement>
@@ -75,6 +76,11 @@
             <dependency>
                 <groupId>com.github.prologdb</groupId>
                 <artifactId>prologdb-socket-interface</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.prologdb</groupId>
+                <artifactId>prologdb-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
