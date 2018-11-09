@@ -10,7 +10,7 @@ class InMemoryMetadataRepositoryTest : FreeSpec({
         val repo = InMemoryMetadataRepository()
         repo.save("Foo", "Bar")
 
-        repo.load("Foo", String::class) shouldEqual "Bar"
+        repo.load("Foo", String::class.java) shouldEqual "Bar"
     }
 
     "store and load with wrong type" {
@@ -18,13 +18,13 @@ class InMemoryMetadataRepositoryTest : FreeSpec({
         repo.save("foo", "bar")
 
         shouldThrow<RuntimeException> {
-            repo.load("foo", Long::class)
+            repo.load("foo", Long::class.java)
         }
     }
 
     "load non existing" {
         val repo = InMemoryMetadataRepository()
 
-        repo.load("key", String::class) shouldBe null
+        repo.load("key", String::class.java) shouldBe null
     }
 })

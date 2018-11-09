@@ -1,7 +1,8 @@
 package com.github.prologdb.storage.heapfile
 
 import com.github.prologdb.Performance
-import com.github.prologdb.runtime.lazysequence.forEachRemaining
+import com.github.prologdb.async.IrrelevantPrincipal
+import com.github.prologdb.async.forEachRemaining
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.predicate.PersistenceID
@@ -28,9 +29,9 @@ class HeapFileTest : FreeSpec({
         HeapFile.initializeForBlockDevice(tmpFile.toPath())
         val heapFile = HeapFile.forExistingFile(tmpFile.toPath()).use { heapFile ->
             val buf = bufferOfRandomValues(500)
-            val pID = heapFile.addRecord(buf)
+            val pID = heapFile.addRecord(IrrelevantPrincipal, buf).get()
 
-            heapFile.useRecord(pID) { dataReadBack ->
+            heapFile.useRecord(IrrelevantPrincipal, pID) { dataReadBack ->
                 buf.position(0)
                 buf.limit(buf.capacity())
                 val bufData = ByteArray(buf.capacity())
@@ -39,7 +40,7 @@ class HeapFileTest : FreeSpec({
                 dataReadBack.get(recordData)
 
                 assert(Arrays.equals(bufData, recordData))
-            }
+            }.get()
         }
     }
 
@@ -49,9 +50,9 @@ class HeapFileTest : FreeSpec({
         HeapFile.initializeForBlockDevice(tmpFile.toPath())
         HeapFile.forExistingFile(tmpFile.toPath()).use { heapFile ->
             val buf = bufferOfRandomValues(8000)
-            val pID = heapFile.addRecord(buf)
+            val pID = heapFile.addRecord(IrrelevantPrincipal, buf).get()
 
-            heapFile.useRecord(pID) { dataReadBack ->
+            heapFile.useRecord(IrrelevantPrincipal, pID) { dataReadBack ->
                 buf.position(0)
                 buf.limit(buf.capacity())
                 val bufData = ByteArray(buf.capacity())
@@ -70,12 +71,14 @@ class HeapFileTest : FreeSpec({
         HeapFile.initializeForBlockDevice(tmpFile.toPath())
         HeapFile.forExistingFile(tmpFile.toPath()).use { heapFile ->
             val buf = bufferOfRandomValues(8000)
-            val pID = heapFile.addRecord(buf)
+            val pID = heapFile.addRecord(IrrelevantPrincipal, buf).get()
 
-            heapFile.removeRecord(pID)
+            heapFile.removeRecord(IrrelevantPrincipal, pID).get()
 
             shouldThrow<InvalidPersistenceIDException> {
-                heapFile.useRecord(pID, {})
+                heapFile.useRecord(IrrelevantPrincipal, pID, {
+                    val x = it
+                }).get()
             }
         }
     }
@@ -91,6 +94,7 @@ class HeapFileTest : FreeSpec({
         for (i in 0..100) {
             val taObjWritten = CompletableFuture<Pair<PersistenceID, ByteArray>>()
             val tA = testingThread {
+                val principal = UUID.randomUUID()
                 val random = Random()
                 val bufferArr = ByteArray(1500)
                 val bufferObj = ByteBuffer.wrap(bufferArr)
@@ -98,32 +102,33 @@ class HeapFileTest : FreeSpec({
                 for (i in 0..3) {
                     bufferObj.clear()
                     random.nextBytes(bufferArr)
-                    hf.addRecord(bufferObj)
+                    hf.addRecord(principal, bufferObj).get()
                 }
                 bufferObj.clear()
                 random.nextBytes(bufferArr)
-                val pID = hf.addRecord(bufferObj)
+                val pID = hf.addRecord(principal, bufferObj).get()
                 val controlData = ByteArray(bufferArr.size, bufferArr::get)
                 taObjWritten.complete(Pair(pID, controlData))
 
                 for (i in 0..3) {
                     bufferObj.clear()
                     random.nextBytes(bufferArr)
-                    hf.addRecord(bufferObj)
+                    hf.addRecord(principal, bufferObj).get()
                 }
             }
 
             val tB = testingThread {
+                val principal = UUID.randomUUID()
                 val random = Random()
                 val bufferArr = ByteArray(1800)
                 val bufferObj = ByteBuffer.wrap(bufferArr)
 
                 bufferObj.clear()
                 random.nextBytes(bufferArr)
-                hf.addRecord(bufferObj)
+                hf.addRecord(principal, bufferObj).get()
                 taObjWritten.join()
 
-                hf.useRecord(taObjWritten.get().first) { recordData ->
+                hf.useRecord(principal, taObjWritten.get().first) { recordData ->
                     val recordDataArray = ByteArray(recordData.remaining())
                     recordData.get(recordDataArray)
 
@@ -148,13 +153,13 @@ class HeapFileTest : FreeSpec({
 
             for (n in 0..50) {
                 val buf = bufferOfRandomValues(768)
-                val pID = heapFile.addRecord(buf)
+                val pID = heapFile.addRecord(IrrelevantPrincipal, buf).get()
 
                 assertFalse(pID in writtenBuffers)
                 writtenBuffers[pID] = buf
             }
 
-            heapFile.allRecords { data ->
+            heapFile.allRecords(IrrelevantPrincipal) { data ->
                 val dataCopy = ByteArray(data.remaining())
                 data.get(dataCopy)
                 dataCopy
@@ -209,14 +214,14 @@ class HeapFileTest : FreeSpec({
                     val entrySize = random.nextInt(entryMaxSize - 1) + 1
                     bufferObj.position(0)
                     bufferObj.limit(entrySize)
-                    heapFile.addRecord(bufferObj)
+                    heapFile.addRecord(IrrelevantPrincipal, bufferObj).get()
 
                     dataWritten += entrySize
                     timeElapsedMillis = (System.currentTimeMillis() - startedAt).toInt()
                 }
                 bufferObj.flip()
                 dataWritten += bufferObj.remaining()
-                heapFile.addRecord(bufferObj, true)
+                heapFile.addRecord(IrrelevantPrincipal, bufferObj, true).get()
                 timeElapsedMillis = (System.currentTimeMillis() - startedAt).toInt()
 
                 val throughputInMibPerSecond = (dataWritten.toDouble() / (1024.0 * 1024.0)) / (timeElapsedMillis.toDouble() / 1000.0)
