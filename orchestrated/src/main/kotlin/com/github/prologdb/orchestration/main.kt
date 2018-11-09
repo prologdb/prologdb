@@ -3,6 +3,7 @@ package com.github.prologdb.orchestration
 import com.github.prologdb.orchestration.config.validation.*
 import java.nio.file.Path
 import java.nio.file.Paths
+import javax.validation.constraints.NotEmpty
 
 fun main(args: Array<String>) {
     val input = try {
@@ -11,7 +12,7 @@ fun main(args: Array<String>) {
     catch (ex: ValidationException) {
         System.err.println("Invalid input:")
         ex.violations.forEach {
-            System.err.println("${it.propertyPath.asYAMLPath}: ${it.message}")
+            System.err.println("${it.propertyPath.toYAMLPath<CLIInput>()}: ${it.message}")
         }
         System.exit(1)
     }
@@ -19,8 +20,22 @@ fun main(args: Array<String>) {
     TODO()
 }
 
+private data class CLIInput(
+    /** the config file; if omitted: use defaults */
+    @ValidatedPath(
+        type = FileType.FILE,
+        permissions = [FilePermission.READ]
+    )
+    val configFile: Path?,
+
+    /** overrides for the config file */
+    @NotEmpty
+    val overrides: Map<String, String>
+)
+
+
 private fun parseCLI(args: Array<String>): CLIInput {
-    if (args.size == 0) return CLIInput(null, emptyMap())
+    if (args.isEmpty()) return CLIInput(null, emptyMap())
     val configString = args[0].trim()
 
     val configFile = if (configString == "-") null else Paths.get(configString)
@@ -42,23 +57,9 @@ private fun parseCLI(args: Array<String>): CLIInput {
     return CLIInput(configFile, overrides)
 }
 
-private data class CLIInput(
-    /** the config file; if omitted: use defaults */
-    @ValidatedPath(
-        type = FileType.FILE,
-        permissions = [FilePermission.READ]
-    )
-    val configFile: Path?,
-
-    /** overrides for the config file */
-    val overrides: Map<String, String>
-)
-
 private operator fun <T> Array<T>.get(range: IntRange): Iterable<T> {
     assert(range.start >= 0)
     assert(range.endInclusive <= lastIndex)
 
     return range.map(this::get)
 }
-
-private class CLISyntaxException(message: String): RuntimeException(message)

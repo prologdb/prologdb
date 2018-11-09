@@ -5,15 +5,21 @@ import java.nio.file.Path
 import javax.validation.Constraint
 import javax.validation.ConstraintValidator
 import javax.validation.ConstraintValidatorContext
-import kotlin.annotation.AnnotationTarget.*
+import javax.validation.Payload
 import kotlin.annotation.AnnotationRetention.RUNTIME
+import kotlin.annotation.AnnotationTarget.*
+import kotlin.reflect.KClass
 
 @Target(FUNCTION, PROPERTY_GETTER, PROPERTY_SETTER, FIELD, ANNOTATION_CLASS, CONSTRUCTOR, VALUE_PARAMETER, TYPE)
 @Retention(RUNTIME)
 @Constraint(validatedBy = [PathConstraintValidator::class])
 annotation class ValidatedPath(
     val type: FileType = FileType.FILE,
-    val permissions: Array<FilePermission> = arrayOf(FilePermission.READ)
+    val permissions: Array<FilePermission> = arrayOf(FilePermission.READ),
+    val message: String = "Path must point to an existing {type} with {permissions} permissions",
+
+    val groups: Array<KClass<*>> = emptyArray(),
+    val payload: Array<KClass<out Payload>> = emptyArray()
 )
 
 enum class FileType(val test: (Path) -> Boolean) {
