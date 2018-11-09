@@ -13,7 +13,7 @@ class InMemoryMetadataRepository : MetadataRepository {
     override fun <T : Any> load(key: String, valueClass: Class<T>): T? {
         synchronized(metadata) {
             val obj = metadata[key] ?: return null
-            if (obj::class != valueClass) {
+            if (obj.javaClass != valueClass) {
                 throw RuntimeException("The value for key $key is not of type ${valueClass.name} (is ${obj::class.qualifiedName})")
             }
 
