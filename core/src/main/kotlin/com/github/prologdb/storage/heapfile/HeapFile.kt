@@ -97,7 +97,7 @@ private constructor(
             Pair(arr, ByteBuffer.wrap(arr))
         },
         sanitizer = {
-            it.second.reset()
+            it.second.clear()
         }
     )
 
@@ -440,12 +440,16 @@ private constructor(
             }
 
             bufferArr[0] = bufferArr[0] plusFlag PAGE_FLAG_DELETED
-            bufferObj.position(0)
-            bufferObj.limit(pageSize)
+
+            // write first page
             val firstPageWriteLock = readWriteLockManager[pages.first..pages.first].writeLock
             awaitAndFinally(firstPageWriteLock.acquireFor(asPrincipal)) {
                 firstPageWriteLock.releaseFor(asPrincipal)
             }
+
+            bufferObj.position(0)
+            bufferObj.limit(pageSize)
+            await(fileChannel.write(bufferObj, firstPageOffset))
 
             synchronized(heapManager) {
                 heapManager.free(pages)
