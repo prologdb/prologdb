@@ -65,6 +65,11 @@ class PIDLockFile(val pidFile: File) {
                             return false
                         }
 
+                        if (existingPID == JVM_PROCESS_ID) {
+                            // this JVM already owns the lock, great :)
+                            return true
+                        }
+
                         if (isProcessAlive(existingPID)) {
                             lock.release()
                             return false

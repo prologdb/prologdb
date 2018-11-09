@@ -21,7 +21,7 @@ import java.util.concurrent.Future
 /**
  * An implementation of [PredicateStore] based on [HeapFile]
  */
-class HeapfilePredicateStore(
+class HeapFilePredicateStore(
     override val indicator: ClauseIndicator,
     private val binaryReader: BinaryPrologReader,
     private val binaryWriter: BinaryPrologWriter,
@@ -67,7 +67,7 @@ class HeapfilePredicateStore(
     override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Predicate?> {
         return launchWorkableFuture(asPrincipal) {
             return@launchWorkableFuture try {
-                await(heapFile.useRecord(asPrincipal, id, this@HeapfilePredicateStore::readPredicateFrom))
+                await(heapFile.useRecord(asPrincipal, id, this@HeapFilePredicateStore::readPredicateFrom))
             }
             catch (ex: InvalidPersistenceIDException) { null }
         }
