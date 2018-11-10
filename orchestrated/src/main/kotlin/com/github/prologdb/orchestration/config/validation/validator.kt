@@ -1,17 +1,27 @@
 package com.github.prologdb.orchestration.config.validation
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import javax.validation.ConstraintViolation
-import javax.validation.ElementKind
-import javax.validation.Path
-import javax.validation.Validation
+import org.hibernate.validator.messageinterpolation.ResourceBundleMessageInterpolator
+import org.hibernate.validator.resourceloading.PlatformResourceBundleLocator
+import java.util.*
+import javax.validation.*
 import kotlin.jvm.internal.ReflectionFactory
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.*
 
-private val validator = Validation.buildDefaultValidatorFactory().validator
+private val validator: Validator = {
+    // force english validation messages
+    val defaultLocator = PlatformResourceBundleLocator("org.hibernate.validator.ValidationMessages")
+    val interpolator = ResourceBundleMessageInterpolator {
+        defaultLocator.getResourceBundle(Locale.ENGLISH)
+    }
+
+    Validation.byDefaultProvider().configure()
+        .messageInterpolator(interpolator)
+        .buildValidatorFactory().validator
+}()
 
 /**
  * @return `value`
@@ -32,7 +42,7 @@ fun Path.toYAMLPath(rootBeanType: Class<*>): String = toYAMLPath(reflectionFacto
 inline fun <reified T : Any> Path.toYAMLPath(): String = toYAMLPath(T::class)
 fun Path.toYAMLPath(rootBeanType: KClass<*>): String {
 
-    val sb = StringBuilder("#${rootBeanType.simpleName}")
+    val sb = StringBuilder()
     var isFirst = true
 
     var contextType: KClass<*> = rootBeanType
