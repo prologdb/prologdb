@@ -3,14 +3,13 @@ package com.github.prologdb.orchestration
 import com.github.prologdb.orchestration.config.validation.*
 import java.nio.file.Path
 import java.nio.file.Paths
-import javax.validation.constraints.NotEmpty
 
 fun main(args: Array<String>) {
     val input = try {
         refuseInvalid(parseCLI(args))
     }
     catch (ex: ValidationException) {
-        System.err.println("Invalid input:")
+        System.err.println("Invalid command line parameters:")
         ex.violations.forEach {
             System.err.println("${it.propertyPath.toYAMLPath<CLIInput>()}: ${it.message}")
         }
@@ -22,14 +21,13 @@ fun main(args: Array<String>) {
 
 private data class CLIInput(
     /** the config file; if omitted: use defaults */
-    @ValidatedPath(
+    @get:ValidatedPath(
         type = FileType.FILE,
         permissions = [FilePermission.READ]
     )
     val configFile: Path?,
 
     /** overrides for the config file */
-    @NotEmpty
     val overrides: Map<String, String>
 )
 
