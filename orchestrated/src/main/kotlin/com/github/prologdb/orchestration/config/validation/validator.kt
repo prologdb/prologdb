@@ -3,6 +3,7 @@ package com.github.prologdb.orchestration.config.validation
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.hibernate.validator.messageinterpolation.ResourceBundleMessageInterpolator
 import org.hibernate.validator.resourceloading.PlatformResourceBundleLocator
+import org.slf4j.Logger
 import java.util.*
 import javax.validation.*
 import kotlin.jvm.internal.ReflectionFactory
@@ -35,6 +36,24 @@ fun <T : Any> refuseInvalid(value: T): T {
 }
 
 class ValidationException(val offendingRoot: Any, val violations: Set<ConstraintViolation<*>>) : RuntimeException()
+
+val ConstraintViolation<*>.prettyPrinted: String
+    get() = "${propertyPath.toYAMLPath(rootBeanClass)}: $message}"
+
+private fun Logger.logViolations(error: ValidationException, additionalMessage: String, to: (String, ValidationException) -> Any?) {
+    var message = "$additionalMessage: ${error.violations.first().prettyPrinted}"
+    if (error.violations.size > 1) {
+        message += " (${error.violations.size - 1} more)"
+    }
+
+    to(message, error)
+}
+
+fun Logger.logViolationsError(error: ValidationException, additionalMessage: String) {
+    if (isErrorEnabled) {
+        logViolations(error, additionalMessage, this::error)
+    }
+}
 
 private val reflectionFactory = ReflectionFactory()
 

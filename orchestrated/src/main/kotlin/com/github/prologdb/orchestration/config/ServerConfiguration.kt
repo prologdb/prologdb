@@ -7,10 +7,10 @@ import java.nio.file.Path
 import javax.validation.constraints.Size
 
 data class ServerConfiguration(
-    @Size(min = 1, max = 65535)
-    val port: Int,
+    @get:Size(min = 1, max = 65535)
+    val port: Int = 30001,
 
-    @ValidatedPath(
+    @get:ValidatedPath(
         type = FileType.DIRECTORY,
         permissions = [FilePermission.READ, FilePermission.WRITE]
     )

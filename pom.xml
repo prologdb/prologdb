@@ -28,6 +28,7 @@
         <mockito.version>2.0</mockito.version>
         <prolog.runtime.version>1.0.0-SNAPSHOT</prolog.runtime.version>
         <jackson.version>2.9.7</jackson.version>
+        <slf4j.version>1.7.4</slf4j.version>
     </properties>
 
     <dependencyManagement>
@@ -82,6 +83,11 @@
                 <groupId>com.github.prologdb</groupId>
                 <artifactId>prologdb-core</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
