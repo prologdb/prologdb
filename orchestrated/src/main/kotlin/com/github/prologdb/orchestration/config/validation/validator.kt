@@ -82,14 +82,14 @@ fun Path.toYAMLPath(rootBeanType: KClass<*>): String {
                 val parameter = contextMethod!!.valueParameters[node.parameterIndex]
 
                 if (!isFirst) sb.append('.')
-                sb.append(parameter.findAnnotation<JsonProperty>()?.value?.emptyToNull() ?: parameter.name)
+                sb.append(parameter.findAnnotation<JsonProperty>()?.value?.emptyToNull() ?: parameter.name!!.lowerCamelCaseToKebabCase())
                 isFirst = false
             }
             ElementKind.PROPERTY -> {
                 val property = contextType.propertyFor(node as Path.PropertyNode) !!
 
                 if (!isFirst) sb.append('.')
-                sb.append(property.findAnnotation<JsonProperty>()?.value?.emptyToNull() ?: property.name)
+                sb.append(property.findAnnotation<JsonProperty>()?.value?.emptyToNull() ?: property.name.lowerCamelCaseToKebabCase())
                 isFirst = false
             }
             ElementKind.CONTAINER_ELEMENT -> {
@@ -107,7 +107,7 @@ fun Path.toYAMLPath(rootBeanType: KClass<*>): String {
                 contextMethod!!
 
                 if (!isFirst) sb.append('.')
-                sb.append(contextMethod.findAnnotation<JsonProperty>()?.value?.emptyToNull() ?: contextMethod.beanGetterPropertyName)
+                sb.append(contextMethod.findAnnotation<JsonProperty>()?.value?.emptyToNull() ?: contextMethod.beanGetterPropertyName.lowerCamelCaseToKebabCase())
 
                 isFirst = false
             }
@@ -160,3 +160,11 @@ private val KFunction<*>.beanGetterPropertyName: String
  * @return the receiver unless it is empty, in which case `null` is returned.
  */
 private fun String.emptyToNull(): String? = if (isEmpty()) null else this
+
+private fun String.lowerCamelCaseToKebabCase(): String {
+    val parts = split(Regex("(?=[A-Z])"))
+    return parts.joinToString(
+        separator = "-",
+        transform = String::toLowerCase
+    )
+}

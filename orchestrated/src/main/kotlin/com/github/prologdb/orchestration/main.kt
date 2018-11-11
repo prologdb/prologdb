@@ -1,16 +1,11 @@
 package com.github.prologdb.orchestration
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.prologdb.orchestration.config.*
 import com.github.prologdb.orchestration.config.validation.*
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.nio.file.Path
 import java.nio.file.Paths
-import kotlin.reflect.jvm.jvmErasure
 
 private fun printUsage() {
     println("""
@@ -34,6 +29,11 @@ fun main(args: Array<String>) {
         refuseInvalid(parseCLI(args))
     }
     catch (ex: ObjectPathException) {
+        log.error("Failed to parse overrides: ${ex.message}", ex)
+        System.exit(1)
+        return
+    }
+    catch (ex: OverrideException) {
         log.error("Failed to parse overrides: ${ex.message}", ex)
         System.exit(1)
         return
@@ -63,9 +63,8 @@ fun main(args: Array<String>) {
 }
 
 private fun CLIInput.buildConfig(): ServerConfiguration {
-    val configurationFromFile = configFile
-        ?.let { ObjectMapper(YAMLFactory()).readValue<ServerConfiguration>(it.toFile()) }
-        ?: jacksonObjectMapper().readValue("{}")
+    val configText = configFile?.let { it.toFile().readText(Charsets.UTF_8) } ?: "{}"
+    val configurationFromFile = configText.parseAsConfig<ServerConfiguration>()
 
     return configurationFromFile.plusOverrides(overrides)
 }
@@ -93,7 +92,7 @@ private fun parseCLI(args: Array<String>): CLIInput {
         return CLIInput(configFile, emptyMap())
     }
 
-    val overrides = mutableMapOf<ObjectPath<ServerConfiguration>, Any>()
+    val overrides = mutableMapOf<String, String>()
     for (arg in args[1..args.lastIndex]) {
         val equalsSignPos = arg.indexOf('=')
         val key: String
@@ -106,21 +105,10 @@ private fun parseCLI(args: Array<String>): CLIInput {
             valueAsString = arg.substring(equalsSignPos + 1)
         }
 
-        val path = ObjectPath.parse<ServerConfiguration>(key)
-        val value = try {
-            valueAsString.constructAs(path.target.returnType.jvmErasure)
-        }
-        catch (ex: IllegalArgumentException) {
-            throw IllegalArgumentException("Failed to construct value of type ${path.target.returnType.jvmErasure.simpleName} for $path from input \"$valueAsString\"", ex)
-        }
-        catch (ex: UnsupportedOperationException) {
-            throw IllegalArgumentException("Failed to construct value of type ${path.target.returnType.jvmErasure.simpleName} for $path from input \"$valueAsString\"", ex)
-        }
-
-        overrides[path] = value
+        overrides[key] = valueAsString
     }
 
-    return CLIInput(configFile, overrides)
+    return CLIInput(configFile, overrides.parseAsOverrides())
 }
 
 private operator fun <T> Array<T>.get(range: IntRange): Iterable<T> {
