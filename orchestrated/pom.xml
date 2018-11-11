@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>prologdb-io</artifactId>
+    <artifactId>prologdb-orchestrated</artifactId>
 
     <parent>
         <groupId>com.github.prologdb</groupId>
@@ -23,8 +23,51 @@
         </dependency>
         <dependency>
             <groupId>com.github.prologdb</groupId>
-            <artifactId>runtime-core</artifactId>
+            <artifactId>prologdb-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.github.prologdb</groupId>
+            <artifactId>prologdb-io</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.prologdb</groupId>
+            <artifactId>prologdb-socket-interface</artifactId>
+        </dependency>
+
+        <!-- for configuration -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-kotlin</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <version>6.0.13.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish</groupId>
+            <artifactId>javax.el</artifactId>
+            <version>3.0.1-b09</version>
+        </dependency>
+
+        <!-- logging -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.2.3</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-test-junit</artifactId>
@@ -39,8 +82,13 @@
     </dependencies>
 
     <build>
-        <sourceDirectory>src/com.github.prologdb.orchestration.main/kotlin</sourceDirectory>
+        <sourceDirectory>src/main/kotlin</sourceDirectory>
         <testSourceDirectory>src/test/kotlin</testSourceDirectory>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
 
         <plugins>
             <plugin>

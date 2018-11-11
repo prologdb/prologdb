@@ -4,17 +4,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>prologdb-io</artifactId>
-
     <parent>
         <groupId>com.github.prologdb</groupId>
         <artifactId>prologdb-parent</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <properties>
-        <kotlin.version>1.2.61</kotlin.version>
-    </properties>
+    <artifactId>prologdb-core</artifactId>
 
     <dependencies>
         <dependency>
@@ -22,36 +18,44 @@
             <artifactId>kotlin-stdlib</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-reflect</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-core</artifactId>
+            <version>0.25.3</version>
+        </dependency>
+        <dependency>
             <groupId>com.github.prologdb</groupId>
             <artifactId>runtime-core</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.github.prologdb</groupId>
+            <artifactId>prologdb-io</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-kotlin</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-test-junit</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.kotlintest</groupId>
-            <artifactId>kotlintest-runner-junit5</artifactId>
-            <version>3.1.9</version>
-            <scope>test</scope>
+            <artifactId>kotlintest</artifactId>
         </dependency>
     </dependencies>
 
     <build>
         <sourceDirectory>src/com.github.prologdb.orchestration.main/kotlin</sourceDirectory>
         <testSourceDirectory>src/test/kotlin</testSourceDirectory>
-
         <plugins>
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <executions><execution><phase>none</phase></execution></executions>
-            </plugin>
-
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
-                <version>${kotlin.version}</version>
                 <executions>
                     <execution>
                         <id>compile</id>
@@ -68,18 +72,6 @@
                     <jvmTarget>1.8</jvmTarget>
                     <experimentalCoroutines>enable</experimentalCoroutines>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.0</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.junit.platform</groupId>
-                        <artifactId>junit-platform-surefire-provider</artifactId>
-                        <version>1.2.0</version>
-                    </dependency>
-                </dependencies>
             </plugin>
         </plugins>
     </build>
