@@ -7,8 +7,8 @@ import java.nio.file.Path
 import javax.validation.constraints.NotNull
 import javax.validation.constraints.Size
 
-data class ServerConfiguration(
-    val network: NetworkInterfaceConfiguration = NetworkInterfaceConfiguration(),
+data class ServerConf(
+    val network: NetworkIConf = NetworkIConf(),
 
     @get:ValidatedPath(
         type = FileType.DIRECTORY,
@@ -18,7 +18,7 @@ data class ServerConfiguration(
     val dataDirectory: Path?
 )
 
-data class NetworkInterfaceConfiguration(
+data class NetworkIConf(
     @get:Size(min = 1, max = 65535)
     val port: Int = 30001
 )

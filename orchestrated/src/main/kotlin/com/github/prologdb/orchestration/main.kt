@@ -62,9 +62,9 @@ fun main(args: Array<String>) {
     }
 }
 
-private fun CLIInput.buildConfig(): ServerConfiguration {
+private fun CLIInput.buildConfig(): ServerConf {
     val configText = configFile?.let { it.toFile().readText(Charsets.UTF_8) } ?: "{}"
-    val configurationFromFile = configText.parseAsConfig<ServerConfiguration>()
+    val configurationFromFile = configText.parseAsConfig<ServerConf>()
 
     return configurationFromFile.plusOverrides(overrides)
 }
@@ -78,7 +78,7 @@ private data class CLIInput(
     val configFile: Path?,
 
     /** overrides for the config file */
-    val overrides: Map<ObjectPath<ServerConfiguration>, Any>
+    val overrides: Map<ObjectPath<ServerConf>, Any>
 )
 
 
