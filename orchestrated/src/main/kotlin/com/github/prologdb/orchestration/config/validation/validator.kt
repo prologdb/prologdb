@@ -148,7 +148,12 @@ private fun KClass<*>.propertyFor(pNode: Path.PropertyNode): KProperty<*>? = mem
 
 private val KFunction<*>.beanGetterPropertyName: String
     get() {
-        TODO()
+        var name = name
+        if (name.startsWith("get")) {
+            name = name[3].toLowerCase() + name.substring(4)
+        }
+
+        return name
     }
 
 /**
