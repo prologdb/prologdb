@@ -38,15 +38,15 @@ fun <T : Any> refuseInvalid(value: T): T {
 class ValidationException(val offendingRoot: Any, val violations: Set<ConstraintViolation<*>>) : RuntimeException()
 
 val ConstraintViolation<*>.prettyPrinted: String
-    get() = "${propertyPath.toYAMLPath(rootBeanClass)}: $message}"
+    get() = "${propertyPath.toYAMLPath(rootBean::class)}: $message"
 
-private fun Logger.logViolations(error: ValidationException, additionalMessage: String, to: (String, ValidationException) -> Any?) {
+private fun Logger.logViolations(error: ValidationException, additionalMessage: String, to: (String, Throwable?) -> Any?) {
     var message = "$additionalMessage: ${error.violations.first().prettyPrinted}"
     if (error.violations.size > 1) {
         message += " (${error.violations.size - 1} more)"
     }
 
-    to(message, error)
+    to(message, error.cause)
 }
 
 fun Logger.logViolationsError(error: ValidationException, additionalMessage: String) {

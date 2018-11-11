@@ -4,15 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.github.prologdb.orchestration.config.ObjectPath
-import com.github.prologdb.orchestration.config.ObjectPathException
-import com.github.prologdb.orchestration.config.ServerConfiguration
-import com.github.prologdb.orchestration.config.plusOverrides
+import com.github.prologdb.orchestration.config.*
 import com.github.prologdb.orchestration.config.validation.*
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.reflect.jvm.jvmErasure
 
 private fun printUsage() {
     println("""
@@ -30,6 +28,8 @@ private fun printUsage() {
 private val log = LoggerFactory.getLogger("cli")
 
 fun main(args: Array<String>) {
+
+
     val input = try {
         refuseInvalid(parseCLI(args))
     }
@@ -79,7 +79,7 @@ private data class CLIInput(
     val configFile: Path?,
 
     /** overrides for the config file */
-    val overrides: Map<ObjectPath<ServerConfiguration>, String>
+    val overrides: Map<ObjectPath<ServerConfiguration>, Any>
 )
 
 
@@ -93,20 +93,30 @@ private fun parseCLI(args: Array<String>): CLIInput {
         return CLIInput(configFile, emptyMap())
     }
 
-    val overrides = mutableMapOf<ObjectPath<ServerConfiguration>, String>()
+    val overrides = mutableMapOf<ObjectPath<ServerConfiguration>, Any>()
     for (arg in args[1..args.lastIndex]) {
         val equalsSignPos = arg.indexOf('=')
         val key: String
-        val value: String
+        val valueAsString: String
         if (equalsSignPos == -1) {
             key = arg
-            value = "true"
+            valueAsString = "true"
         } else {
             key = arg.substring(0, equalsSignPos)
-            value = arg.substring(equalsSignPos + 1)
+            valueAsString = arg.substring(equalsSignPos + 1)
         }
 
         val path = ObjectPath.parse<ServerConfiguration>(key)
+        val value = try {
+            valueAsString.constructAs(path.target.returnType.jvmErasure)
+        }
+        catch (ex: IllegalArgumentException) {
+            throw IllegalArgumentException("Failed to construct value of type ${path.target.returnType.jvmErasure.simpleName} for $path from input \"$valueAsString\"", ex)
+        }
+        catch (ex: UnsupportedOperationException) {
+            throw IllegalArgumentException("Failed to construct value of type ${path.target.returnType.jvmErasure.simpleName} for $path from input \"$valueAsString\"", ex)
+        }
+
         overrides[path] = value
     }
 

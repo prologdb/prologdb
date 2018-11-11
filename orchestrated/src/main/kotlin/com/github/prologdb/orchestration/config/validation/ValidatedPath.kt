@@ -44,6 +44,8 @@ class PathConstraintValidator : ConstraintValidator<ValidatedPath, Path> {
     override fun isValid(value: Path?, context: ConstraintValidatorContext?): Boolean {
         val current = this.current ?: throw IllegalStateException("Not initialized")
 
-        return value != null && current.type.test(value) && current.permissions.all { it.test(value) }
+        if (value == null) return true // to be rejected by @NotNull
+
+        return current.type.test(value) && current.permissions.all { it.test(value) }
     }
 }
