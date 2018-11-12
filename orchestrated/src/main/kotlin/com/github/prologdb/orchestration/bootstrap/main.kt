@@ -5,6 +5,8 @@ import com.github.prologdb.orchestration.config.OverrideException
 import com.github.prologdb.orchestration.config.validation.ValidationException
 import com.github.prologdb.orchestration.config.validation.logViolationsError
 import com.github.prologdb.orchestration.config.validation.refuseInvalid
+import com.github.prologdb.orchestration.introspect.SERVER_VERSION
+import com.github.prologdb.orchestration.introspect.toFormatted
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import kotlin.concurrent.thread
@@ -25,6 +27,8 @@ private fun printUsage() {
 }
 
 fun main(args: Array<String>) {
+    log.info("PrologDB Server Version ${SERVER_VERSION.toFormatted()}")
+
     val input = try {
         refuseInvalid(parseCLI(args))
     }
@@ -68,5 +72,3 @@ fun main(args: Array<String>) {
         log.info("Shutdown complete.")
     })
 }
-
-
