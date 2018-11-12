@@ -19,6 +19,7 @@
         <module>socket-interface</module>
         <module>core</module>
         <module>orchestrated</module>
+        <module>client</module>
     </modules>
 
     <properties>
