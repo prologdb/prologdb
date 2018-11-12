@@ -393,6 +393,7 @@ class ServerInterface(
             .map { it.first.close() }
             .forEach { it.blockingGet() }
 
+        // TODO: close all running queries
         // TODO: notify clients!
 
         serverChannel.close()

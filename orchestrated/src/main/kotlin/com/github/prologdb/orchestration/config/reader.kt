@@ -32,7 +32,7 @@ private object RelativePathModule : SimpleModule("RelativePath") {
             override fun deserialize(parser: JsonParser, ctxt: DeserializationContext?): Path? {
                 val string = parser.text ?: return null
                 val path = Paths.get(string)
-                return if (path.isAbsolute) path else relativeTo.resolve(path)
+                return if (path.isAbsolute) path else relativeTo.resolve(path).normalize()
             }
         })
     }
