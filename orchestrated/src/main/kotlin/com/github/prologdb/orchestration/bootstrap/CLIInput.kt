@@ -9,7 +9,7 @@ import java.nio.file.Paths
 
 internal fun CLIInput.buildConfig(): ServerConf {
     val configText = configFile?.let { it.toFile().readText(Charsets.UTF_8) } ?: "{}"
-    val configurationFromFile = configText.parseAsConfig<ServerConf>()
+    val configurationFromFile = configText.parseAsConfig<ServerConf>(configFile?.parent ?: Paths.get(".").toAbsolutePath())
 
     return configurationFromFile.plusOverrides(overrides)
 }

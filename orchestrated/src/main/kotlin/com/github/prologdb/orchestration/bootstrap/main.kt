@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 import kotlin.concurrent.thread
 
+private val log = LoggerFactory.getLogger("prologdb.cli")
+
 private fun printUsage() {
     println("""
         Usage:
@@ -21,8 +23,6 @@ private fun printUsage() {
         prologdb-server /path/to/alternative/configuration.yml
     """.trimIndent())
 }
-
-private val log = LoggerFactory.getLogger("cli")
 
 fun main(args: Array<String>) {
     val input = try {
@@ -63,7 +63,9 @@ fun main(args: Array<String>) {
 
     val handle = runServer(configuration)
     Runtime.getRuntime().addShutdownHook(thread(start = false, name = "prologdb-shutdown") {
+        log.info("Shutting server down; waiting for all connections to close.")
         handle.shutdown(ShutdownReason.UNKNOWN)
+        log.info("Shutdown complete.")
     })
 }
 

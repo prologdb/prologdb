@@ -11,12 +11,6 @@ import javax.validation.constraints.Min
 import javax.validation.constraints.NotNull
 
 data class ServerConf(
-    /**
-     * All relative paths in the configuration will be interpreted
-     * relative to this path.
-     */
-    var pathsRelativeTo: Path = Paths.get(".").toAbsolutePath(),
-
     @get:Valid
     val network: NetworkIConf = NetworkIConf(),
 
@@ -25,7 +19,7 @@ data class ServerConf(
         permissions = [FilePermission.READ, FilePermission.WRITE]
     )
     @get:NotNull(message = "You must specify a data directory")
-    val dataDirectory: Path?
+    val dataDirectory: Path? = Paths.get(".").toAbsolutePath()
 )
 
 data class NetworkIConf(
