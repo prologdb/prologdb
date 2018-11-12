@@ -12,6 +12,7 @@ import com.github.prologdb.runtime.unification.Unification
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.subjects.SingleSubject
+import org.slf4j.LoggerFactory
 import java.lang.Math.floor
 import java.net.Inet4Address
 import java.net.Inet6Address
@@ -20,6 +21,8 @@ import java.nio.channels.AsynchronousServerSocketChannel
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
+
+private val log = LoggerFactory.getLogger("prologdb.srv-intf")
 
 class ServerInterface(
     /**
@@ -150,7 +153,6 @@ class ServerInterface(
     }
 
     private fun handleClientError(error: GeneralError, handle: SessionHandle) {
-        // TODO: log
         val contexts = queryContexts.remove(handle)
         if (contexts != null) {
             contexts.values.forEach {
@@ -282,29 +284,31 @@ class ServerInterface(
             try {
                 val nDesiredWorkers = nWorkerThreadsSource()
                 if (nDesiredWorkers < 1) {
-                    // TODO: log properly
+                    log.warn("Desired number of workers is < 1.")
                     return
                 }
 
                 pruneDeadWorkers()
                 while (nDesiredWorkers > workers.size) {
+                    log.info("nDesiredWorkers = {}, nWorkers = {}, starting another", nDesiredWorkers, workers.size)
                     val runnable = WorkerRunnable()
                     val thread = Thread(runnable, "prologdb-interface-$localAddressPretty-worker-$workerIncrement")
                     workerIncrement++
                     workers.add(Pair(runnable, thread))
                     thread.start()
-                    // TODO: log
+                    log.debug("Worker thread {} started", thread.name)
                 }
 
                 while (nDesiredWorkers < workers.size) {
+                    log.info("nDesiredWorkers = {}, nWorkers = {}, stopping one", nDesiredWorkers, workers.size)
                     val entry = workers.first()
                     entry.first.close()
                     workers.remove(entry)
-                    // TODO: log
+                    log.debug("Worker {} has been stopped.", entry.second.name)
                 }
             }
             catch (ex: Throwable) {
-                // TODO: log properly
+                log.error("Exception while trying to scale worker threads", ex)
             }
         }
 
@@ -315,13 +319,11 @@ class ServerInterface(
             dead.forEach {
                 it.first.completedEv.subscribeBy(
                     onError = { ex ->
-                        ex.printStackTrace(System.err)
-                        // TODO: log
+                        log.error("Worker thread ${it.second.name} died because of an exception", ex)
                     },
                     onSuccess = { _ ->
                         // TODO: log
-                        // this is far more interesting than error because nothing else
-                        // should be closing workers but apparently still does.
+                        log.error("Worker thread ${it.second.name} stopped by itself (did not report an exception)")
                     }
                 )
             }
@@ -342,7 +344,7 @@ class ServerInterface(
             val channel = try {
                 serverChannel.accept().get()
             } catch (ex: Throwable) {
-                // TODO: log
+                log.info("Failed to accept client connection", ex)
                 continue
             }
 
@@ -374,14 +376,14 @@ class ServerInterface(
                         )
                     },
                     onError = { ex ->
-                        // TODO: log
+                        log.info("Failed to negotiate session parameters with client, closing connection.")
                         ex.printStackTrace(System.err)
                         channel.close()
                     }
                 )
             }
             catch (ex: Throwable) {
-                // TODO: log
+                log.info("Failed to negotiate session parameters with client, closing connection.")
             }
         }
     }
