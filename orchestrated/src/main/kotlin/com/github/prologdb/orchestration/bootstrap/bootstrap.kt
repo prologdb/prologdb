@@ -35,7 +35,7 @@ fun runServer(config: ServerConf): ServerHandle {
     )
     log.info("Network interface started.")
 
-    return ServerHandle(networkIFace)
+    return ServerHandle(networkIFace, engine)
 }
 
 private val PROTOCOL_VERSION1_SEMVER = SemanticVersion.newBuilder()
@@ -48,7 +48,8 @@ private val PROTOCOL_VERSION1_SEMVER = SemanticVersion.newBuilder()
  * A handle to a running server.
  */
 class ServerHandle(
-    private val networkIFace: ServerInterface
+    private val networkIFace: ServerInterface,
+    private val engine: PrologDBEngine
 ) {
     /**
      * Shuts the server down for the given reason. Blocks
@@ -57,6 +58,7 @@ class ServerHandle(
      */
     fun shutdown(reason: ShutdownReason) {
         networkIFace.close()
+        engine.close()
     }
 }
 
