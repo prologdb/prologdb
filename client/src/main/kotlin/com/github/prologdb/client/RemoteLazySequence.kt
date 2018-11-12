@@ -49,11 +49,13 @@ class RemoteSolutions(
 
     override tailrec fun tryAdvance(): Unification? {
         synchronized(mutex) {
-            if (!solutionQueue.isNotEmpty()) {
+            if (solutionQueue.isNotEmpty()) {
+                // println("tryAdvance invoked, solutions not empty, yielding...")
                 return solutionQueue.take()
             }
 
             if (closed) {
+                // println("tryAdvance invoked, sequence closed, handling...")
                 when (closeReason) {
                     QueryClosedEvent.Reason.ABORTED_ON_USER_REQUEST -> throw PrologRuntimeException("Query $queryId aborted on user request")
                     QueryClosedEvent.Reason.FAILED -> throw error.join().toException()
@@ -62,17 +64,17 @@ class RemoteSolutions(
             }
         }
 
-        var interrupted: Boolean
-        do {
-            interrupted = false
-            try {
-                advancementNotifier.wait()
+        synchronized(advancementNotifier) {
+            while (solutionQueue.isEmpty() && !error.isDone) {
+                // println("tryAdvance invoked, waiting for solution or error...")
+                try {
+                    advancementNotifier.wait()
+                }
+                catch (ex: InterruptedException) {}
             }
-            catch (ex: InterruptedException) {
-                interrupted = true
-            }
-        } while (interrupted)
+        }
 
+        // println("got notify()d, retrying to get a solution...")
         return tryAdvance()
     }
 
@@ -84,7 +86,9 @@ class RemoteSolutions(
         synchronized(mutex) {
             this.closed = true
             this.closeReason = reason
-            advancementNotifier.notifyAll()
+            synchronized(advancementNotifier) {
+                advancementNotifier.notifyAll()
+            }
 
             when (reason) {
                 QueryClosedEvent.Reason.SOLUTIONS_DEPLETED -> error.completeExceptionally(RuntimeException("Query depleted without error"))
@@ -105,10 +109,16 @@ class RemoteSolutions(
     }
 
     internal fun onError(error: QueryRelatedError) {
+        // println("Got an error: $error, waiting on mutex notify()ing ")
         synchronized(mutex) {
             this.closed = true
             this.closeReason = QueryClosedEvent.Reason.FAILED
             this.error.complete(error)
+        }
+
+        // println("Got an error: $error, notify()ing ")
+        synchronized(advancementNotifier) {
+            advancementNotifier.notifyAll()
         }
     }
 }

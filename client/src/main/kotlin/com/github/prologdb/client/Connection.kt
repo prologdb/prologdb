@@ -21,15 +21,18 @@ class Connection(val host: String, val port: Int) {
 
     private val mutex = Any()
 
+    val serverVendor: String
+    val serverVersion: SemanticVersion
+
     init {
         ToServerHS.newBuilder()
             .setHello(ClientHello.newBuilder().addDesiredProtocolVersion(PROTOCOL_VERSION1_SEMVER).build())
             .build()
             .writeDelimitedTo(socket.getOutputStream())
 
-        val serverHello = ToClientHS.parseDelimitedFrom(socket.getInputStream())
-        if (serverHello.error != null) {
-            val error = PrologDBClientException(serverHello.error.message)
+        val toClient = ToClientHS.parseDelimitedFrom(socket.getInputStream())
+        if (toClient.error.isInitialized) {
+            val error = PrologDBClientException(toClient.error.message)
             try {
                 socket.close()
             }
@@ -39,6 +42,10 @@ class Connection(val host: String, val port: Int) {
 
             throw error
         }
+
+        val serverHello = toClient.hello ?: throw RuntimeException("Server did not send a hello")
+        serverVendor = serverHello.vendor
+        serverVersion = serverHello.version
     }
 
     private val openQueries: MutableMap<Int, RemoteSolutions> = mutableMapOf()
@@ -49,7 +56,7 @@ class Connection(val host: String, val port: Int) {
     fun startDirective(instruction: String): LazySequence<Unification> = start(QueryInitialization.Kind.DIRECTIVE, instruction)
 
     fun close() {
-        // TODO
+        socket.close()
     }
 
     private fun start(kind: QueryInitialization.Kind, instruction: String): LazySequence<Unification> {
@@ -87,16 +94,28 @@ class Connection(val host: String, val port: Int) {
         }
     }
 
-    private var queryIdCounter: Int = 1
     private fun getNewQueryID(): Int {
         synchronized(mutex) {
-            var id: Int
-            do {
-                id = queryIdCounter++
+            for (i in 0..Int.MAX_VALUE) {
+                if (i !in openQueries) return i
             }
-            while(id !in openQueries)
 
-            return id
+            throw IllegalStateException("No more query IDs available.")
+        }
+    }
+
+    private fun requestNextSolution(queryId: Int) {
+        synchronized(mutex) {
+            ToServer.newBuilder()
+                .setConsumeResults(QuerySolutionConsumption.newBuilder()
+                    .setQueryId(queryId)
+                    .setAmount(1)
+                    .setHandling(QuerySolutionConsumption.PostConsumptionAction.RETURN)
+                    .setCloseAfterwards(false)
+                    .build()
+                )
+                .build()
+                .writeDelimitedTo(socket.getOutputStream())
         }
     }
 
@@ -104,6 +123,23 @@ class Connection(val host: String, val port: Int) {
         thread(start = true, name = "prologdb-conn-reader-$host-$port") {
             readMessage@while (!closed) {
                 val toClient = ToClient.parseDelimitedFrom(socket.getInputStream())
+                if (toClient == null) {
+                    // EOF, Server closed connection
+                    openQueries.forEach {
+                        it.value.onError(QueryRelatedError.newBuilder()
+                            .setQueryId(it.key)
+                            .setKind(QueryRelatedError.Kind.ERROR_GENERIC)
+                            .setShortMessage("Server closed connection")
+                            .build()
+                        )
+                        it.value.onClosed(QueryClosedEvent.Reason.FAILED)
+                    }
+                    break@readMessage
+                }
+                try {
+                    Thread.sleep(100)
+                } catch (ex: InterruptedException) {}
+
                 when (toClient.eventCase) {
                     ToClient.EventCase.SOLUTION -> {
                         val localSequence = openQueries[toClient.solution.queryId] ?: continue@readMessage
@@ -112,10 +148,15 @@ class Connection(val host: String, val port: Int) {
                             vars.instantiate(Variable(varName), value.toRuntimeTerm())
                         }
                         localSequence.onSolution(Unification(vars))
+
+                        requestNextSolution(toClient.solution.queryId)
                     }
                     ToClient.EventCase.QUERY_OPENED -> {
-                        val localSequence = openQueries[toClient.queryOpened.queryId] ?: continue@readMessage
+                        val queryId = toClient.queryOpened.queryId
+                        val localSequence = openQueries[queryId] ?: continue@readMessage
                         localSequence.onOpened()
+
+                        requestNextSolution(queryId)
                     }
                     ToClient.EventCase.QUERY_CLOSED -> {
                         val localSequence = openQueries[toClient.queryClosed.queryId] ?: continue@readMessage
