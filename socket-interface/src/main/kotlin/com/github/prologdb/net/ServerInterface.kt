@@ -110,6 +110,8 @@ class ServerInterface(
             command.startUsing(handle.sessionState, databaseEngine)
         }
         catch (ex: Throwable) {
+            log.error("Unknown error while trying to start command ${command.instruction} as ${command.kind.name}", ex)
+
             handle.queueMessage(QueryRelatedError(
                 command.desiredQueryId,
                 QueryRelatedError.Kind.ERROR_GENERIC,
