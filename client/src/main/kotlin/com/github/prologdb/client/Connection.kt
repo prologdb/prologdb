@@ -73,7 +73,7 @@ class Connection(val host: String, val port: Int) {
                 .build()
                 .writeDelimitedTo(socket.getOutputStream())
 
-            val solutionStream = RemoteSolutions(id, { this.abort(id) })
+            val solutionStream = RemoteSolutions(id, { this.requestNextSolution(id) }, { this.abort(id) })
             openQueries[id] = solutionStream
 
             return solutionStream
@@ -123,6 +123,7 @@ class Connection(val host: String, val port: Int) {
         thread(start = true, name = "prologdb-conn-reader-$host-$port") {
             readMessage@while (!closed) {
                 val toClient = ToClient.parseDelimitedFrom(socket.getInputStream())
+                // println("Got message $toClient")
                 if (toClient == null) {
                     // EOF, Server closed connection
                     openQueries.forEach {
@@ -148,15 +149,11 @@ class Connection(val host: String, val port: Int) {
                             vars.instantiate(Variable(varName), value.toRuntimeTerm())
                         }
                         localSequence.onSolution(Unification(vars))
-
-                        requestNextSolution(toClient.solution.queryId)
                     }
                     ToClient.EventCase.QUERY_OPENED -> {
                         val queryId = toClient.queryOpened.queryId
                         val localSequence = openQueries[queryId] ?: continue@readMessage
                         localSequence.onOpened()
-
-                        requestNextSolution(queryId)
                     }
                     ToClient.EventCase.QUERY_CLOSED -> {
                         val localSequence = openQueries[toClient.queryClosed.queryId] ?: continue@readMessage

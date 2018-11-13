@@ -11,6 +11,7 @@ import java.util.concurrent.LinkedBlockingQueue
 
 class RemoteSolutions(
     private val queryId: Int,
+    private val onMoreSolutionsNeeded: () -> Unit,
     private val onAbort: () -> Unit
 ) : LazySequence<Unification> {
     override val principal = IrrelevantPrincipal
@@ -64,6 +65,8 @@ class RemoteSolutions(
             }
         }
 
+        onMoreSolutionsNeeded()
+
         synchronized(advancementNotifier) {
             while (solutionQueue.isEmpty() && !error.isDone) {
                 // println("tryAdvance invoked, waiting for solution or error...")
@@ -106,6 +109,10 @@ class RemoteSolutions(
 
     internal fun onSolution(solution: Unification) {
         solutionQueue.put(solution)
+
+        synchronized(advancementNotifier) {
+            advancementNotifier.notifyAll()
+        }
     }
 
     internal fun onError(error: QueryRelatedError) {

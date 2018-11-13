@@ -55,25 +55,28 @@ class CLIFrontend(private val connection: Connection) {
                     break@showSolutions
                 }
 
-                if (solution != null) {
-                    print(
-                        solution.variableValues.values.joinToString(
-                            separator = ",\n",
-                            transform = { "${it.first} = ${it.second}"}
-                        )
-                    )
+                if (solution == null) {
+                    println("false")
+                    break@showSolutions
+                }
 
-                    while (true) {
-                        val action = (readLine() ?: "").trim()
-                        when (action) {
-                            ";" -> { /* continue */ }
-                            "." -> {
-                                break@showSolutions
-                            }
-                            else -> {
-                                println("Unknown Action (; .)")
-                            }
-                        }
+                print(
+                    solution.variableValues.values.joinToString(
+                        separator = ",\n",
+                        transform = { "${it.first} = ${it.second}"}
+                    )
+                )
+                if (solution.variableValues.isEmpty) {
+                    print("true")
+                }
+                print(" ")
+
+                while (true) {
+                    val action = (readLine() ?: "").trim()
+                    when (action) {
+                        ";" -> { continue@showSolutions }
+                        "." -> { break@showSolutions }
+                        else -> { println("Unknown Action (; .)") }
                     }
                 }
             } while (solution != null)
