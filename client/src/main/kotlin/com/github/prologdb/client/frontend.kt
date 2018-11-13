@@ -22,6 +22,7 @@ class CLIFrontend(private val connection: Connection) {
                 }
                 else if (instruction.startsWith(mode.operator)) {
                     singleMode = mode
+                    instruction = instruction.substring(mode.operator.length).trim()
                     break@findMode
                 }
             }
