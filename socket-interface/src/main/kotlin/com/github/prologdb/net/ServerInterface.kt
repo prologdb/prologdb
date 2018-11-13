@@ -147,6 +147,15 @@ class ServerInterface(
             return
         }
 
+        if (context.closed) {
+            handle.queueMessage(QueryRelatedError(
+                command.queryId,
+                QueryRelatedError.Kind.ERROR_GENERIC,
+                "Query ${command.queryId} already closed - cannot consume more solutions"
+            ))
+            return
+        }
+
         context.doWith {
             it.registerConsumptionRequest(command)
         }
