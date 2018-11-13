@@ -3,6 +3,7 @@ package com.github.prologdb.orchestration.engine
 import com.github.prologdb.dbms.toSaveFileName
 import com.github.prologdb.util.metadata.FileMetadataRepository
 import com.github.prologdb.util.metadata.MetadataRepository
+import com.github.prologdb.util.metadata.load
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -25,7 +26,7 @@ class ServerDataDirectoryManager(
         }
     }
 
-    val serverMetadata: MetadataRepository by lazy {
+    val serverMetadata: ServerMetadata by lazy {
         val path = dataDirectory.resolve("server.meta")
 
         if (!Files.exists(path)) {
@@ -33,10 +34,36 @@ class ServerDataDirectoryManager(
             Files.createFile(path)
         }
 
-        FileMetadataRepository(path)
+        ServerMetadata(FileMetadataRepository(path))
     }
 
     fun directoryForKnowledgeBase(name: String): Path {
-        return dataDirectory.resolve(name.toSaveFileName())
+        return dataDirectory.resolve("knowledge-bases").resolve(name.toSaveFileName())
+    }
+}
+
+class ServerMetadata(private val repo: MetadataRepository) {
+
+    private val knowledgeBasesMutex = Any()
+
+    val allKnowledgeBaseNames: Iterable<String>
+        get() {
+            synchronized(knowledgeBasesMutex) {
+                return (repo.load("knowledgeBases", Array<String>::class.java) ?: emptyArray()).toList()
+            }
+        }
+
+    fun onKnowledgeBaseAdded(name: String) {
+        synchronized(knowledgeBasesMutex) {
+            val all = repo.load<List<String>>("knowledgeBases") ?: emptyList()
+            repo.save("knowledgeBases", (all + listOf(name)).toSet())
+        }
+    }
+
+    fun onKnowledgeBaseRemoved(name: String) {
+        synchronized(knowledgeBasesMutex) {
+            val all = repo.load<List<String>>("knowledgeBases") ?: emptyList()
+            repo.save("knowledgeBases", all - setOf(name))
+        }
     }
 }
