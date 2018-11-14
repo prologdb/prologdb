@@ -5,9 +5,9 @@ import java.nio.file.Path
 
 /**
  * The central element of the database management system (compare RDBMS). For every
- * prolog database a database server is managing there is one instance of this class.
+ * knowledge base a server is managing there is one instance of this class.
  */
-class PrologDatabaseManager(
+class PersistentKnowledgeBase(
     val dataDirectory: Path,
     @Volatile var planner: ExecutionPlanner
 ) {

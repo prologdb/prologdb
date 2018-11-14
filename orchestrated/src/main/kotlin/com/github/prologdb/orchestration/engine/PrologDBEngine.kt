@@ -1,7 +1,7 @@
 package com.github.prologdb.orchestration.engine
 
 import com.github.prologdb.async.LazySequence
-import com.github.prologdb.dbms.PrologDatabaseManager
+import com.github.prologdb.dbms.PersistentKnowledgeBase
 import com.github.prologdb.execplan.planner.NoOptimizationExecutionPlanner
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.orchestration.SessionContext
@@ -36,7 +36,7 @@ class PrologDBEngine(
         for (kbName in dirManager.serverMetadata.allKnowledgeBaseNames) {
             log.info("Initializing knowledge base $kbName")
             knowledgeBases[kbName] = DatabaseManagerKnowledgeBase(
-                PrologDatabaseManager(
+                PersistentKnowledgeBase(
                     dirManager.directoryForKnowledgeBase(kbName),
                     NoOptimizationExecutionPlanner()
                 )
@@ -105,7 +105,7 @@ class PrologDBEngine(
 
                 dirManager.serverMetadata.onKnowledgeBaseAdded(name)
                 knowledgeBases[name] = DatabaseManagerKnowledgeBase(
-                    PrologDatabaseManager(
+                    PersistentKnowledgeBase(
                         directory,
                         NoOptimizationExecutionPlanner()
                     )
