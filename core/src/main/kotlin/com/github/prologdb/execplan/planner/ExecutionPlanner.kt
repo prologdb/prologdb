@@ -7,7 +7,7 @@ import com.github.prologdb.runtime.query.Query
 
 interface ExecutionPlanner {
     /**
-     * Plans the execution of the given query against the given databaseView.
+     * Plans the execution of the given query against the given database.
      */
     fun planExecution(query: Query, db: PersistentKnowledgeBase, randomVariableScope: RandomVariableScope = RandomVariableScope()): PlanStep
 }
