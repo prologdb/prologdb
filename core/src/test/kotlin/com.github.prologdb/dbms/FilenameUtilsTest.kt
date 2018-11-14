@@ -18,6 +18,10 @@ class FilenameUtilsTest : FreeSpec({
             "foo-bar".toSaveFileName() shouldBe "foo-002dbar"
         }
 
+        "period-remains" {
+            "foo.bar".toSaveFileName() shouldBe "foo.bar"
+        }
+
         "with-weirdos" {
             "foo\$bar#1/2*3".toSaveFileName() shouldBe "foo-0024bar-00231-002f2-002a3"
         }

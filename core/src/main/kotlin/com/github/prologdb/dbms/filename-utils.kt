@@ -1,14 +1,14 @@
 package com.github.prologdb.dbms
 
 /**
- * All characters in the string except `A-Z 0-9 _` are
- * replaced with an url-encoding like escape sequence:
+ * All characters in the string except `A-Z`, `0-9`, `_`
+ * and `.` are replaced with an url-encoding like escape sequence:
  * it is prefixed with a `-` (hyphen) followed by the
  * 2-by hexadecimal encoded UNICODE value for the character.
  */
 fun String.toSaveFileName(): String {
     val originalChars = toCharArray()
-    val indicesToReplace = (0..lastIndex).filter { !this[it].isLetterOrDigit() && this[it] != '_' }
+    val indicesToReplace = (0..lastIndex).filter { !this[it].isLetterOrDigit() && this[it] != '_' && this[it] != '.' }
 
     if (indicesToReplace.isEmpty()) return this
     val targetChars = CharArray(originalChars.size + indicesToReplace.size * 4) { '\u0000' }
@@ -23,7 +23,7 @@ fun String.toSaveFileName(): String {
 
         val charUnicode = originalChars[sourcePointer++].toInt()
         val charUnicodeString = ((charUnicode and 0xFFFF) or 0x10000).toString(16)
-        // the or 0x10000 force the output fo contain leading zeroes
+        // the or 0x10000 force the output to contain leading zeroes
 
         targetChars[targetPointer++] = '-'
         targetChars[targetPointer++] = charUnicodeString[1]
