@@ -2,6 +2,7 @@ package com.github.prologdb.dbms
 
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.util.concurrency.locks.PIDLockFile
+import com.github.prologdb.util.metadata.FileMetadataRepository
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -17,7 +18,11 @@ class DataDirectoryManager private constructor(
 
     private val storeScopes: MutableMap<ClauseIndicator, PredicateStoreScope> = HashMap()
 
-    val metadata: KnowledgeBaseMetadata by lazy { KnowledgeBaseMetadata(TODO()) }
+    val metadata: KnowledgeBaseMetadata by lazy {
+        val file = dataDirectory.resolve("meta")
+        Files.createDirectories(file.parent)
+        KnowledgeBaseMetadata(FileMetadataRepository(file))
+    }
 
     fun scopedForPredicatesOf(indicator: ClauseIndicator): PredicateStoreScope {
         synchronized(mutex) {
