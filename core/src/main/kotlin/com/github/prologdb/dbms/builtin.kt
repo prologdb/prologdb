@@ -44,7 +44,7 @@ val Builtin_Assert_1 = prologdbBuiltin("assert", 1) { args, ctxt ->
             throw PredicateNotDynamicException(indicator)
         }
 
-        val store = ctxt.assurePredicateStore(indicator)
+        val store = ctxt.assureFactStore(indicator)
         val pID = await(store.store(ctxt.principal, arg0))
         // TODO: add pID to indices
         yield(Unification.TRUE)

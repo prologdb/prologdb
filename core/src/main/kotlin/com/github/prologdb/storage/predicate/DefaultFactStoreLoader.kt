@@ -8,7 +8,7 @@ import com.github.prologdb.util.metadata.set
 private val META_KEY = "fact_store_impl"
 
 /**
- * The default implementation to [PredicateStoreLoader].
+ * The default implementation to [FactStoreLoader].
  *
  * Desired features in [create] are weighed like follows:
  *
@@ -22,15 +22,15 @@ private val META_KEY = "fact_store_impl"
  * 5. If there is still a draw (e.g. for multiple implementations with equal featuresets),
  *    it is not defined which implementation is selected.
  */
-open class DefaultPredicateStoreLoader : PredicateStoreLoader {
+open class DefaultFactStoreLoader : FactStoreLoader {
 
-    private val knownSpecializedLoaders: MutableSet<SpecializedPredicateStoreLoader<*>> = mutableSetOf()
+    private val knownSpecializedLoaders: MutableSet<SpecializedFactStoreLoader<*>> = mutableSetOf()
 
     /**
-     * Adds the given [SpecializedPredicateStoreLoader] to the known loaders. The loader will be
+     * Adds the given [SpecializedFactStoreLoader] to the known loaders. The loader will be
      * considered for calls to [create] and [load].
      */
-    fun registerSpecializedLoader(loader: SpecializedPredicateStoreLoader<*>) {
+    fun registerSpecializedLoader(loader: SpecializedFactStoreLoader<*>) {
         synchronized(knownSpecializedLoaders) {
             if (loader !in knownSpecializedLoaders) {
                 if (knownSpecializedLoaders.any { it.type == loader.type }) {
@@ -42,7 +42,7 @@ open class DefaultPredicateStoreLoader : PredicateStoreLoader {
         }
     }
 
-    override fun create(directoryManager: DataDirectoryManager.ClauseStoreScope, requiredFeatures: Set<PredicateStoreFeature>, desiredFeatures: Set<PredicateStoreFeature>): PredicateStore {
+    override fun create(directoryManager: DataDirectoryManager.ClauseStoreScope, requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStore {
         val indicator = directoryManager.indicator
         var implClassName = directoryManager.metadata.load<String>(META_KEY)
 
@@ -59,7 +59,7 @@ open class DefaultPredicateStoreLoader : PredicateStoreLoader {
         return store
     }
 
-    override fun load(directoryManager: DataDirectoryManager.ClauseStoreScope): PredicateStore? {
+    override fun load(directoryManager: DataDirectoryManager.ClauseStoreScope): FactStore? {
         val indicator = directoryManager.indicator
         val implClassName = directoryManager.metadata.load<String>(META_KEY) ?: return null
         val loader = try {
@@ -76,7 +76,7 @@ open class DefaultPredicateStoreLoader : PredicateStoreLoader {
      * **MUST BE THREAD-SAFE!**
      * @return the loader for the given class name
      */
-    protected fun getLoader(implClassName: String): SpecializedPredicateStoreLoader<*> {
+    protected fun getLoader(implClassName: String): SpecializedFactStoreLoader<*> {
         synchronized(knownSpecializedLoaders) {
             return knownSpecializedLoaders
                 .firstOrNull { it.type.qualifiedName == implClassName }
@@ -84,7 +84,7 @@ open class DefaultPredicateStoreLoader : PredicateStoreLoader {
         }
     }
 
-    protected fun selectImplementation(requiredFeatures: Set<PredicateStoreFeature>, desiredFeatures: Set<PredicateStoreFeature>): SpecializedPredicateStoreLoader<*> {
+    protected fun selectImplementation(requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): SpecializedFactStoreLoader<*> {
         val implsFittingRequirements = knownSpecializedLoaders.filter { loader ->
             desiredFeatures.all { feature -> feature.isSupportedBy(loader.type) }
         }
@@ -101,11 +101,11 @@ open class DefaultPredicateStoreLoader : PredicateStoreLoader {
             }
         }
 
-        val desiredFeaturesWithWeight: Set<Pair<PredicateStoreFeature, Int>> = desiredFeatures
+        val desiredFeaturesWithWeight: Set<Pair<FactStoreFeature, Int>> = desiredFeatures
             .mapIndexed { index, loader -> Pair(loader, desiredFeatures.size - index) }
             .toSet()
 
-        val implementationsWithScore: Set<Pair<SpecializedPredicateStoreLoader<*>, Int>> = implsFittingRequirements
+        val implementationsWithScore: Set<Pair<SpecializedFactStoreLoader<*>, Int>> = implsFittingRequirements
             .map { loader ->
                 val score = desiredFeaturesWithWeight
                     .map { (feature, weight) ->
@@ -127,7 +127,7 @@ open class DefaultPredicateStoreLoader : PredicateStoreLoader {
         // there is a draw; go through the features by weight decreasing
         // if a non-empty subset of the implementations supports the feature,
         // reduce the working set to those and go on to the next feature
-        var drawImpls: List<SpecializedPredicateStoreLoader<*>> = implementationsWithTopScore
+        var drawImpls: List<SpecializedFactStoreLoader<*>> = implementationsWithTopScore
         for (desiredFeature in desiredFeatures) {
             val implsSupportingFeature = drawImpls.filter { desiredFeature.isSupportedBy(it.type) }
             if (implsSupportingFeature.isNotEmpty()) {

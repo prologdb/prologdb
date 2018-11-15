@@ -12,11 +12,11 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
 
 /**
- * A [PredicateStore] that works only in memory.
+ * A [FactStore] that works only in memory.
  */
 @VolatileStorage
 @AcceleratedStorage
-class MemoryPredicateStore(override val indicator: ClauseIndicator) : PredicateStore {
+class MemoryFactStore(override val indicator: ClauseIndicator) : FactStore {
 
     /** Stores predicates gets resized throughout the lifetime */
     private var store = Array<Predicate?>(100, { null })

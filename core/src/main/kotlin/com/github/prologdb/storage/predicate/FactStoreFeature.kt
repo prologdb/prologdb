@@ -6,8 +6,8 @@ import com.github.prologdb.storage.VolatileStorage
 import kotlin.reflect.KClass
 import kotlin.reflect.full.findAnnotation
 
-enum class PredicateStoreFeature(
-    private val predicate: (KClass<out PredicateStore>) -> Boolean
+enum class FactStoreFeature(
+    private val predicate: (KClass<out FactStore>) -> Boolean
 ) {
     /** Data persists across restarts and reboots */
     PERSISTENT(hasAnnotation<PersistentStorage>() and !hasAnnotation<VolatileStorage>()),
@@ -22,7 +22,7 @@ enum class PredicateStoreFeature(
      */
     ACCELERATED(hasAnnotation<AcceleratedStorage>());
 
-    infix fun isSupportedBy(storageImplCls: KClass<out PredicateStore>): Boolean = predicate(storageImplCls)
+    infix fun isSupportedBy(storageImplCls: KClass<out FactStore>): Boolean = predicate(storageImplCls)
 }
 
 private inline fun <reified T : Annotation> hasAnnotation(): (KClass<*>) -> Boolean

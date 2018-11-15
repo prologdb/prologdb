@@ -4,14 +4,14 @@ import com.github.prologdb.runtime.builtin.NativeCodeRule
 import com.github.prologdb.runtime.knowledge.ProofSearchContext
 import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.storage.predicate.PredicateStore
+import com.github.prologdb.storage.predicate.FactStore
 
 interface DBProofSearchContext : ProofSearchContext {
     /**
      * Existing storages for dynamic facts. For get-or-create-and-get semantics
-     * use [assurePredicateStore]
+     * use [assureFactStore]
      */
-    val predicateStores: Map<ClauseIndicator, PredicateStore>
+    val factStores: Map<ClauseIndicator, FactStore>
 
     /**
      * Definitions of dynamic rules.
@@ -20,16 +20,16 @@ interface DBProofSearchContext : ProofSearchContext {
 
     /**
      * Builtins. Those cannot be modified and calls to these indicators
-     * are never handled by the dynamic clauses in [predicateStores]
+     * are never handled by the dynamic clauses in [factStores]
      * and [rules].
      */
     val staticBuiltins: Map<ClauseIndicator, NativeCodeRule>
 
     /**
-     * Assures that a predicate store for the given indicator exists (creates
+     * Assures that a fact store for the given indicator exists (creates
      * one if necessary).
      *
      * @return the store for facts of the given indicator
      */
-    fun assurePredicateStore(indicator: ClauseIndicator): PredicateStore
+    fun assureFactStore(indicator: ClauseIndicator): FactStore
 }

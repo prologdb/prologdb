@@ -4,22 +4,22 @@ import com.github.prologdb.dbms.DataDirectoryManager
 import kotlin.reflect.KClass
 
 /**
- * Creates anew / loads from persistence [PredicateStore]s of only one particular type.
+ * Creates anew / loads from persistence [FactStore]s of only one particular type.
  * There should be one implementation of this interface for each implementation of
- * [PredicateStore].
+ * [FactStore].
  */
-interface SpecializedPredicateStoreLoader<T : PredicateStore> {
+interface SpecializedFactStoreLoader<T : FactStore> {
 
     /**
-     * The type of [PredicateStore] created by this factory.
+     * The type of [FactStore] created by this factory.
      */
     val type: KClass<T>
 
     /**
-     * Create a new [PredicateStore] of type [T] or load an existing predicate store from
+     * Create a new [FactStore] of type [T] or load an existing fact store from
      * persistence.
      * @param forPredicates The indicator that will apply to all predicates stored in
-     *                      the created [PredicateStore].
+     *                      the created [FactStore].
      * @throws StorageException
      */
     fun createOrLoad(directoryManager: DataDirectoryManager.ClauseStoreScope): T

@@ -11,22 +11,22 @@ import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.heapfile.HeapFile
+import com.github.prologdb.storage.predicate.FactStore
 import com.github.prologdb.storage.predicate.PersistenceID
-import com.github.prologdb.storage.predicate.PredicateStore
 import java.io.DataOutput
 import java.io.DataOutputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.Future
 
 /**
- * An implementation of [PredicateStore] based on [HeapFile]
+ * An implementation of [FactStore] based on [HeapFile]
  */
-class HeapFilePredicateStore(
+class HeapFileFactStore(
     override val indicator: ClauseIndicator,
     private val binaryReader: BinaryPrologReader,
     private val binaryWriter: BinaryPrologWriter,
     private val heapFile: HeapFile
-) : PredicateStore {
+) : FactStore {
 
     /**
      * Used to buffer binary writes of unknown size.
@@ -47,7 +47,7 @@ class HeapFilePredicateStore(
 
     override fun store(asPrincipal: Principal, item: Predicate): Future<PersistenceID> {
         if (item.arity != indicator.arity || item.name != indicator.name) {
-            throw IllegalArgumentException("This predicate store is intended for instances of $indicator, got ${item.name}/${item.arity}")
+            throw IllegalArgumentException("This fact store is intended for instances of $indicator, got ${item.name}/${item.arity}")
         }
 
         return launchWorkableFuture(asPrincipal) {
@@ -67,7 +67,7 @@ class HeapFilePredicateStore(
     override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Predicate?> {
         return launchWorkableFuture(asPrincipal) {
             return@launchWorkableFuture try {
-                await(heapFile.useRecord(asPrincipal, id, this@HeapFilePredicateStore::readPredicateFrom))
+                await(heapFile.useRecord(asPrincipal, id, this@HeapFileFactStore::readPredicateFrom))
             }
             catch (ex: InvalidPersistenceIDException) { null }
         }

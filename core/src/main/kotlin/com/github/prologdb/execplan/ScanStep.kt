@@ -31,11 +31,11 @@ class ScanStep(
             throw PrologPermissionError("Not allowed to read $goalIndicator")
         }
 
-        val predicateStore = ctxt.predicateStores[goalIndicator]
-        if (predicateStore != null) {
+        val factStore = ctxt.factStores[goalIndicator]
+        if (factStore != null) {
             val amendedGoal = goal.substituteVariables(vars.asSubstitutionMapper())
 
-            yieldAll(predicateStore.all(principal)
+            yieldAll(factStore.all(principal)
                 .mapRemaining { it.second.unify(amendedGoal, ctxt.randomVariableScope) }
                 .filterRemainingNotNull()
                 .amendExceptionsWithStackTraceOnRemaining(stackFrame)

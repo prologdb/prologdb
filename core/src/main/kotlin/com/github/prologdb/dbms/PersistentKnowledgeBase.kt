@@ -16,9 +16,9 @@ import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
-import com.github.prologdb.storage.predicate.PredicateStore
-import com.github.prologdb.storage.predicate.PredicateStoreFeature
-import com.github.prologdb.storage.predicate.PredicateStoreLoader
+import com.github.prologdb.storage.predicate.FactStore
+import com.github.prologdb.storage.predicate.FactStoreFeature
+import com.github.prologdb.storage.predicate.FactStoreLoader
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -28,13 +28,13 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class PersistentKnowledgeBase(
     private val directoryManager: DataDirectoryManager,
-    private val factStoreLoader: PredicateStoreLoader,
+    private val factStoreLoader: FactStoreLoader,
     @Volatile private var planner: ExecutionPlanner
 ) : KnowledgeBase {
     override val operators: OperatorRegistry
         get() = ISOOpsOperatorRegistry
 
-    private val predicateStores: MutableMap<ClauseIndicator, PredicateStore> = ConcurrentHashMap()
+    private val factStores: MutableMap<ClauseIndicator, FactStore> = ConcurrentHashMap()
 
     private val rules: MutableMap<ClauseIndicator, List<Rule>> = ConcurrentHashMap()
 
@@ -42,7 +42,7 @@ class PersistentKnowledgeBase(
 
     init {
         directoryManager.persistedClauses.forEach {
-            predicateStores[it] = factStoreLoader.load(directoryManager.scopedForFactsOf(it))
+            factStores[it] = factStoreLoader.load(directoryManager.scopedForFactsOf(it))
                 ?: throw IllegalStateException("Cannot to load fact store for $it: was reported to exist by directoryManager but then not found")
         }
 
@@ -76,20 +76,20 @@ class PersistentKnowledgeBase(
             plan.execute(this, this@PSContext, vars)
         }
 
-        override val predicateStores: Map<ClauseIndicator, PredicateStore> = this@PersistentKnowledgeBase.predicateStores
+        override val factStores: Map<ClauseIndicator, FactStore> = this@PersistentKnowledgeBase.factStores
         override val rules: Map<ClauseIndicator, List<Rule>> = this@PersistentKnowledgeBase.rules
         override val staticBuiltins: Map<ClauseIndicator, NativeCodeRule> = this@PersistentKnowledgeBase.builtins
 
-        override fun assurePredicateStore(indicator: ClauseIndicator): PredicateStore {
-            return this@PersistentKnowledgeBase.predicateStores.computeIfAbsent(indicator) {
+        override fun assureFactStore(indicator: ClauseIndicator): FactStore {
+            return this@PersistentKnowledgeBase.factStores.computeIfAbsent(indicator) {
                 val clauseScopedDirMgr = directoryManager.scopedForFactsOf(indicator)
                 val existing = factStoreLoader.load(clauseScopedDirMgr)
                 return@computeIfAbsent if (existing == null) {
                     // TODO: storage preferences
                     factStoreLoader.create(
                         clauseScopedDirMgr,
-                        setOf(PredicateStoreFeature.PERSISTENT),
-                        setOf(PredicateStoreFeature.ACCELERATED)
+                        setOf(FactStoreFeature.PERSISTENT),
+                        setOf(FactStoreFeature.ACCELERATED)
                     )
                 } else {
                     existing
@@ -99,7 +99,7 @@ class PersistentKnowledgeBase(
     }
 
     private val planningInfo = object : PlanningInformation {
-        override val existingDynamicFacts: Set<ClauseIndicator> = predicateStores.keys
+        override val existingDynamicFacts: Set<ClauseIndicator> = factStores.keys
         override val existingRules: Set<ClauseIndicator> = rules.keys
         override val staticBuiltins: Set<ClauseIndicator> = builtins.keys
     }

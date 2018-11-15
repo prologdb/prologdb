@@ -12,14 +12,14 @@ import io.kotlintest.matchers.shouldThrow
 import io.kotlintest.specs.FreeSpec
 import java.io.File
 
-class HeapFilePredicateStoreTest : FreeSpec({
+class HeapFileFactStoreTest : FreeSpec({
     val tmpFile = File.createTempFile("hfpst", "")
     tmpFile.deleteOnExit()
     HeapFile.initializeForContiguousDevice(
         tmpFile.toPath()
     )
 
-    val store = HeapFilePredicateStore(
+    val store = HeapFileFactStore(
         ClauseIndicator.of("foo", 3),
         BinaryPrologReader.getDefaultInstance(),
         BinaryPrologWriter.getDefaultInstance(),

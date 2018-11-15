@@ -4,7 +4,7 @@ import com.github.prologdb.util.metadata.MetadataRepository
 
 /**
  * Metadata about a knowledge base in general (does not include
- * nested metadata objects, such as for a predicate store).
+ * nested metadata objects, such as for a fact store).
  *
  * Wrapper for typesafe access to a [MetadataRepository]
  */

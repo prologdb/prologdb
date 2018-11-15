@@ -7,8 +7,8 @@ import com.github.prologdb.runtime.term.Predicate
 import java.util.concurrent.Future
 
 /**
- * An identifier for individual predicates stored in a [PredicateStore].
- * One such indentifier is only meaningful to the [PredicateStore]
+ * An identifier for individual predicates stored in a [FactStore].
+ * One such indentifier is only meaningful to the [FactStore]
  * that defined it.
  */
 typealias PersistenceID = Long
@@ -17,7 +17,7 @@ typealias PersistenceID = Long
  * Stores all predicates that match a given [ClauseIndicator].
  * Implementations MUST be thread-safe.
  */
-interface PredicateStore {
+interface FactStore {
     /** Indicates the kinds of predicates stored in this store. */
     val indicator: ClauseIndicator
 
