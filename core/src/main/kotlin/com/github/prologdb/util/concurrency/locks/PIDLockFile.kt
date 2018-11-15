@@ -59,8 +59,10 @@ class PIDLockFile(val pidFile: File) {
                 try {
                     val existingPIDString = raf.readLine() ?: ""
                     if (existingPIDString.isNotBlank()) {
-                        val existingPID = try {
-                            existingPIDString.toLong()
+                        val existingPID: Long
+
+                        try {
+                            existingPID = existingPIDString.toLong()
                         } catch (ex: NumberFormatException) {
                             // don't know who is holding the lock
                             lock.release()
@@ -161,10 +163,10 @@ private fun isProcessAlive(pid: Long): Boolean {
     else
     {
         // try dos tasklist
-        val process = Runtime.getRuntime().exec("""tasklist /fi "PID eq $pid" /fo list""")
+        val process = Runtime.getRuntime().exec("""tasklist /fi "PID eq $pid" /fo list | findstr $pid""")
         val firstOutLine = process.inputStream.bufferedReader(Charset.defaultCharset()).readLine()
         val exitCode = process.waitFor()
-        return firstOutLine.trim().isNotEmpty() // TODO: actually test this on a windows machine
+        return firstOutLine != null && firstOutLine.trim().isNotEmpty()
     }
 }
 
