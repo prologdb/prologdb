@@ -118,13 +118,21 @@ class PIDLockFile(val pidFile: File) {
     fun release() {
         synchronized(mutex) {
             if (currentLock == null || currentLocking == null) {
-                throw IllegalStateException("Currently not acquired.")
+                return
             }
 
             currentLock!!.release()
             currentLocking!!.close()
 
-            Runtime.getRuntime().removeShutdownHook(releaseHook)
+            try {
+                Runtime.getRuntime().removeShutdownHook(releaseHook)
+            }
+            catch (ex: java.lang.IllegalStateException) {
+                /* When the VM is shutting down, this fails
+                 * but that's fine since that action is not needed
+                 * anymore.
+                 */
+            }
 
             currentLock = null
             currentLocking = null
