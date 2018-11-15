@@ -21,7 +21,7 @@ class DataDirectoryManager private constructor(
     private val storeScopes: MutableMap<ClauseIndicator, ClauseStoreScope>
     init {
         // init store scopes
-        storeScopes = discoverCaluseStoresWithin(dataDirectory.resolve("clauses"))
+        storeScopes = discoverClauseStoresWithin(dataDirectory.resolve("clauses"))
             .fold(HashMap()) { m, s -> m[s.indicator] = s; m }
     }
 
@@ -98,7 +98,9 @@ class DataDirectoryManager private constructor(
         }
     }
 
-    private fun discoverCaluseStoresWithin(path: Path): Set<ClauseStoreScope> {
+    private fun discoverClauseStoresWithin(path: Path): Set<ClauseStoreScope> {
+        if (!Files.exists(path)) return emptySet()
+
         return Files.list(path)
             .filter { Files.isDirectory(it) }
             .map {
