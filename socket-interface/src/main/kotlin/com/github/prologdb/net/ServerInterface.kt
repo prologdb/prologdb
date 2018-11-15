@@ -234,7 +234,6 @@ class ServerInterface(
                                 it.step()
                                 it.consumeSolutions(this)
                                 currentSessionHandle = null
-
                                 nContextsWorkedOn++
                             }
                         }
@@ -274,6 +273,8 @@ class ServerInterface(
         }
 
         override fun onError(queryId: Int, ex: Throwable) {
+            log.error("Query $queryId errored", ex)
+
             currentSessionHandle!!.queueMessage(QueryRelatedError(
                 queryId,
                 QueryRelatedError.Kind.ERROR_GENERIC,

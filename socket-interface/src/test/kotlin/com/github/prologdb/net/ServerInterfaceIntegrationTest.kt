@@ -538,6 +538,7 @@ private fun Socket.startDirective(id: Int, command: String) {
 private val ProtoclVersion1HandleFactory: (AsynchronousByteChannel, ClientHello) -> Single<SessionHandle> = { channel, _ ->
     val source = SingleSubject.create<SessionHandle>()
     source.onSuccess(ProtocolVersion1SessionHandle(
+        UUID.randomUUID().toString(),
         channel,
         ProtocolVersion1PrologReader(
             PrologParser(),

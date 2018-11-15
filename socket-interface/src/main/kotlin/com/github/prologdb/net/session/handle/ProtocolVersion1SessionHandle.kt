@@ -26,15 +26,18 @@ import com.github.prologdb.runtime.unification.VariableBucket
 import com.google.protobuf.ByteString
 import com.google.protobuf.GeneratedMessageV3
 import io.reactivex.Observable
+import org.slf4j.LoggerFactory
 import java.io.DataOutputStream
 import java.nio.channels.AsynchronousByteChannel
 
+private val log = LoggerFactory.getLogger("prologdb.network")
+
 internal class ProtocolVersion1SessionHandle(
+    override val clientId: String,
     private val channel: AsynchronousByteChannel,
     private val prologReader: ProtocolVersion1PrologReader,
     private val prologWriter: ProtocolVersion1PrologWriter
 ) : SessionHandle {
-
     override var sessionState: Any? = null
 
     override val incomingMessages: Observable<ProtocolMessage>
@@ -51,6 +54,8 @@ internal class ProtocolVersion1SessionHandle(
                             versionMessage.initQuery.toIndependent(prologReader)
                         }
                         catch (ex: Throwable) {
+                            log.debug("Got error while trying to read query", ex)
+
                             val kind: com.github.prologdb.net.session.QueryRelatedError.Kind
                             val additional = mutableMapOf<String, String>()
 
