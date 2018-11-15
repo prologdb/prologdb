@@ -41,9 +41,10 @@ class PersistentKnowledgeBase(
     private val builtins: MutableMap<ClauseIndicator, NativeCodeRule> = ConcurrentHashMap()
 
     init {
-        directoryManager.persistedClauses.forEach {
-            factStores[it] = factStoreLoader.load(directoryManager.scopedForFactsOf(it))
-                ?: throw IllegalStateException("Cannot to load fact store for $it: was reported to exist by directoryManager but then not found")
+        directoryManager.persistedClauses.forEach { indicator ->
+            factStoreLoader.load(directoryManager.scopedForFactsOf(indicator))?.let { factStore ->
+                factStores[indicator] = factStore
+            }
         }
 
         // TODO: rules
