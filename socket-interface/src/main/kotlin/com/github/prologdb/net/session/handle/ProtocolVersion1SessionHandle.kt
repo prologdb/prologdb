@@ -288,7 +288,7 @@ private fun com.github.prologdb.net.session.QueryRelatedError.toProtocol() = ToC
         QueryRelatedError.newBuilder()
         .setQueryId(queryId)
         .setKind(kind.toProtocol())
-        .setShortMessage(shortMessage)
+        .setShortMessage(shortMessage ?: "No Message.")
         .putAllAdditionalInformation(additionalFields)
         .build()
     )
