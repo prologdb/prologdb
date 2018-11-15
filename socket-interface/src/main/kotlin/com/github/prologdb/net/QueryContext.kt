@@ -3,10 +3,13 @@ package com.github.prologdb.net
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
 import com.github.prologdb.runtime.unification.Unification
+import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+
+private val log = LoggerFactory.getLogger("prologdb.worker")
 
 /**
  * Context of a query. Has all necessary methods to operate
@@ -115,6 +118,8 @@ internal class QueryContext(
                 }
 
                 val solution = solutions.tryAdvance()!!
+                log.trace("obtained one solution to query #{}; handling({}): {}", queryId, currentRequest.handling.name, solution)
+
                 if (currentRequest.handling == ConsumeQuerySolutionsCommand.SolutionHandling.RETURN) {
                     listener.onReturnSolution(queryId, solution)
                 }
@@ -129,6 +134,7 @@ internal class QueryContext(
                     listener.onError(queryId, ex)
                 }
                 LazySequence.State.DEPLETED -> {
+                    log.trace("query {} is depleted of solutions", queryId)
                     close()
                     listener.onSolutionsDepleted(queryId)
                 }
