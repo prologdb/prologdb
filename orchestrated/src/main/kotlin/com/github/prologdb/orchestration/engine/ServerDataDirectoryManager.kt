@@ -15,17 +15,9 @@ import java.nio.file.Path
  * * Metadata
  * * User data and permissions
  */
-class ServerDataDirectoryManager(
+class ServerDataDirectoryManager private constructor(
     val dataDirectory: Path
 ) {
-    init {
-        if (!Files.exists(dataDirectory)) {
-            Files.createDirectories(dataDirectory)
-        } else if (!Files.isDirectory(dataDirectory)) {
-            throw IllegalArgumentException("Data directory is a file.")
-        }
-    }
-
     val serverMetadata: ServerMetadata by lazy {
         val path = dataDirectory.resolve("server.meta")
 
@@ -39,6 +31,18 @@ class ServerDataDirectoryManager(
 
     fun directoryForKnowledgeBase(name: String): Path {
         return dataDirectory.resolve("knowledge-bases").resolve(name.toSaveFileName())
+    }
+
+    companion object {
+        fun open(dataDirectory: Path): ServerDataDirectoryManager {
+            if (!Files.exists(dataDirectory)) {
+                Files.createDirectories(dataDirectory)
+            } else if (!Files.isDirectory(dataDirectory)) {
+                throw IllegalArgumentException("Data directory is a file.")
+            }
+
+            return ServerDataDirectoryManager(dataDirectory)
+        }
     }
 }
 

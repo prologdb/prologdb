@@ -11,6 +11,7 @@ import com.github.prologdb.io.util.Pool
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.storage.InvalidPersistenceIDException
+import com.github.prologdb.storage.PersistentStorage
 import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.PersistenceID
@@ -27,6 +28,7 @@ import java.util.concurrent.Future
 /**
  * An implementation of [FactStore] based on [HeapFile]
  */
+@PersistentStorage
 class HeapFileFactStore(
     override val indicator: ClauseIndicator,
     private val binaryReader: BinaryPrologReader,
@@ -97,7 +99,7 @@ class HeapFileFactStore(
         return Predicate(indicator.name, arguments)
     }
 
-    class Loader : SpecializedFactStoreLoader<HeapFileFactStore> {
+    object Loader : SpecializedFactStoreLoader<HeapFileFactStore> {
         override val type = HeapFileFactStore::class
 
         override fun createOrLoad(directoryManager: DataDirectoryManager.ClauseStoreScope): HeapFileFactStore {

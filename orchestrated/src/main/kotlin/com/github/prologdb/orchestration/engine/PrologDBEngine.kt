@@ -1,8 +1,9 @@
 package com.github.prologdb.orchestration.engine
 
 import com.github.prologdb.async.LazySequence
+import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.dbms.PersistentKnowledgeBase
-import com.github.prologdb.execplan.planner.NoOptimizationExecutionPlanner
+import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.orchestration.SessionContext
 import com.github.prologdb.runtime.PrologRuntimeException
@@ -12,6 +13,7 @@ import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.term.PrologString
 import com.github.prologdb.runtime.unification.Unification
+import com.github.prologdb.storage.fact.FactStoreLoader
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,10 +22,12 @@ import java.util.concurrent.ConcurrentHashMap
 internal val log = LoggerFactory.getLogger("prologdb.engine")
 
 class PrologDBEngine(
-    dataDirectory: Path
+    dataDirectory: Path,
+    private val executionPlanner: ExecutionPlanner,
+    private val factStoreLoader: FactStoreLoader
 ) : DatabaseEngine<SessionContext> {
 
-    private val dirManager = ServerDataDirectoryManager(dataDirectory)
+    private val dirManager = ServerDataDirectoryManager.open(dataDirectory)
 
     /**
      * All the knowledge bases known to the engine
@@ -37,8 +41,9 @@ class PrologDBEngine(
             log.info("Initializing knowledge base $kbName")
             knowledgeBases[kbName] = DatabaseManagerKnowledgeBase(
                 PersistentKnowledgeBase(
-                    dirManager.directoryForKnowledgeBase(kbName),
-                    NoOptimizationExecutionPlanner()
+                    DataDirectoryManager.open(dirManager.directoryForKnowledgeBase(kbName)),
+                    factStoreLoader,
+                    executionPlanner
                 )
             )
             log.info("Knowledge base $kbName initialized.")
@@ -106,8 +111,9 @@ class PrologDBEngine(
                 dirManager.serverMetadata.onKnowledgeBaseAdded(name)
                 knowledgeBases[name] = DatabaseManagerKnowledgeBase(
                     PersistentKnowledgeBase(
-                        directory,
-                        NoOptimizationExecutionPlanner()
+                        DataDirectoryManager.open(directory),
+                        factStoreLoader,
+                        executionPlanner
                     )
                 )
 
