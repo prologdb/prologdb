@@ -1,4 +1,4 @@
-package com.github.prologdb.storage.predicate.heapfile
+package com.github.prologdb.storage.fact.heapfile
 
 import com.github.prologdb.async.IrrelevantPrincipal
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader

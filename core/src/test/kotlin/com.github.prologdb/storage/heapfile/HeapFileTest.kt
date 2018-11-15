@@ -5,7 +5,7 @@ import com.github.prologdb.async.IrrelevantPrincipal
 import com.github.prologdb.async.forEachRemaining
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.StorageStrategy
-import com.github.prologdb.storage.predicate.PersistenceID
+import com.github.prologdb.storage.fact.PersistenceID
 import com.github.prologdb.storage.rootDeviceProperties
 import io.kotlintest.matchers.beLessThanOrEqualTo
 import io.kotlintest.matchers.should

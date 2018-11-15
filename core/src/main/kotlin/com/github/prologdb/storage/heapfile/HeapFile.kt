@@ -3,7 +3,7 @@ package com.github.prologdb.storage.heapfile
 import com.github.prologdb.async.*
 import com.github.prologdb.io.util.Pool
 import com.github.prologdb.storage.*
-import com.github.prologdb.storage.predicate.PersistenceID
+import com.github.prologdb.storage.fact.PersistenceID
 import com.github.prologdb.util.concurrency.locks.RegionReadWriteLockManager
 import com.github.prologdb.util.memory.FirstFitHeapManager
 import com.github.prologdb.util.memory.HeapManager

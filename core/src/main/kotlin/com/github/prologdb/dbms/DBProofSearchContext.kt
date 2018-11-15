@@ -4,7 +4,7 @@ import com.github.prologdb.runtime.builtin.NativeCodeRule
 import com.github.prologdb.runtime.knowledge.ProofSearchContext
 import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.storage.predicate.FactStore
+import com.github.prologdb.storage.fact.FactStore
 
 interface DBProofSearchContext : ProofSearchContext {
     /**

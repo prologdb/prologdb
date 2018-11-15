@@ -16,9 +16,9 @@ import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
-import com.github.prologdb.storage.predicate.FactStore
-import com.github.prologdb.storage.predicate.FactStoreFeature
-import com.github.prologdb.storage.predicate.FactStoreLoader
+import com.github.prologdb.storage.fact.FactStore
+import com.github.prologdb.storage.fact.FactStoreFeature
+import com.github.prologdb.storage.fact.FactStoreLoader
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 

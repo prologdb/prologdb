@@ -1,4 +1,4 @@
-package com.github.prologdb.storage.predicate
+package com.github.prologdb.storage.fact
 
 import com.github.prologdb.storage.AcceleratedStorage
 import com.github.prologdb.storage.PersistentStorage

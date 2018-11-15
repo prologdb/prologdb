@@ -1,6 +1,6 @@
 package com.github.prologdb.storage
 
-import com.github.prologdb.storage.predicate.PersistenceID
+import com.github.prologdb.storage.fact.PersistenceID
 import java.io.IOException
 
 /** Thrown for all storage related errors */

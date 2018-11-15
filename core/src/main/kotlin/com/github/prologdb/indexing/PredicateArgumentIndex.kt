@@ -1,7 +1,7 @@
 package com.github.prologdb.indexing
 
 import com.github.prologdb.runtime.term.Term
-import com.github.prologdb.storage.predicate.PersistenceID
+import com.github.prologdb.storage.fact.PersistenceID
 
 /**
  * Indexes an argument of a predicate, e.g. indexes the 2nd argument to `likes/2`. Given any term, finds the indexes

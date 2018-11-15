@@ -1,4 +1,4 @@
-package com.github.prologdb.storage.predicate.heapfile
+package com.github.prologdb.storage.fact.heapfile
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.Principal
@@ -10,9 +10,9 @@ import com.github.prologdb.io.util.Pool
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.storage.InvalidPersistenceIDException
+import com.github.prologdb.storage.fact.FactStore
+import com.github.prologdb.storage.fact.PersistenceID
 import com.github.prologdb.storage.heapfile.HeapFile
-import com.github.prologdb.storage.predicate.FactStore
-import com.github.prologdb.storage.predicate.PersistenceID
 import java.io.DataOutput
 import java.io.DataOutputStream
 import java.nio.ByteBuffer
