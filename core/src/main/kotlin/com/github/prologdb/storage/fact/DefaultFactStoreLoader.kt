@@ -86,7 +86,7 @@ open class DefaultFactStoreLoader : FactStoreLoader {
 
     protected fun selectImplementation(requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): SpecializedFactStoreLoader<*> {
         val implsFittingRequirements = knownSpecializedLoaders.filter { loader ->
-            desiredFeatures.all { feature -> feature.isSupportedBy(loader.type) }
+            requiredFeatures.all { feature -> feature.isSupportedBy(loader.type) }
         }
 
         if (implsFittingRequirements.isEmpty()) {
