@@ -15,6 +15,13 @@ import java.util.stream.Collectors.toSet
 class DataDirectoryManager private constructor(
     private val dataDirectory: Path
 ) {
+    private val lock = PIDLockFile(dataDirectory.resolve("lock.pid").toFile())
+    init {
+        if (!lock.tryLock()) {
+            throw IOException("Failed to lock data directory $dataDirectory")
+        }
+    }
+
     /** Everything synchronizes on this for thread-safety. */
     private val mutex = Any()
 
@@ -128,24 +135,7 @@ class DataDirectoryManager private constructor(
                 Files.createDirectories(dataDirectory)
             }
 
-            val lock = PIDLockFile(dataDirectory.resolve("lock.pid").toFile())
-            if (!lock.tryLock()) {
-                throw IOException("Failed to lock data directory $dataDirectory")
-            }
-
-            try {
-                return DataDirectoryManager(dataDirectory)
-            }
-            catch (ex: Throwable) {
-                try {
-                    lock.release()
-                }
-                catch (ex2: Throwable) {
-                    ex.addSuppressed(ex2);
-                }
-
-                throw ex
-            }
+            return DataDirectoryManager(dataDirectory)
         }
     }
 }
