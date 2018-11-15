@@ -1,11 +1,13 @@
 package com.github.prologdb.orchestration.engine
 
 import com.github.prologdb.dbms.toSaveFileName
+import com.github.prologdb.util.concurrency.locks.PIDLockFile
 import com.github.prologdb.util.metadata.FileMetadataRepository
 import com.github.prologdb.util.metadata.MetadataRepository
 import com.github.prologdb.util.metadata.load
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.*
 
 /**
  * Manages the data-directory of an entire server (that includes multiple
@@ -18,6 +20,13 @@ import java.nio.file.Path
 class ServerDataDirectoryManager private constructor(
     val dataDirectory: Path
 ) {
+    val pidLock = PIDLockFile(dataDirectory.resolve("lock.pid").toFile())
+    init {
+        if (!pidLock.tryLock()) {
+            throw ConcurrentModificationException("Failed to acquire PID lock on $pidLock")
+        }
+    }
+
     val serverMetadata: ServerMetadata by lazy {
         val path = dataDirectory.resolve("server.meta")
 
@@ -31,6 +40,12 @@ class ServerDataDirectoryManager private constructor(
 
     fun directoryForKnowledgeBase(name: String): Path {
         return dataDirectory.resolve("knowledge-bases").resolve(name.toSaveFileName())
+    }
+
+    fun close() {
+        pidLock.release()
+
+        // TODO: close serverMetadata?
     }
 
     companion object {

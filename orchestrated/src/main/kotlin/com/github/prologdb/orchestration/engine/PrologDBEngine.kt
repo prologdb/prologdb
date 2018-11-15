@@ -72,9 +72,11 @@ class PrologDBEngine(
     }
 
     fun close() {
-        TODO()
-
         // TODO: wait for all data to be written to disk
+
+        dirManager.close()
+
+        TODO()
     }
 
     private val globalDirectives = ProgramaticServerKnowledgeBase {
