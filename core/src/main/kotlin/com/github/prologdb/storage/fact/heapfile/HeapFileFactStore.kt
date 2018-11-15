@@ -3,6 +3,7 @@ package com.github.prologdb.storage.fact.heapfile
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.Principal
 import com.github.prologdb.async.launchWorkableFuture
+import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
@@ -10,12 +11,17 @@ import com.github.prologdb.io.util.Pool
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.storage.InvalidPersistenceIDException
+import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.PersistenceID
+import com.github.prologdb.storage.fact.SpecializedFactStoreLoader
 import com.github.prologdb.storage.heapfile.HeapFile
+import com.github.prologdb.storage.rootDeviceProperties
+import com.github.prologdb.util.metadata.load
 import java.io.DataOutput
 import java.io.DataOutputStream
 import java.nio.ByteBuffer
+import java.nio.file.Paths
 import java.util.concurrent.Future
 
 /**
@@ -89,5 +95,34 @@ class HeapFileFactStore(
     private fun readPredicateFrom(data: ByteBuffer): Predicate {
         val arguments = Array(indicator.arity) { binaryReader.readTermFrom(data) }
         return Predicate(indicator.name, arguments)
+    }
+
+    class Loader : SpecializedFactStoreLoader<HeapFileFactStore> {
+        override val type = HeapFileFactStore::class
+
+        override fun createOrLoad(directoryManager: DataDirectoryManager.ClauseStoreScope): HeapFileFactStore {
+            val pathAsString = directoryManager.metadata.load<String>("${type.qualifiedName}.heap_file_name")
+
+            val path = if (pathAsString != null) Paths.get(pathAsString) else {
+                directoryManager.createStorageFile { path ->
+                    directoryManager.metadata.save("${type.qualifiedName}.heap_file_name", path.toAbsolutePath().normalize().toString())
+
+                    val deviceProperties = path.rootDeviceProperties
+                    when (deviceProperties?.physicalStorageStrategy) {
+                        StorageStrategy.SOLID_STATE -> HeapFile.initializeForContiguousDevice(path)
+                        else ->                        HeapFile.initializeForBlockDevice(path)
+                    }
+
+                    path
+                }
+            }
+
+            return HeapFileFactStore(
+                directoryManager.indicator,
+                BinaryPrologReader.getDefaultInstance(),
+                BinaryPrologWriter.getDefaultInstance(),
+                HeapFile.forExistingFile(path)
+            )
+        }
     }
 }
