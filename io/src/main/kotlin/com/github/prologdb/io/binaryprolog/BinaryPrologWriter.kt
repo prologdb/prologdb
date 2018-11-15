@@ -60,6 +60,7 @@ class BinaryPrologWriter {
 
             writer.registerWriter(PrologInteger::class.java, IntegerWriter)
             writer.registerWriter(PrologDecimal::class.java, DecimalWriter)
+            writer.registerWriter(PrologNumber::class.java, NumberWriter)
             writer.registerWriter(Variable::class.java, VariableWriter)
             writer.registerWriter(PrologString::class.java, StringWriter)
             writer.registerWriter(Atom::class.java, AtomWriter)
@@ -121,6 +122,25 @@ object DecimalWriter : BinaryPrologWriter.TermWriter<PrologDecimal> {
         out.writeByte(TYPE_BYTE)
         out.writeIntEncoded(64)
         out.writeDouble(term.value)
+    }
+}
+
+object NumberWriter : BinaryPrologWriter.TermWriter<PrologNumber> {
+    override val prologTypeName = "number"
+
+    private val TYPE_BYTE_INTEGER = 0x10
+    private val TYPE_BYTE_DECIMAL = 0x11
+
+    override fun writeTermTo(term: PrologNumber, out: DataOutput, writerRef: BinaryPrologWriter) {
+        if (term.isInteger) {
+            out.writeByte(TYPE_BYTE_INTEGER)
+            out.writeIntEncoded(8)
+            out.writeLong(term.toInteger())
+        } else {
+            out.writeByte(TYPE_BYTE_DECIMAL)
+            out.writeIntEncoded(64)
+            out.writeDouble(term.toDecimal())
+        }
     }
 }
 
