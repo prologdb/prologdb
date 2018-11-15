@@ -39,7 +39,7 @@ class PrologDBEngine(
     init {
         for (kbName in dirManager.serverMetadata.allKnowledgeBaseNames) {
             log.info("Initializing knowledge base $kbName")
-            knowledgeBases[kbName] = DatabaseManagerKnowledgeBase(
+            knowledgeBases[kbName] = PersistentKnowledgeBaseToServerAdapter(
                 PersistentKnowledgeBase(
                     DataDirectoryManager.open(dirManager.directoryForKnowledgeBase(kbName)),
                     factStoreLoader,
@@ -111,7 +111,7 @@ class PrologDBEngine(
                 Files.createDirectories(directory)
 
                 dirManager.serverMetadata.onKnowledgeBaseAdded(name)
-                knowledgeBases[name] = DatabaseManagerKnowledgeBase(
+                knowledgeBases[name] = PersistentKnowledgeBaseToServerAdapter(
                     PersistentKnowledgeBase(
                         DataDirectoryManager.open(directory),
                         factStoreLoader,
