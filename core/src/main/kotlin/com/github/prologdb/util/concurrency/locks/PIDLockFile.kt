@@ -45,6 +45,8 @@ class PIDLockFile(val pidFile: File) {
                 return true
             }
 
+            pidFile.createNewFile()
+
             val raf = RandomAccessFile(pidFile, "rws")
 
             try {
@@ -55,7 +57,7 @@ class PIDLockFile(val pidFile: File) {
                 }
 
                 try {
-                    val existingPIDString = raf.readLine()
+                    val existingPIDString = raf.readLine() ?: ""
                     if (existingPIDString.isNotBlank()) {
                         val existingPID = try {
                             existingPIDString.toLong()
@@ -135,6 +137,8 @@ class PIDLockFile(val pidFile: File) {
     private val releaseHook = thread(start = false) {
         release()
     }
+
+    override fun toString() = pidFile.toString()
 }
 
 private fun isProcessAlive(pid: Long): Boolean {
@@ -171,6 +175,7 @@ private val JVM_PROCESS_ID: Long by lazy {
         }
         // else: go ahead
     }
+    catch (ex: ReflectiveOperationException) { /* carry on... */ }
     catch (ex: ReflectionException) { /* carry on... */ }
     catch (ex: SecurityException) { /* carry on... */ }
     catch (ex: InvocationTargetException) { /* carry on... */ }
