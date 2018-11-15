@@ -1,6 +1,7 @@
 package com.github.prologdb.dbms
 
 import com.github.prologdb.async.LazySequenceBuilder
+import com.github.prologdb.runtime.PredicateNotDynamicException
 import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologRuntimeException
@@ -37,6 +38,10 @@ val Builtin_Assert_1 = prologdbBuiltin("assert", 1) { args, ctxt ->
         val indicator = ClauseIndicator.of(arg0)
         if (!ctxt.authorization.mayWrite(indicator)) {
             throw PrologPermissionError("Not allowed to write $indicator")
+        }
+
+        if (indicator in ctxt.staticBuiltins) {
+            throw PredicateNotDynamicException(indicator)
         }
 
         val store = ctxt.assurePredicateStore(indicator)
