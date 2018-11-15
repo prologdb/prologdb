@@ -2,9 +2,11 @@ package com.github.prologdb.dbms
 
 import com.github.prologdb.async.*
 import com.github.prologdb.execplan.planner.ExecutionPlanner
+import com.github.prologdb.execplan.planner.PlanningInformation
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
+import com.github.prologdb.runtime.builtin.NativeCodeRule
 import com.github.prologdb.runtime.knowledge.Authorization
 import com.github.prologdb.runtime.knowledge.KnowledgeBase
 import com.github.prologdb.runtime.knowledge.Rule
@@ -17,6 +19,7 @@ import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.predicate.PredicateStore
 import java.nio.file.Path
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The central element of the database management system (compare RDBMS). For every
@@ -28,6 +31,12 @@ class PersistentKnowledgeBase(
 ) : KnowledgeBase {
     override val operators: OperatorRegistry
         get() = ISOOpsOperatorRegistry
+
+    private val predicateStores: MutableMap<ClauseIndicator, PredicateStore> = ConcurrentHashMap()
+
+    private val rules: MutableMap<ClauseIndicator, List<Rule>> = ConcurrentHashMap()
+
+    private val builtins: MutableMap<ClauseIndicator, NativeCodeRule> = ConcurrentHashMap()
 
     override fun fulfill(query: Query, authorization: Authorization, randomVariableScope: RandomVariableScope): LazySequence<Unification> {
         val principal = UUID.randomUUID()
@@ -48,14 +57,19 @@ class PersistentKnowledgeBase(
         override val randomVariableScope: RandomVariableScope
     ) : DBProofSearchContext {
         override val fulfillAttach: suspend LazySequenceBuilder<Unification>.(Query, VariableBucket) -> Unit = { query, vars ->
-            val plan = planner.planExecution(query, this@PersistentKnowledgeBase, randomVariableScope)
+            val plan = planner.planExecution(query, this@PersistentKnowledgeBase.planningInfo, randomVariableScope)
             plan.execute(this, this@PSContext, vars)
         }
 
-        override val predicateStores: Map<ClauseIndicator, PredicateStore>
-            get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
-        override val rules: Map<ClauseIndicator, List<Rule>>
-            get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+        override val predicateStores: Map<ClauseIndicator, PredicateStore> = this@PersistentKnowledgeBase.predicateStores
+        override val rules: Map<ClauseIndicator, List<Rule>> = this@PersistentKnowledgeBase.rules
+        override val staticBuiltins: Map<ClauseIndicator, NativeCodeRule> = this@PersistentKnowledgeBase.builtins
+    }
+
+    private val planningInfo = object : PlanningInformation {
+        override val existingDynamicFacts: Set<ClauseIndicator> = predicateStores.keys
+        override val existingRules: Set<ClauseIndicator> = rules.keys
+        override val staticBuiltins: Set<ClauseIndicator> = builtins.keys
     }
 }
 
