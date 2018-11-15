@@ -8,12 +8,13 @@ import com.github.prologdb.storage.predicate.PredicateStore
 
 interface DBProofSearchContext : ProofSearchContext {
     /**
-     * Storages for dynamic facts
+     * Existing storages for dynamic facts. For get-or-create-and-get semantics
+     * use [assurePredicateStore]
      */
     val predicateStores: Map<ClauseIndicator, PredicateStore>
 
     /**
-     * Definitions of dynamic rules
+     * Definitions of dynamic rules.
      */
     val rules: Map<ClauseIndicator, List<Rule>>
 
@@ -23,4 +24,12 @@ interface DBProofSearchContext : ProofSearchContext {
      * and [rules].
      */
     val staticBuiltins: Map<ClauseIndicator, NativeCodeRule>
+
+    /**
+     * Assures that a predicate store for the given indicator exists (creates
+     * one if necessary).
+     *
+     * @return the store for facts of the given indicator
+     */
+    fun assurePredicateStore(indicator: ClauseIndicator): PredicateStore
 }

@@ -7,6 +7,7 @@ import com.github.prologdb.util.metadata.MetadataRepository
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.stream.Collectors.toSet
 
 /**
  * Manages the files in the data directory of a knowledge base.
@@ -17,13 +18,23 @@ class DataDirectoryManager private constructor(
     /** Everything synchronizes on this for thread-safety. */
     private val mutex = Any()
 
-    private val storeScopes: MutableMap<ClauseIndicator, ClauseStoreScope> = HashMap()
+    private val storeScopes: MutableMap<ClauseIndicator, ClauseStoreScope>
+    init {
+        // init store scopes
+        storeScopes = discoverCaluseStoresWithin(dataDirectory.resolve("clauses"))
+            .fold(HashMap()) { m, s -> m[s.indicator] = s; m }
+    }
 
     val metadata: KnowledgeBaseMetadata by lazy {
         val file = dataDirectory.resolve("meta")
         Files.createDirectories(file.parent)
         KnowledgeBaseMetadata(FileMetadataRepository(file))
     }
+
+    /**
+     * Clauses for which any persistent state is already present.
+     */
+    val persistedClauses: Set<ClauseIndicator> = storeScopes.keys
 
     fun scopedForFactsOf(indicator: ClauseIndicator): ClauseStoreScope {
         synchronized(mutex) {
@@ -85,6 +96,23 @@ class DataDirectoryManager private constructor(
                 }
             }
         }
+    }
+
+    private fun discoverCaluseStoresWithin(path: Path): Set<ClauseStoreScope> {
+        return Files.list(path)
+            .filter { Files.isDirectory(it) }
+            .map {
+                try {
+                    ClauseIndicator.parse(
+                        it.fileName.toString().fromSaveFileName()
+                    )
+                }
+                catch (ex: IllegalArgumentException) {
+                    throw IllegalStateException("Failed to discover clause persistent state in ${it.normalize()}", ex)
+                }
+            }
+            .map { ClauseStoreScope(it) }
+            .collect(toSet())
     }
 
     companion object {
