@@ -69,6 +69,7 @@ class DataDirectoryManager private constructor(
 
         val metadata: MetadataRepository by lazy {
             val path = contextDirectory.resolve("meta")
+            if (!Files.exists(path)) Files.createFile(path)
             FileMetadataRepository(path)
         }
 
