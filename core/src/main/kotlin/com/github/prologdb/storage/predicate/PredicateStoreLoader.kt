@@ -1,5 +1,6 @@
 package com.github.prologdb.storage.predicate
 
+import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.storage.StorageException
 
@@ -12,7 +13,7 @@ import com.github.prologdb.storage.StorageException
 interface PredicateStoreLoader {
     /**
      * Creates a new [PredicateStore] for predicates of the given indicator.
-     * @param dbName The name of the database for which to create the new store.
+     * @param directoryManager manager for the directory scoped to the knowledge base name and clause indicator
      * @param requiredFeatures The returned predicate store is guaranteed to have all these features
      *                         contained in [requiredFeatures].
      * @param desiredFeatures The factory will try to find an implementation that has the desired features
@@ -25,8 +26,7 @@ interface PredicateStoreLoader {
      * @throws StorageException If a predicate store for the given database and predicate indicator already exists.
      */
     fun create(
-        dbName: String,
-        forPredicatesOf: ClauseIndicator,
+        directoryManager: DataDirectoryManager.ClauseStoreScope,
         requiredFeatures: Set<PredicateStoreFeature>,
         desiredFeatures: Set<PredicateStoreFeature>
     ) : PredicateStore
@@ -34,11 +34,8 @@ interface PredicateStoreLoader {
     /**
      * Loads the [PredicateStore] for predicates of the given indicator. Though stores can be loaded
      * multiple times. If both loaded stores are used, the behaviour of the stores is undefined.
-     * @param dbName The name of the database for which to load the store.
+     * @param directoryManager manager for the directory scoped to the knowledge base name and clause indicator
      * @return the loaded store or `null` if a store for the given database and predicate does not exist yet.
      */
-    fun load(
-        dbName: String,
-        forPredicatesOf: ClauseIndicator
-    ) : PredicateStore?
+    fun load(directoryManager: DataDirectoryManager.ClauseStoreScope) : PredicateStore?
 }
