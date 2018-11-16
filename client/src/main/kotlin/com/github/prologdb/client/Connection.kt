@@ -14,6 +14,7 @@ import java.nio.charset.Charset
 import kotlin.concurrent.thread
 import com.github.prologdb.net.negotiation.ToClient as ToClientHS
 import com.github.prologdb.net.negotiation.ToServer as ToServerHS
+import com.github.prologdb.net.v1.messages.QueryClosedEvent as NetQClosedEvent
 import com.github.prologdb.runtime.term.Term as RTTerm
 
 class Connection(val host: String, val port: Int) {
@@ -62,6 +63,7 @@ class Connection(val host: String, val port: Int) {
     private fun start(kind: QueryInitialization.Kind, instruction: String): LazySequence<Unification> {
         synchronized(mutex) {
             val id = getNewQueryID()
+
             val command = QueryInitialization.newBuilder()
                 .setKind(kind)
                 .setInstruction(instruction.asNetworkQuery)
@@ -73,10 +75,9 @@ class Connection(val host: String, val port: Int) {
                 .build()
                 .writeDelimitedTo(socket.getOutputStream())
 
-            val solutionStream = RemoteSolutions(id, { this.requestNextSolution(id) }, { this.abort(id) })
-            openQueries[id] = solutionStream
-
-            return solutionStream
+            val solutionSeq = RemoteSolutions(id, 5, { amount -> this.requestSolutions(id, amount) }, { this.abort(id) })
+            openQueries[id] = solutionSeq
+            return solutionSeq
         }
     }
 
@@ -104,12 +105,15 @@ class Connection(val host: String, val port: Int) {
         }
     }
 
-    private fun requestNextSolution(queryId: Int) {
+    private fun requestSolutions(queryId: Int, amount: Int) {
         synchronized(mutex) {
+            if (queryId !in openQueries) return
+            if (openQueries[queryId]!!.closed) return
+
             ToServer.newBuilder()
                 .setConsumeResults(QuerySolutionConsumption.newBuilder()
                     .setQueryId(queryId)
-                    .setAmount(1)
+                    .setAmount(amount)
                     .setHandling(QuerySolutionConsumption.PostConsumptionAction.RETURN)
                     .setCloseAfterwards(false)
                     .build()
@@ -123,23 +127,20 @@ class Connection(val host: String, val port: Int) {
         thread(start = true, name = "prologdb-conn-reader-$host-$port") {
             readMessage@while (!closed) {
                 val toClient = ToClient.parseDelimitedFrom(socket.getInputStream())
-                // println("Got message $toClient")
+
                 if (toClient == null) {
                     // EOF, Server closed connection
-                    openQueries.forEach {
-                        it.value.onError(QueryRelatedError.newBuilder()
-                            .setQueryId(it.key)
+                    openQueries.forEach { (queryId, localSequence) ->
+                        localSequence.onQueryEvent(QueryErrorEvent(QueryRelatedError.newBuilder()
+                            .setQueryId(queryId)
                             .setKind(QueryRelatedError.Kind.ERROR_GENERIC)
                             .setShortMessage("Server closed connection")
                             .build()
-                        )
-                        it.value.onClosed(QueryClosedEvent.Reason.FAILED)
+                        ))
+                        localSequence.onQueryEvent(QueryClosedEvent(NetQClosedEvent.Reason.FAILED))
                     }
                     break@readMessage
                 }
-                try {
-                    Thread.sleep(100)
-                } catch (ex: InterruptedException) {}
 
                 when (toClient.eventCase) {
                     ToClient.EventCase.SOLUTION -> {
@@ -148,20 +149,18 @@ class Connection(val host: String, val port: Int) {
                         for ((varName, value) in toClient.solution.instantiationsMap) {
                             vars.instantiate(Variable(varName), value.toRuntimeTerm())
                         }
-                        localSequence.onSolution(Unification(vars))
+                        localSequence.onQueryEvent(QuerySolutionEvent(Unification(vars)))
                     }
                     ToClient.EventCase.QUERY_OPENED -> {
-                        val queryId = toClient.queryOpened.queryId
-                        val localSequence = openQueries[queryId] ?: continue@readMessage
-                        localSequence.onOpened()
+                        // nothing to do
                     }
                     ToClient.EventCase.QUERY_CLOSED -> {
                         val localSequence = openQueries[toClient.queryClosed.queryId] ?: continue@readMessage
-                        localSequence.onClosed(toClient.queryClosed.reason)
+                        localSequence.onQueryEvent(QueryClosedEvent(toClient.queryClosed!!.reason))
                     }
                     ToClient.EventCase.QUERY_ERROR -> {
                         val localSequence = openQueries[toClient.queryError.queryId] ?: continue@readMessage
-                        localSequence.onError(toClient.queryError)
+                        localSequence.onQueryEvent(QueryErrorEvent(toClient.queryError!!))
                     }
                     ToClient.EventCase.SERVER_ERROR -> {
                         TODO()
