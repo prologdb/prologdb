@@ -36,7 +36,7 @@ fun runServer(config: ServerConf): ServerHandle {
             serverVendorName = "prologdb",
             serverVersion = SERVER_VERSION,
             versionHandleFactories = mapOf(
-                PROTOCOL_VERSION1_SEMVER to buildProtocolVersion1SessionHandleFactory()
+                PROTOCOL_VERSION1_SEMVER to buildProtocolVersion1SessionHandleFactory(parser = engine)
             )
         ),
         config.network.port

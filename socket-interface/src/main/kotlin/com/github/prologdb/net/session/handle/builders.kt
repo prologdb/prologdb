@@ -10,7 +10,7 @@ import java.nio.channels.AsynchronousSocketChannel
 import java.util.*
 
 fun buildProtocolVersion1SessionHandleFactory(
-    parser: ParserDelegate<Any?> = IsoOpsStatelessParserDelegate,
+    parser: ParserDelegate<*> = IsoOpsStatelessParserDelegate,
     binaryReader: BinaryPrologReader = BinaryPrologReader.getDefaultInstance(),
     binaryWriter: BinaryPrologWriter = BinaryPrologWriter.getDefaultInstance()
 ): (AsynchronousByteChannel, ClientHello) -> Single<SessionHandle> = { channel, _ ->
