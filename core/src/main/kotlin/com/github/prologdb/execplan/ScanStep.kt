@@ -19,6 +19,8 @@ class ScanStep(
 
     private val goalIndicator = ClauseIndicator.of(goal)
 
+    private val goalVariables = goal.variables
+
     private val stackFrame by lazy {
         PrologStackTraceElement(
             goal,
@@ -33,10 +35,18 @@ class ScanStep(
 
         val factStore = ctxt.factStores[goalIndicator]
         if (factStore != null) {
-            val amendedGoal = goal.substituteVariables(vars.asSubstitutionMapper())
+            val goalMapping = VariableMapping()
+            val randomGoal = ctxt.randomVariableScope.withRandomVariables(goal, goalMapping)
 
             yieldAll(factStore.all(principal)
-                .mapRemaining { it.second.unify(amendedGoal, ctxt.randomVariableScope) }
+                .mapRemaining { (_, fact) ->
+                    val randomFact = ctxt.randomVariableScope.withRandomVariables(fact, VariableMapping())
+                    randomGoal.unify(randomFact)?.let { unification ->
+                        val resolvedBucket = unification.variableValues.withVariablesResolvedFrom(goalMapping)
+                        resolvedBucket.retainAll(goalVariables)
+                        Unification(resolvedBucket)
+                    }
+                }
                 .filterRemainingNotNull()
                 .amendExceptionsWithStackTraceOnRemaining(stackFrame)
             )
