@@ -9,12 +9,11 @@ import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
-import com.github.prologdb.runtime.builtin.NativeCodeRule
 import com.github.prologdb.runtime.knowledge.Authorization
 import com.github.prologdb.runtime.knowledge.KnowledgeBase
 import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
+import com.github.prologdb.runtime.knowledge.library.DefaultOperatorRegistry
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
@@ -34,8 +33,10 @@ class PersistentKnowledgeBase(
     private val factStoreLoader: FactStoreLoader,
     @Volatile private var planner: ExecutionPlanner
 ) : KnowledgeBase {
-    override val operators: OperatorRegistry
-        get() = ISOOpsOperatorRegistry
+    override val operators = DefaultOperatorRegistry()
+    init {
+        operators.include(ISOOpsOperatorRegistry)
+    }
 
     private val factStores: MutableMap<ClauseIndicator, FactStore> = ConcurrentHashMap()
 
@@ -47,7 +48,7 @@ class PersistentKnowledgeBase(
      */
     private val libraryLoadingMutex = Any()
     private val loadedLibraries: MutableSet<DBLibrary> = HashSet()
-    private val builtinImplementations: MutableMap<ClauseIndicator, NativeCodeRule> = ConcurrentHashMap()
+    private val builtinImplementations: MutableMap<ClauseIndicator, Rule> = ConcurrentHashMap()
 
     init {
         directoryManager.persistedClauses.forEach { indicator ->
@@ -58,6 +59,7 @@ class PersistentKnowledgeBase(
 
         // TODO: rules
 
+        // Load DB-Specific builtins
         load(ModifyLibrary)
     }
 
@@ -66,6 +68,8 @@ class PersistentKnowledgeBase(
      * every launch).
      *
      * @throws PrologException If a different library with the same name is already loaded.
+     * @throws PrologException If there is a conflict between the exports & operators of the library
+     *                         and what is already present in this knowledge base.
      */
     fun load(library: DBLibrary) {
         synchronized(libraryLoadingMutex) {
@@ -86,13 +90,26 @@ class PersistentKnowledgeBase(
             library.exports.keys.firstOrNull { it in factStores }?.let {
                 throw PrologException("Cannot load library ${library.name}: static export $it is already a dynamic predicate in this knowledge base.")
             }
+            library.operators.allOperators.firstOrNull { newDef ->
+                val existingDefs = operators.getOperatorDefinitionsFor(newDef.name)
+                existingDefs.any { existingDef ->
+                    newDef.type.isSameArgumentRelationAs(existingDef.type) && newDef != existingDef
+                }
+            } ?.let {
+                throw PrologException("Cannot load library ${library.name}: operator $it defined in the library would change an existing one.")
+            }
 
             // all good => load
             library.exports.forEach { (indicator, code) ->
                 builtinImplementations[indicator] = code
             }
             loadedLibraries.add(library)
+            operators.include(library.operators)
         }
+    }
+
+    fun close() {
+        TODO()
     }
 
     override fun fulfill(query: Query, authorization: Authorization, randomVariableScope: RandomVariableScope): LazySequence<Unification> {
@@ -121,7 +138,7 @@ class PersistentKnowledgeBase(
 
         override val factStores: Map<ClauseIndicator, FactStore> = this@PersistentKnowledgeBase.factStores
         override val rules: Map<ClauseIndicator, List<Rule>> = this@PersistentKnowledgeBase.rules
-        override val staticBuiltins: Map<ClauseIndicator, NativeCodeRule> = this@PersistentKnowledgeBase.builtinImplementations
+        override val staticBuiltins: Map<ClauseIndicator, Rule> = this@PersistentKnowledgeBase.builtinImplementations
 
         override fun assureFactStore(indicator: ClauseIndicator): FactStore {
             return this@PersistentKnowledgeBase.factStores.computeIfAbsent(indicator) {

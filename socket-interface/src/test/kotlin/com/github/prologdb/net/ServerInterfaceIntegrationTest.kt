@@ -8,14 +8,14 @@ import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.net.negotiation.*
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.net.session.SessionInitializer
-import com.github.prologdb.net.session.handle.ProtocolVersion1PrologReader
-import com.github.prologdb.net.session.handle.ProtocolVersion1PrologWriter
+import com.github.prologdb.net.session.handle.IsoOpsStatelessParserDelegate
 import com.github.prologdb.net.session.handle.ProtocolVersion1SessionHandle
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.v1.messages.*
-import com.github.prologdb.parser.parser.PrologParser
+import com.github.prologdb.parser.ParsedTerm
+import com.github.prologdb.parser.parser.ParseResult
+import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.PrologRuntimeException
-import com.github.prologdb.runtime.knowledge.library.DefaultOperatorRegistry
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.term.PrologString
@@ -482,6 +482,14 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
             }
         }
     }
+
+    override fun parseTerm(context: Map<String, String>?, codeToParse: String, origin: SourceUnit): ParseResult<ParsedTerm> {
+        TODO()
+    }
+
+    override fun parseQuery(context: Map<String, String>?, codeToParse: String, origin: SourceUnit): ParseResult<Query> {
+        TODO()
+    }
 }
 
 private fun initConnection(serverInterface: ServerInterface): Pair<ServerHello, Socket> {
@@ -540,14 +548,9 @@ private val ProtoclVersion1HandleFactory: (AsynchronousByteChannel, ClientHello)
     source.onSuccess(ProtocolVersion1SessionHandle(
         UUID.randomUUID().toString(),
         channel,
-        ProtocolVersion1PrologReader(
-            PrologParser(),
-            BinaryPrologReader.getDefaultInstance(),
-            DefaultOperatorRegistry()
-        ),
-        ProtocolVersion1PrologWriter(
-            BinaryPrologWriter.getDefaultInstance()
-        )
+        IsoOpsStatelessParserDelegate,
+        BinaryPrologReader.getDefaultInstance(),
+        BinaryPrologWriter.getDefaultInstance()
     ))
     source
 }

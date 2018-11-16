@@ -7,7 +7,7 @@ import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 
-private val Builtin_Assert_1 = prologdbBuiltin("assert", 1) { args, ctxt ->
+private val Builtin_Assert_1 = databaseBuiltin("assert", 1) { args, ctxt ->
     val arg0 = args[0] as? Predicate
         ?: throw PrologRuntimeException("Argument 0 to assert/1 must be a predicate, got ${args[0].prologTypeName}")
 
@@ -34,7 +34,7 @@ private val Builtin_Assert_1 = prologdbBuiltin("assert", 1) { args, ctxt ->
  * Provides these builtins:
  * * assert/1
  */
-val ModifyLibrary = builtinLibrary("modify", listOf(
-    Builtin_Assert_1
-))
+val ModifyLibrary = databaseCompatibleLibrary("modify") {
+    add(Builtin_Assert_1)
+}
 

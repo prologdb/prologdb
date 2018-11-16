@@ -1,6 +1,5 @@
 package com.github.prologdb.dbms
 
-import com.github.prologdb.runtime.builtin.NativeCodeRule
 import com.github.prologdb.runtime.knowledge.ProofSearchContext
 import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
@@ -23,7 +22,7 @@ interface DBProofSearchContext : ProofSearchContext {
      * are never handled by the dynamic clauses in [factStores]
      * and [rules].
      */
-    val staticBuiltins: Map<ClauseIndicator, NativeCodeRule>
+    val staticBuiltins: Map<ClauseIndicator, Rule>
 
     /**
      * Assures that a fact store for the given indicator exists (creates

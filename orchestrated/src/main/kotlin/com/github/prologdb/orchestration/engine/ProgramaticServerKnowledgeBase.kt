@@ -3,16 +3,19 @@ package com.github.prologdb.orchestration.engine
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.orchestration.SessionContext
 import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 
 /**
- * Allows for a smoother definition of clauses backed by kotlin code.
+ * A knowledge base within which every clause is backed by kotlin code.
  */
 open class ProgramaticServerKnowledgeBase(
+    override val operators: OperatorRegistry = ISOOpsOperatorRegistry,
     initCode: ProgramaticServerKnowledgeBaseBuilder.() -> Any?
 ) : ServerKnowledgeBase {
 
@@ -36,6 +39,10 @@ open class ProgramaticServerKnowledgeBase(
 
         val results = code(session, command.arguments)
         return if (totalLimit != null) results.limitRemaining(totalLimit) else results
+    }
+
+    override fun close() {
+        // Nothing to do
     }
 }
 

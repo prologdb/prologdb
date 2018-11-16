@@ -3,10 +3,27 @@ package com.github.prologdb.orchestration.engine
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.dbms.PersistentKnowledgeBase
+import com.github.prologdb.dbms.builtin.asDBCompatible
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.net.session.DatabaseEngine
+import com.github.prologdb.net.session.handle.STOP_AT_EOF_OR_FULL_STOP
 import com.github.prologdb.orchestration.SessionContext
+import com.github.prologdb.parser.ParsedTerm
+import com.github.prologdb.parser.lexer.Lexer
+import com.github.prologdb.parser.parser.ParseResult
+import com.github.prologdb.parser.parser.PrologParser
+import com.github.prologdb.parser.parser.PrologParser.Companion.STOP_AT_EOF
+import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.builtin.ComparisonLibrary
+import com.github.prologdb.runtime.builtin.EqualityLibrary
+import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
+import com.github.prologdb.runtime.builtin.dict.DictLibrary
+import com.github.prologdb.runtime.builtin.dynamic.DynamicsLibrary
+import com.github.prologdb.runtime.builtin.lists.ListsLibrary
+import com.github.prologdb.runtime.builtin.math.MathLibrary
+import com.github.prologdb.runtime.builtin.string.StringsLibrary
+import com.github.prologdb.runtime.builtin.typesafety.TypeSafetyLibrary
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Atom
@@ -38,15 +55,7 @@ class PrologDBEngine(
     // discover knowledge bases
     init {
         for (kbName in dirManager.serverMetadata.allKnowledgeBaseNames) {
-            log.info("Initializing knowledge base $kbName")
-            knowledgeBases[kbName] = PersistentKnowledgeBaseToServerAdapter(
-                PersistentKnowledgeBase(
-                    DataDirectoryManager.open(dirManager.directoryForKnowledgeBase(kbName)),
-                    factStoreLoader,
-                    executionPlanner
-                )
-            )
-            log.info("Knowledge base $kbName initialized.")
+            initKnowledgeBase(kbName)
         }
     }
 
@@ -71,12 +80,73 @@ class PrologDBEngine(
         return kb.startDirective(session, command, totalLimit)
     }
 
+    private val parser = PrologParser()
+
+    override fun parseTerm(context: SessionContext?, codeToParse: String, origin: SourceUnit): ParseResult<ParsedTerm> {
+        val operatorsForParsing = context?.knowledgeBase?.second?.operators ?: ISOOpsOperatorRegistry
+        val lexer = Lexer(origin, codeToParse.iterator())
+        return parser.parseTerm(lexer, operatorsForParsing, STOP_AT_EOF)
+    }
+
+    override fun parseQuery(context: SessionContext?, codeToParse: String, origin: SourceUnit): ParseResult<Query> {
+        val operatorsForParsing = context?.knowledgeBase?.second?.operators ?: ISOOpsOperatorRegistry
+        val lexer = Lexer(origin, codeToParse.iterator())
+        return parser.parseQuery(lexer, operatorsForParsing, STOP_AT_EOF_OR_FULL_STOP)
+    }
+
     fun close() {
-        // TODO: wait for all data to be written to disk
+        log.info("Closing PrologDB engine")
+
+        log.info("Taking all knowledge bases out of commission")
+        val knowledgeBasesCopy = synchronized(knowledgeBaseCreateOrDropMutex) {
+            val copy = HashMap(knowledgeBases)
+            knowledgeBases.clear()
+            copy
+        }
+
+        for ((kbName, kbInst) in knowledgeBasesCopy) {
+            log.info("Closing knowledge base {} (waiting for all data to be written to disk, closing I/O handles, ...)", kbName)
+            kbInst.close()
+            log.info("Knowledge base {} closed", kbName)
+        }
 
         dirManager.close()
 
-        TODO()
+        // TODO?
+    }
+
+    /**
+     * Initializes the existing knowledge base with the given name. When this call returns
+     * normally, the knowledge base has been added to [knowledgeBases].
+     */
+    private fun initKnowledgeBase(kbName: String) {
+        log.info("Initializing knowledge base {}", kbName)
+
+        synchronized(knowledgeBaseCreateOrDropMutex) {
+            val directory = dirManager.directoryForKnowledgeBase(kbName).normalize()
+            log.debug("Opening data directory for knowledge base {}: {}", kbName, directory)
+            val kb = PersistentKnowledgeBase(
+                DataDirectoryManager.open(directory),
+                factStoreLoader,
+                executionPlanner
+            )
+
+            log.debug("Loading default libraries into {}", PersistentKnowledgeBase::class.simpleName)
+            // all prologdb knowledge-bases have the runtime pre-loaded
+            kb.load(EqualityLibrary.asDBCompatible())
+            kb.load(ComparisonLibrary.asDBCompatible())
+            kb.load(MathLibrary.asDBCompatible())
+            kb.load(ListsLibrary.asDBCompatible())
+            kb.load(StringsLibrary.asDBCompatible())
+            kb.load(TypeSafetyLibrary.asDBCompatible())
+            kb.load(DynamicsLibrary.asDBCompatible())
+            kb.load(DictLibrary.asDBCompatible())
+
+            knowledgeBases[kbName] = PersistentKnowledgeBaseToServerAdapter(kb)
+        }
+
+
+        log.info("Knowledge base $kbName initialized.")
     }
 
     private val globalDirectives = ProgramaticServerKnowledgeBase {
@@ -111,13 +181,7 @@ class PrologDBEngine(
                 Files.createDirectories(directory)
 
                 dirManager.serverMetadata.onKnowledgeBaseAdded(name)
-                knowledgeBases[name] = PersistentKnowledgeBaseToServerAdapter(
-                    PersistentKnowledgeBase(
-                        DataDirectoryManager.open(directory),
-                        factStoreLoader,
-                        executionPlanner
-                    )
-                )
+                initKnowledgeBase(name)
 
                 return@directive LazySequence.of(Unification.TRUE)
             }

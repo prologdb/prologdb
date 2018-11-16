@@ -3,6 +3,7 @@ package com.github.prologdb.execplan
 import com.github.prologdb.async.LazySequenceBuilder
 import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.builtin.NativeCodeRule
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.toStackTraceElement
@@ -23,7 +24,11 @@ class BuiltinInvocationStep(
             throw ex
         }
 
-        builtinRule.callDirectly(this, invocation.arguments, ctxt)
+        if (builtinRule is NativeCodeRule) {
+            builtinRule.callDirectly(this, invocation.arguments, ctxt)
+        } else {
+            builtinRule.unifyWithKnowledge(this, invocation, ctxt)
+        }
     }
 
     override val explanation = Predicate("invoke_builtin", arrayOf(invocation))
