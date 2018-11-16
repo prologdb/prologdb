@@ -17,6 +17,7 @@ fun main(args: Array<String>) {
     println("Connection established to ${connection.serverVendor} server version ${connection.serverVersion.toFormattedString()}")
 
     Runtime.getRuntime().addShutdownHook(thread(start = false) {
+        println("\nClosing connection")
         connection.close()
     })
 
