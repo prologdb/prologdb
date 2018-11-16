@@ -5,12 +5,19 @@ import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.builtin.NativeCodeRule
 import com.github.prologdb.runtime.builtin.getInvocationStackFrame
-import com.github.prologdb.runtime.knowledge.library.EmptyOperatorRegistry
-import com.github.prologdb.runtime.knowledge.library.Library
+import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 
 typealias PrologDBBuiltinImplementation = suspend LazySequenceBuilder<Unification>.(Array<out Term>, DBProofSearchContext) -> Unit
+
+/**
+ * A library that can be loaded into a [PersistentKnowledgeBase].
+ */
+interface DBLibrary {
+    val name: String
+    val exports: Map<ClauseIndicator, NativeCodeRule>
+}
 
 internal fun prologdbBuiltin(name: String, arity: Int, code: PrologDBBuiltinImplementation): NativeCodeRule {
     return NativeCodeRule(
@@ -26,4 +33,14 @@ internal fun prologdbBuiltin(name: String, arity: Int, code: PrologDBBuiltinImpl
     }
 }
 
-internal fun builtinLibrary(name: String, builtins: List<NativeCodeRule>) = Library(name, builtins, emptySet(), EmptyOperatorRegistry)
+
+internal fun builtinLibrary(name: String, builtins: List<NativeCodeRule>): DBLibrary {
+    val exportsMap = builtins
+        .map { Pair(ClauseIndicator.of(it.head), it) }
+        .toMap()
+
+    return object : DBLibrary {
+        override val name = name
+        override val exports = exportsMap
+    }
+}

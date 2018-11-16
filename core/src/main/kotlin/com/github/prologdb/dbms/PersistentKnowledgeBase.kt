@@ -1,8 +1,11 @@
 package com.github.prologdb.dbms
 
 import com.github.prologdb.async.*
+import com.github.prologdb.dbms.builtin.DBLibrary
+import com.github.prologdb.dbms.builtin.ModifyLibrary
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.execplan.planner.PlanningInformation
+import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
@@ -38,7 +41,13 @@ class PersistentKnowledgeBase(
 
     private val rules: MutableMap<ClauseIndicator, List<Rule>> = ConcurrentHashMap()
 
-    private val builtins: MutableMap<ClauseIndicator, NativeCodeRule> = ConcurrentHashMap()
+    /**
+     * To be synchronized on for modifications in either [loadedLibraries] or
+     * [builtinImplementations].
+     */
+    private val libraryLoadingMutex = Any()
+    private val loadedLibraries: MutableSet<DBLibrary> = HashSet()
+    private val builtinImplementations: MutableMap<ClauseIndicator, NativeCodeRule> = ConcurrentHashMap()
 
     init {
         directoryManager.persistedClauses.forEach { indicator ->
@@ -49,8 +58,41 @@ class PersistentKnowledgeBase(
 
         // TODO: rules
 
-        // TODO: refactor into libraries?
-        builtins[ClauseIndicator.of(Builtin_Assert_1)] = Builtin_Assert_1
+        load(ModifyLibrary)
+    }
+
+    /**
+     * Loads the given library. The loading is not persistent (has to be repeated after
+     * every launch).
+     *
+     * @throws PrologException If a different library with the same name is already loaded.
+     */
+    fun load(library: DBLibrary) {
+        synchronized(libraryLoadingMutex) {
+            // prevent double-load
+            loadedLibraries.firstOrNull { it.name == library.name }?.let {
+                if (it === library) {
+                    // double load, just ignore
+                    return
+                }
+
+                throw PrologException("Library with name ${library.name} is already loaded: already loaded ${System.identityHashCode(it)}, attempted to load ${System.identityHashCode(library)}")
+            }
+
+            // detect double declaration
+            library.exports.keys.firstOrNull { it in builtinImplementations }?.let {
+                throw PrologException("Cannot load library ${library.name}: static predicate $it already declared by another library")
+            }
+            library.exports.keys.firstOrNull { it in factStores }?.let {
+                throw PrologException("Cannot load library ${library.name}: static export $it is already a dynamic predicate in this knowledge base.")
+            }
+
+            // all good => load
+            library.exports.forEach { (indicator, code) ->
+                builtinImplementations[indicator] = code
+            }
+            loadedLibraries.add(library)
+        }
     }
 
     override fun fulfill(query: Query, authorization: Authorization, randomVariableScope: RandomVariableScope): LazySequence<Unification> {
@@ -79,7 +121,7 @@ class PersistentKnowledgeBase(
 
         override val factStores: Map<ClauseIndicator, FactStore> = this@PersistentKnowledgeBase.factStores
         override val rules: Map<ClauseIndicator, List<Rule>> = this@PersistentKnowledgeBase.rules
-        override val staticBuiltins: Map<ClauseIndicator, NativeCodeRule> = this@PersistentKnowledgeBase.builtins
+        override val staticBuiltins: Map<ClauseIndicator, NativeCodeRule> = this@PersistentKnowledgeBase.builtinImplementations
 
         override fun assureFactStore(indicator: ClauseIndicator): FactStore {
             return this@PersistentKnowledgeBase.factStores.computeIfAbsent(indicator) {
@@ -102,7 +144,7 @@ class PersistentKnowledgeBase(
     private val planningInfo = object : PlanningInformation {
         override val existingDynamicFacts: Set<ClauseIndicator> = factStores.keys
         override val existingRules: Set<ClauseIndicator> = rules.keys
-        override val staticBuiltins: Set<ClauseIndicator> = builtins.keys
+        override val staticBuiltins: Set<ClauseIndicator> = builtinImplementations.keys
     }
 }
 
