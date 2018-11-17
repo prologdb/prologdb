@@ -63,7 +63,7 @@ class CLIFrontend(private val connection: Connection) {
 
                 print(
                     solution.variableValues.values.joinToString(
-                        separator = ",\n",
+                        separator = " ,\n",
                         transform = { "${it.first} = ${it.second}"}
                     )
                 )
