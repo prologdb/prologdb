@@ -12,7 +12,6 @@ import com.github.prologdb.net.session.handle.IsoOpsStatelessParserDelegate
 import com.github.prologdb.net.session.handle.ProtocolVersion1SessionHandle
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.v1.messages.*
-import com.github.prologdb.parser.ParsedTerm
 import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.PrologRuntimeException
@@ -483,7 +482,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
         }
     }
 
-    override fun parseTerm(context: Map<String, String>?, codeToParse: String, origin: SourceUnit): ParseResult<ParsedTerm> {
+    override fun parseTerm(context: Map<String, String>?, codeToParse: String, origin: SourceUnit): ParseResult<com.github.prologdb.runtime.term.Term> {
         TODO()
     }
 

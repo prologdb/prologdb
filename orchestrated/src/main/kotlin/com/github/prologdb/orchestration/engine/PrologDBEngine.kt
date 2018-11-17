@@ -8,7 +8,6 @@ import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.net.session.handle.STOP_AT_EOF_OR_FULL_STOP
 import com.github.prologdb.orchestration.SessionContext
-import com.github.prologdb.parser.ParsedTerm
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
@@ -29,6 +28,7 @@ import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.term.PrologString
+import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.storage.fact.FactStoreLoader
 import org.slf4j.LoggerFactory
@@ -82,7 +82,7 @@ class PrologDBEngine(
 
     private val parser = PrologParser()
 
-    override fun parseTerm(context: SessionContext?, codeToParse: String, origin: SourceUnit): ParseResult<ParsedTerm> {
+    override fun parseTerm(context: SessionContext?, codeToParse: String, origin: SourceUnit): ParseResult<Term> {
         val operatorsForParsing = context?.knowledgeBase?.second?.operators ?: ISOOpsOperatorRegistry
         val lexer = Lexer(origin, codeToParse.iterator())
         return parser.parseTerm(lexer, operatorsForParsing, STOP_AT_EOF)
