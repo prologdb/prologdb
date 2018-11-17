@@ -132,7 +132,7 @@ class PersistentKnowledgeBase(
     ) : DBProofSearchContext
     {
         override val fulfillAttach: suspend LazySequenceBuilder<Unification>.(Query, VariableBucket) -> Unit = { query, vars ->
-            val plan = planner.planExecution(query, this@PersistentKnowledgeBase.planningInfo, randomVariableScope)
+            val plan = planner.planExecution(query, this@PersistentKnowledgeBase.planningInformation, randomVariableScope)
             plan.execute(this, this@PSContext, vars)
         }
 
@@ -158,7 +158,7 @@ class PersistentKnowledgeBase(
         }
     }
 
-    private val planningInfo = object : PlanningInformation {
+    val planningInformation = object : PlanningInformation {
         override val existingDynamicFacts: Set<ClauseIndicator> = factStores.keys
         override val existingRules: Set<ClauseIndicator> = rules.keys
         override val staticBuiltins: Set<ClauseIndicator> = builtinImplementations.keys

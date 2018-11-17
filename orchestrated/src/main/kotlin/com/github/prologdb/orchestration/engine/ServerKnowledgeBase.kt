@@ -1,6 +1,7 @@
 package com.github.prologdb.orchestration.engine
 
 import com.github.prologdb.async.LazySequence
+import com.github.prologdb.execplan.planner.PlanningInformation
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.orchestration.SessionContext
 import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
@@ -17,6 +18,8 @@ interface ServerKnowledgeBase {
      * All operators defined within this knowledge base.
      */
     val operators: OperatorRegistry
+
+    val planningInformation: PlanningInformation
 
     fun startQuery(session: SessionContext, query: Query, totalLimit: Long?): LazySequence<Unification>
 

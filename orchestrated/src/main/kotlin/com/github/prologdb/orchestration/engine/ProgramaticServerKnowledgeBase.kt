@@ -1,6 +1,7 @@
 package com.github.prologdb.orchestration.engine
 
 import com.github.prologdb.async.LazySequence
+import com.github.prologdb.execplan.planner.PlanningInformation
 import com.github.prologdb.orchestration.SessionContext
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
@@ -43,6 +44,12 @@ open class ProgramaticServerKnowledgeBase(
 
     override fun close() {
         // Nothing to do
+    }
+
+    override val planningInformation = object : PlanningInformation {
+        override val existingDynamicFacts: Set<ClauseIndicator> = emptySet()
+        override val existingRules: Set<ClauseIndicator> = emptySet()
+        override val staticBuiltins: Set<ClauseIndicator> = directives.keys
     }
 }
 

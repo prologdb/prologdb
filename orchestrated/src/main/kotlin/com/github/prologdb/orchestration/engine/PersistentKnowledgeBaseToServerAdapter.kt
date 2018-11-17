@@ -15,6 +15,8 @@ class PersistentKnowledgeBaseToServerAdapter(
     override val operators
         get() = kb.operators
 
+    override val planningInformation = kb.planningInformation
+
     override fun startQuery(session: SessionContext, query: Query, totalLimit: Long?): LazySequence<Unification> {
         return kb.fulfill(query, ReadWriteAuthorization)
     }

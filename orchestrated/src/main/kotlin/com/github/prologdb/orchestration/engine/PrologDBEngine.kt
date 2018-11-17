@@ -19,17 +19,16 @@ import com.github.prologdb.runtime.builtin.EqualityLibrary
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.builtin.dict.DictLibrary
 import com.github.prologdb.runtime.builtin.dynamic.DynamicsLibrary
+import com.github.prologdb.runtime.builtin.dynamic.predicateToQuery
 import com.github.prologdb.runtime.builtin.lists.ListsLibrary
 import com.github.prologdb.runtime.builtin.math.MathLibrary
 import com.github.prologdb.runtime.builtin.string.StringsLibrary
 import com.github.prologdb.runtime.builtin.typesafety.TypeSafetyLibrary
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.query.Query
-import com.github.prologdb.runtime.term.Atom
-import com.github.prologdb.runtime.term.Predicate
-import com.github.prologdb.runtime.term.PrologString
-import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.Unification
+import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.fact.FactStoreLoader
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
@@ -185,6 +184,18 @@ class PrologDBEngine(
 
                 return@directive LazySequence.of(Unification.TRUE)
             }
+        }
+
+        directive("explain"/1) { ctxt, args ->
+            val arg0 = args[0] as? Predicate ?: return@directive lazyError<Unification>(PrologRuntimeException("Argument 0 to explain/1 must be a query."))
+
+            val currentKB = ctxt.knowledgeBase?.second ?: return@directive lazyError<Unification>(PrologRuntimeException("No knowledge base selected."))
+
+            val query = predicateToQuery(arg0)
+            val plan = executionPlanner.planExecution(query, currentKB.planningInformation)
+            val solutionVars = VariableBucket()
+            solutionVars.instantiate(Variable("Plan"), plan.explanation)
+            return@directive LazySequence.of(Unification(solutionVars))
         }
     }
 }
