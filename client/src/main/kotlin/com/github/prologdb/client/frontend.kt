@@ -33,19 +33,15 @@ class CLIFrontend(private val connection: Connection) {
                     solutions.tryAdvance()
                 }
                 catch (ex: Throwable) {
+                    println("Error: ${ex.message}")
+
                     if (ex is GenericQueryError) {
-                        val stackTrace = ex.additionalInformation["prologStackTrace"]
-                        if (stackTrace != null) {
-                            println(stackTrace)
-                        } else {
-                            ex.printStackTrace(System.out)
+                        for ((key, value) in ex.additionalInformation) {
+                            println("$key: $value")
                         }
                     } else if (ex is QueryError) {
-                        val stackTrace = ex.additionalInformation["prologStackTrace"]
-                        if (stackTrace != null) {
-                            println(stackTrace)
-                        } else {
-                            ex.printStackTrace(System.out)
+                        for ((key, value) in ex.additionalInformation) {
+                            println("$key: $value")
                         }
                     } else if (ex is PrologRuntimeException) {
                         println(ex.prettyPrint())
