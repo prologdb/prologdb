@@ -36,13 +36,18 @@ class AsyncChannelProtobufOutgoingQueue(private val wrapped: AsynchronousByteCha
      * Sends the message and sets currentSending. Assumes exclusive access to currentSending
      */
     private fun send(message: GeneratedMessageV3) {
-        currentSending = message.writeDelimitedTo(wrapped)
+        val currentSendingBefore = synchronized(currentSendingMutex) {
+            currentSending = message.writeDelimitedTo(wrapped)
+            currentSending
+        }
+
         currentSending!!.subscribeBy {
             synchronized(currentSendingMutex) {
-                currentSending = null
+                if (currentSending === currentSendingBefore) {
+                    currentSending = null
+                    outQueue.poll()?.let { send(it) }
+                }
             }
-
-            outQueue.poll()?.let { send(it) }
         }
     }
 
