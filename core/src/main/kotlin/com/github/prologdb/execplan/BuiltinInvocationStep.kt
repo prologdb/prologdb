@@ -1,6 +1,8 @@
 package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequenceBuilder
+import com.github.prologdb.async.buildLazySequence
+import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.NativeCodeRule
@@ -24,11 +26,24 @@ class BuiltinInvocationStep(
             throw ex
         }
 
-        if (builtinRule is NativeCodeRule) {
-            builtinRule.callDirectly(this, invocation.arguments, ctxt)
-        } else {
-            builtinRule.unifyWithKnowledge(this, invocation, ctxt)
-        }
+        // incorporate existing instantiations
+        val replacedInvocation = invocation.substituteVariables(vars.asSubstitutionMapper())
+
+        yieldAll(buildLazySequence<Unification>(principal) {
+            if (builtinRule is NativeCodeRule) {
+                builtinRule.callDirectly(this, replacedInvocation.arguments, ctxt)
+            } else {
+                builtinRule.unifyWithKnowledge(this, replacedInvocation, ctxt)
+            }
+        }.mapRemaining { unification ->
+            if (unification.variableValues.isEmpty) {
+                Unification(vars)
+            } else {
+                val combinedVars = vars.copy()
+                combinedVars.incorporate(unification.variableValues)
+                Unification(combinedVars)
+            }
+        })
     }
 
     override val explanation = Predicate("invoke_builtin", arrayOf(invocation))
