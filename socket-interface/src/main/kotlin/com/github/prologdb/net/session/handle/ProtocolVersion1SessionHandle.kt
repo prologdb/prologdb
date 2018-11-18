@@ -22,6 +22,7 @@ import io.reactivex.Observable
 import org.slf4j.LoggerFactory
 import java.io.DataOutputStream
 import java.nio.channels.AsynchronousByteChannel
+import java.util.*
 
 private val log = LoggerFactory.getLogger("prologdb.network")
 
@@ -49,10 +50,10 @@ internal class ProtocolVersion1SessionHandle(
         incomingMessages = incomingVersionMessages
             .map { versionMessage ->
                 when (versionMessage.commandCase!!) {
-                    ToServer.CommandCase.CONSUME_RESULTS -> versionMessage.consumeResults.toIndependent()
+                    ToServer.CommandCase.CONSUME_RESULTS -> Optional.of(versionMessage.consumeResults.toIndependent())
                     ToServer.CommandCase.INIT_QUERY ->
                         try {
-                            versionMessage.initQuery.toIndependent(sessionState, prologReader)
+                            Optional.of(versionMessage.initQuery.toIndependent(sessionState, prologReader))
                         }
                         catch (ex: Throwable) {
                             log.debug("Got error while trying to read query", ex)
@@ -76,17 +77,26 @@ internal class ProtocolVersion1SessionHandle(
                                 }
                             }
 
-                            throw QueryRelatedException(com.github.prologdb.net.session.QueryRelatedError(
+                            outQueue.queue(com.github.prologdb.net.session.QueryRelatedError(
                                 versionMessage.initQuery.queryId,
                                 kind,
                                 ex.message,
                                 additional
-                            ))
+                            ).toProtocol())
+                            Optional.empty<ProtocolMessage>()
                         }
-                    ToServer.CommandCase.ERROR -> versionMessage.error.toIndependent()
-                    ToServer.CommandCase.COMMAND_NOT_SET -> throw NetworkProtocolException("command field of ToServer message not set")
+                    ToServer.CommandCase.ERROR -> Optional.of(versionMessage.error.toIndependent())
+                    ToServer.CommandCase.COMMAND_NOT_SET -> {
+                        outQueue.queue(com.github.prologdb.net.session.GeneralError(
+                            "command field of ToServer message not set",
+                            mapOf("erroneousMessage" to versionMessage.toString())
+                        ).toProtocol())
+                        Optional.empty()
+                    }
                 }
             }
+            .filter { it.isPresent }
+            .map { it.get() }
             .doOnError { ex ->
                 if (ex is QueryRelatedException) {
                     ex.errorObject.toProtocol().writeDelimitedTo(channel)
