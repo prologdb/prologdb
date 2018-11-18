@@ -124,6 +124,9 @@ class RemoteSolutions internal constructor(
     internal fun onQueryEvent(event: QueryEvent) {
         // println("LocalSeq ${System.identityHashCode(this)} on query #$queryId got event $event")
         eventQueue.put(event)
+        if (event is QuerySolutionEvent && !firstSolutionReceived) {
+            firstSolutionReceived = true
+        }
     }
 }
 
