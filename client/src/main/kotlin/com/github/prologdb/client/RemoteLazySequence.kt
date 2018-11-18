@@ -116,6 +116,7 @@ class RemoteSolutions internal constructor(
             }
         } else  {
             // first, request the prefetch amount
+            firstSolutionRequestSent = true
             onMoreSolutionsNeeded(prefetchAmount)
         }
     }
