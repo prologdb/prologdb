@@ -549,7 +549,7 @@ private constructor(
             val raf = RandomAccessFile(file.toFile(), "rw")
             raf.seek(0)
             raf.writeInt(0x00000001)
-            raf.writeStruct(HeapFileHeader(1024, 0))
+            raf.writeStruct(HeapFileHeader(256, 0))
             raf.close()
         }
 
