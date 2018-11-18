@@ -18,10 +18,6 @@ class JoinStep(
     override val explanation by lazy { Predicate("join", subSteps.map(PlanStep::explanation).toTypedArray()) }
 
     private suspend fun LazySequenceBuilder<Unification>.runSteps(ctxt: DBProofSearchContext, steps: List<PlanStep>, variables: VariableBucket) {
-        if (steps.isEmpty()) {
-            return
-        }
-
         if (steps.size == 1) {
             steps[0].execute(this, ctxt, variables)
         }
@@ -32,7 +28,7 @@ class JoinStep(
                 }.flatMapRemaining { stepUnification ->
                     val variablesCarry = variables.copy()
                     variablesCarry.incorporate(stepUnification.variableValues)
-                    runSteps(ctxt, steps.subList(1, steps.lastIndex), variablesCarry)
+                    runSteps(ctxt, steps.subList(1, steps.size), variablesCarry)
                 }
             )
         }
