@@ -124,7 +124,8 @@ class ServerInterface(
 
         val queryContext = QueryContext(
             command.desiredQueryId,
-            initialized
+            initialized,
+            command.instruction
         )
 
         // catch the race condition
@@ -256,6 +257,14 @@ class ServerInterface(
         }
 
         override fun onReturnSolution(queryId: Int, solution: Unification) {
+            // remove variables starting with an underscore that were present in the original query
+            val original = queryContexts[currentSessionHandle]!![queryId]!!.originalQuery
+            if (original.variables.any { it.name.startsWith('_') }) {
+                val varsToRetain = solution.variableValues.variables
+                    .filter { it !in original.variables || (it in original.variables && !it.name.startsWith('_')) }
+                solution.variableValues.retainAll(varsToRetain)
+            }
+
             currentSessionHandle!!.queueMessage(QuerySolutionMessage(queryId, solution))
         }
 

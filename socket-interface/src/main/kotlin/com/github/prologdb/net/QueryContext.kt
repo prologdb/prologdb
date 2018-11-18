@@ -2,6 +2,7 @@ package com.github.prologdb.net
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
+import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.unification.Unification
 import org.slf4j.LoggerFactory
 import java.util.*
@@ -20,7 +21,8 @@ private val log = LoggerFactory.getLogger("prologdb.worker")
  */
 internal class QueryContext(
     private val queryId: Int,
-    private val solutions: LazySequence<Unification>
+    private val solutions: LazySequence<Unification>,
+    val originalQuery: Query
 ) {
     private val lock: Lock = ReentrantLock()
 
