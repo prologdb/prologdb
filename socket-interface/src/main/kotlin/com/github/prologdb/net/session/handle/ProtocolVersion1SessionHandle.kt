@@ -48,6 +48,11 @@ internal class ProtocolVersion1SessionHandle(
         val incomingVersionMessages = AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel).observable
 
         incomingMessages = incomingVersionMessages
+            .doOnEach { it ->
+                if (it.isOnNext && it.value!!.commandCase == ToServer.CommandCase.GOODBYE) {
+                    closeSession()
+                }
+            }
             .map { versionMessage ->
                 when (versionMessage.commandCase!!) {
                     ToServer.CommandCase.CONSUME_RESULTS -> Optional.of(versionMessage.consumeResults.toIndependent())
@@ -93,6 +98,8 @@ internal class ProtocolVersion1SessionHandle(
                         ).toProtocol())
                         Optional.empty()
                     }
+                    // this should have been handled earlier
+                    ToServer.CommandCase.GOODBYE -> throw IllegalStateException()
                 }
             }
             .filter { it.isPresent }

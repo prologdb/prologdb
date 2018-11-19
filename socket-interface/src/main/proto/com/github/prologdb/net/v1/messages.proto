@@ -12,6 +12,7 @@ message ToServer {
         QueryInitialization init_query = 1;
         QuerySolutionConsumption consume_results = 2;
         GeneralError error = 101;
+        Goodbye goodbye = 102;
     }
 }
 
@@ -22,6 +23,7 @@ message ToClient {
         QueryOpenedEvent query_opened = 102;
         QueryClosedEvent query_closed = 103;
         GeneralError server_error = 104;
+        Goodbye goodbye = 105;
     }
 }
 
@@ -239,8 +241,7 @@ message QueryRelatedError {
 }
 
 /* Can be used by both sides to indicate a general error condition. Once one of these is sent
- * the connection MUST be considered bad and be abandoned by both parties (also, resources must
- * be released).
+ * the connection MUST be considered bad and be abandoned by both parties.
  */
 message GeneralError {
     required string message = 1;
@@ -248,4 +249,29 @@ message GeneralError {
     /* Additional information fields, e.g. stack strace, ...
     */
     map<string, string> additional_information = 3;
+}
+
+/* Can be used by either party to indicate that they want to close the connection.
+ * Queries currently open are to be closed without requiring another QueryClosedEvent
+ */
+message Goodbye {
+    /** Clients may specify a reason for statistical purposes */
+    optional Reason reason = 1;
+
+    enum Reason {
+        /* the sender assumes that their or the other parties state of the connection
+         * is corrupted (e.g. after a GeneralError)
+         */
+        CORRUPTED_LOCAL_STATE = 1;
+
+        /* the client maintains a connection pool. This is a pooled connection and the
+         * pool management code has decided that the pool should be downsized.
+         */
+        POOL_DOWNSIZING = 2;
+
+        /* the connection was opened for the purpose of completing one task. That task
+         * is done so the connection is closed again.
+         */
+        TASK_DONE = 3;
+    }
 }
