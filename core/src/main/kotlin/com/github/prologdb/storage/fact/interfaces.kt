@@ -49,6 +49,16 @@ interface FactStore {
      * @return A lazy sequence of all the predicates stored in this store.
      */
     fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, Predicate>>
+
+    /**
+     * Does these things in sequence:
+     * * Causes any new operations to fail with an error indicating the the
+     *   fact store is closed.
+     * * Waits for all ongoing operations to complete
+     * * Flushes all pending changes to disk
+     * * Frees as many handles and resources as possible
+     */
+    fun close()
 }
 
 /**

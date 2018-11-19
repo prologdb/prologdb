@@ -489,6 +489,9 @@ private constructor(
 
         // wait for all ongoing actions to complete
         readWriteLockManager.close(RegionReadWriteLockManager.CloseMode.WAITING)
+
+        fileChannel.force(true)
+        fileChannel.close()
     }
 
     /**
