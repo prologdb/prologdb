@@ -84,6 +84,7 @@ class ServerInterface(
             is InitializeQueryCommand -> initializeQuery(message, handle)
             is ConsumeQuerySolutionsCommand -> consumeQuerySolutions(message, handle)
             is GeneralError -> handleClientError(message, handle)
+            is ConnectionCloseEvent -> closeSession(handle)
             else -> throw IllegalArgumentException("Tasks with message of type ${message.javaClass.name} not supported")
         }
     }
@@ -166,7 +167,12 @@ class ServerInterface(
                 it.doWith { it.close() }
             }
         }
-        handle.closeSession()
+        closeSession(handle)
+    }
+
+    private fun closeSession(session: SessionHandle) {
+        session.closeSession()
+
     }
 
     private fun InitializeQueryCommand.startUsing(sessionState: Any?, engine: DatabaseEngine<Any?>): LazySequence<Unification> {

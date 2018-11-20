@@ -6,6 +6,7 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.net.*
 import com.github.prologdb.net.session.*
+import com.github.prologdb.net.util.PipeClosedException
 import com.github.prologdb.net.v1.messages.*
 import com.github.prologdb.net.v1.messages.GeneralError
 import com.github.prologdb.net.v1.messages.QueryRelatedError
@@ -99,7 +100,7 @@ internal class ProtocolVersion1SessionHandle(
                         Optional.empty()
                     }
                     // this should have been handled earlier
-                    ToServer.CommandCase.GOODBYE -> throw IllegalStateException()
+                    ToServer.CommandCase.GOODBYE -> Optional.of(ConnectionCloseEvent())
                 }
             }
             .filter { it.isPresent }
@@ -110,7 +111,7 @@ internal class ProtocolVersion1SessionHandle(
                 } else {
                     ToClient.newBuilder()
                         .setServerError(GeneralError.newBuilder()
-                            .setMessage(ex.message)
+                            .setMessage(ex.message ?: "")
                             .build()
                         )
                         .build()
@@ -132,6 +133,14 @@ internal class ProtocolVersion1SessionHandle(
     }
 
     override fun closeSession() {
+        try {
+            outQueue.queue(ToClient.newBuilder()
+                .setGoodbye(Goodbye.getDefaultInstance())
+                .build()
+            )
+        }
+        catch (ex: PipeClosedException) {}
+
         outQueue.close()
         channel.close()
     }

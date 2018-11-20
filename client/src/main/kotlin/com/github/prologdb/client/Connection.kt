@@ -57,6 +57,16 @@ class Connection(val host: String, val port: Int) {
     fun startDirective(instruction: String): LazySequence<Unification> = start(QueryInitialization.Kind.DIRECTIVE, instruction)
 
     fun close() {
+        closed = true
+
+        ToServer.newBuilder()
+            .setGoodbye(Goodbye.newBuilder())
+            .build()
+            .writeDelimitedTo(socket.getOutputStream())
+
+        // give the reader some slack
+        try { Thread.sleep(100) } catch (ex: InterruptedException) {}
+
         socket.close()
     }
 

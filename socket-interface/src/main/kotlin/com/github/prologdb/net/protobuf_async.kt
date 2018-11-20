@@ -2,6 +2,7 @@ package com.github.prologdb.net
 
 import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.io.util.Pool
+import com.github.prologdb.net.util.AsyncPipe
 import com.google.protobuf.GeneratedMessageV3
 import com.google.protobuf.InvalidProtocolBufferException
 import io.reactivex.Observable
@@ -12,6 +13,7 @@ import java.io.IOException
 import java.lang.reflect.InvocationTargetException
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousByteChannel
+import java.nio.channels.ClosedChannelException
 import java.nio.channels.CompletionHandler
 import kotlin.experimental.and
 import kotlin.math.max
@@ -178,13 +180,11 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
      */
     private fun maximizeBufferRemaining() {
         if (buffer.hasRemaining() && buffer.position() != 0) {
-            FourKBufferPool.using { tmpBuffer ->
-                tmpBuffer.bufferOfData.put(buffer)
-                buffer.clear()
-                tmpBuffer.bufferOfData.flip()
-                buffer.put(tmpBuffer.bufferOfData)
-                buffer.flip()
-            }
+            val slice = buffer.slice()
+            buffer.position(0)
+            buffer.limit(slice.limit())
+            buffer.put(slice)
+            buffer.flip()
         }
     }
 
@@ -232,7 +232,12 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
         }
 
         override fun failed(ex: Throwable?, attachment: Nothing?) {
-            _observable.onError(ex ?: IOException("Unknown channel read error"))
+            if (ex is ClosedChannelException) {
+                // done
+                _observable.onComplete()
+            } else {
+                _observable.onError(ex ?: IOException("Unknown channel read error"))
+            }
         }
     }
 
@@ -244,10 +249,12 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
     }
 }
 
-fun GeneratedMessageV3.writeDelimitedTo(out: AsynchronousByteChannel): Single<Unit> {
+/**
+ * @param reportTo When done (or on error) invokes [SingleSubject.onSuccess] or [SingleSubject.onError] respectively
+ */
+fun GeneratedMessageV3.writeDelimitedTo(out: AsynchronousByteChannel, reportTo: SingleSubject<Unit>? = null) {
     val bufferStream = FourKBufferPool.get()
     writeDelimitedTo(bufferStream)
-    val singleSource = SingleSubject.create<Unit>()
 
     out.write(bufferStream.bufferOfData, null, object : CompletionHandler<Int, Nothing?> {
         private var nBytesToWrite = bufferStream.bufferOfData.remaining()
@@ -261,17 +268,15 @@ fun GeneratedMessageV3.writeDelimitedTo(out: AsynchronousByteChannel): Single<Un
             else {
                 // done
                 FourKBufferPool.free(bufferStream)
-                singleSource.onSuccess(Unit)
+                reportTo?.onSuccess(Unit)
             }
         }
 
         override fun failed(ex: Throwable, attachment: Nothing?) {
             FourKBufferPool.free(bufferStream)
-            singleSource.onError(ex)
+            reportTo?.onError(ex)
         }
     })
-
-    return singleSource
 }
 
 // intended for [AsynchronousByteChannel.readVarUInt32]
@@ -394,4 +399,26 @@ fun <T : GeneratedMessageV3> AsynchronousByteChannel.readSingleDelimited(typeCla
 
         return@flatMap singleSubject
     }
+}
+
+/**
+ * A wrapper for [AsynchronousByteChannel] that queues outgoing protobuf3 messages in order to prevent
+ * [WritePendingException]s.
+ */
+class AsyncChannelProtobufOutgoingQueue(wrapped: AsynchronousByteChannel) {
+    private val pipe = AsyncPipe<GeneratedMessageV3, Unit> { message, onDone ->
+        message.writeDelimitedTo(wrapped, onDone)
+    }
+
+    fun queue(message: GeneratedMessageV3): Single<Unit> {
+        return pipe.queue(message)
+    }
+
+    /**
+     * Blocks until the writing of all messages to the underlying stream
+     * has begun, then closes this object (but not the underlying [AsynchronousByteChannel]!).
+     */
+    fun close() = pipe.close()
+
+    val closed = pipe.closed
 }
