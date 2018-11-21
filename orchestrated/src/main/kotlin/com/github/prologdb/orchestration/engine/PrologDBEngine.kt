@@ -162,6 +162,12 @@ class PrologDBEngine(
             LazySequence.of(Unification.TRUE)
         }
 
+        directive("current_knowledge_base"/1) { ctxt, args ->
+            val name = ctxt.knowledgeBase?.first?.let { PrologString(it) }
+
+            LazySequence.ofNullable(name?.unify(args[0]))
+        }
+
         directive("create_knowledge_base"/1) { ctxt, args ->
             if (args[0] !is PrologString && args[0] !is Atom) {
                 return@directive lazyError<Unification>(PrologRuntimeException("Argument 1 to create_knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))
