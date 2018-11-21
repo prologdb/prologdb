@@ -17,9 +17,11 @@ import java.lang.Math.floor
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetSocketAddress
+import java.nio.channels.AsynchronousCloseException
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
 import kotlin.concurrent.thread
 
 private val log = LoggerFactory.getLogger("prologdb.srv-intf")
@@ -364,8 +366,24 @@ class ServerInterface(
     private val accepterThread = thread(name = "prologdb-interface-$localAddressPretty-accepter") {
         while (!closed) {
             val channel = try {
-                serverChannel.accept().get()
-            } catch (ex: Throwable) {
+                try {
+                    serverChannel.accept().get()
+                } catch (ex: ExecutionException) {
+                    throw ex.cause ?: ex
+                }
+            }
+            catch (ex: AsynchronousCloseException) {
+                if (!closed) {
+                    // server socket closed, but the interface is supposed to be open?
+                    log.error("Server socket was closed unexpectedly.", ex)
+                    // TODO: attempt to reopen??
+                    break
+                } else {
+                    // interface closed, all good
+                    continue
+                }
+            }
+            catch (ex: Throwable) {
                 log.info("Failed to accept client connection", ex)
                 continue
             }
@@ -420,6 +438,7 @@ class ServerInterface(
         // TODO: close all running queries
         // TODO: notify clients!
 
+        // this will also interrupt the accepterThread
         serverChannel.close()
     }
 }
