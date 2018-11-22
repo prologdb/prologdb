@@ -4,9 +4,14 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologDeserializationException
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
-import com.github.prologdb.net.*
+import com.github.prologdb.net.PrologDeserializationException
+import com.github.prologdb.net.PrologParseException
+import com.github.prologdb.net.QueryRelatedException
+import com.github.prologdb.net.async.AsyncByteChannelDelimitedProtobufReader
+import com.github.prologdb.net.async.AsyncChannelProtobufOutgoingQueue
+import com.github.prologdb.net.async.PipeClosedException
+import com.github.prologdb.net.async.writeDelimitedTo
 import com.github.prologdb.net.session.*
-import com.github.prologdb.net.util.PipeClosedException
 import com.github.prologdb.net.v1.messages.*
 import com.github.prologdb.net.v1.messages.GeneralError
 import com.github.prologdb.net.v1.messages.QueryRelatedError

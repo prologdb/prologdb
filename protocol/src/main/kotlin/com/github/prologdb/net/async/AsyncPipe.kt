@@ -1,9 +1,9 @@
-package com.github.prologdb.net.util
+package com.github.prologdb.net.async
 
-import io.reactivex.Single
-import io.reactivex.subjects.SingleSubject
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -16,8 +16,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * **This class is thread-safe!**
  */
-class AsyncPipe<Item, ConsumptionResult>(private val consumer: (Item, SingleSubject<ConsumptionResult>) -> Any?) {
-    private val itemQueue = ArrayBlockingQueue<Pair<Item, SingleSubject<ConsumptionResult>>>(20)
+class AsyncPipe<Item, ConsumptionResult>(private val consumer: (Item, CompletableFuture<ConsumptionResult>) -> Any?) {
+    private val itemQueue = ArrayBlockingQueue<Pair<Item, CompletableFuture<ConsumptionResult>>>(20)
 
     /**
      * To be synchronized on when modifying [itemQueue]. This is necessary to prevent a race condition when
@@ -31,13 +31,13 @@ class AsyncPipe<Item, ConsumptionResult>(private val consumer: (Item, SingleSubj
     /** True while items are being consumed */
     private val currentlyConsuming = AtomicBoolean(false)
 
-    fun queue(item: Item): Single<ConsumptionResult> {
+    fun queue(item: Item): Future<ConsumptionResult> {
         if (closed) throw PipeClosedException()
 
-        val single = SingleSubject.create<ConsumptionResult>()
+        val cFuture = CompletableFuture<ConsumptionResult>()
 
         synchronized(queueMutex) {
-            itemQueue.put(Pair(item, single))
+            itemQueue.put(Pair(item, cFuture))
         }
 
         // launch the sender again
@@ -49,7 +49,7 @@ class AsyncPipe<Item, ConsumptionResult>(private val consumer: (Item, SingleSubj
             }
         }
 
-        return single
+        return cFuture
     }
 
     /**
@@ -66,10 +66,9 @@ class AsyncPipe<Item, ConsumptionResult>(private val consumer: (Item, SingleSubj
 
         val (item, callback) = nextItem
 
-        callback.subscribe { _, _ ->
+        consumer(item, callback.whenComplete { r, e ->
             consume(onQueueDepleted)
-        }
-        consumer(item, callback)
+        })
     }
 
     @Volatile var closed = false

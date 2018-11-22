@@ -1,13 +1,13 @@
 package com.github.prologdb.net
 
 import com.github.prologdb.io.util.ByteArrayOutputStream
+import com.github.prologdb.net.async.AsyncByteChannelDelimitedProtobufReader
 import com.github.prologdb.net.v1.messages.Query
 import com.github.prologdb.net.v1.messages.QueryInitialization
 import com.github.prologdb.net.v1.messages.ToServer
 import com.google.protobuf.ByteString
 import io.kotlintest.matchers.beGreaterThan
 import io.kotlintest.should
-import io.kotlintest.shouldBe
 import io.kotlintest.specs.FreeSpec
 import io.mockk.every
 import io.mockk.mockkClass

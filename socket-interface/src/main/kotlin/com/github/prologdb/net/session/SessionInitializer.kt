@@ -1,12 +1,12 @@
 package com.github.prologdb.net.session
 
 import com.github.prologdb.net.HandshakeFailedException
+import com.github.prologdb.net.async.readSingleDelimited
+import com.github.prologdb.net.async.writeDelimitedTo
 import com.github.prologdb.net.negotiation.*
 import com.github.prologdb.net.negotiation.ToClient
 import com.github.prologdb.net.negotiation.ToServer
-import com.github.prologdb.net.readSingleDelimited
 import com.github.prologdb.net.session.handle.SessionHandle
-import com.github.prologdb.net.writeDelimitedTo
 import com.google.protobuf.InvalidProtocolBufferException
 import io.reactivex.Single
 import io.reactivex.subjects.SingleSubject
