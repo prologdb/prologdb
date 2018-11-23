@@ -27,7 +27,7 @@ class HeapFileTest : FreeSpec({
         val tmpFile = File.createTempFile("heapfiletest", Math.random().toString())
         tmpFile.deleteOnExit()
         HeapFile.initializeForBlockDevice(tmpFile.toPath())
-        val heapFile = HeapFile.forExistingFile(tmpFile.toPath()).use { heapFile ->
+        HeapFile.forExistingFile(tmpFile.toPath()).use { heapFile ->
             val buf = bufferOfRandomValues(500)
             val pID = heapFile.addRecord(IrrelevantPrincipal, buf).get()
 
@@ -140,7 +140,6 @@ class HeapFileTest : FreeSpec({
             tB.join()
             tA.propagateUncaughtExceptionIfPresent()
             tB.propagateUncaughtExceptionIfPresent()
-            println("one done")
         }
     }
 

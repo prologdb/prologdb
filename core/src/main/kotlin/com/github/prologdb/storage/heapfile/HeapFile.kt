@@ -350,7 +350,7 @@ private constructor(
                             ConcurrentModificationException("The record has been modified while reading.")
                         )
                     } else if (!isFirstPage && !(pageFlags hasFlag PAGE_FLAG_CONTINUATION)) {
-                        throw StorageException("Invalid internal state - record contains non-continuation flagged page (offset of first page in record: $offsetFirstPageOfRecord)")
+                        throw InvalidPersistenceIDException(actualPersistenceID, "Invalid internal state - record contains non-continuation flagged page (offset of first page in record: $offsetFirstPageOfRecord)")
                     }
 
                     bufferObj.flip()
