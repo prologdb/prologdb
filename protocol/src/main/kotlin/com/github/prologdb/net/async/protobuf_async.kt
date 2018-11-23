@@ -117,7 +117,8 @@ fun <T : GeneratedMessageV3> AsynchronousByteChannel.readSingleDelimited(typeCla
         buffer.clear()
         buffer.limit(messageLength)
 
-        val messageFuture = CompletableFuture<T>().whenComplete { _, _ ->
+        val messageFuture = CompletableFuture<T>()
+        messageFuture.whenComplete { _, _ ->
             if (bufferObtainedFrom4KPool) {
                 FourKBufferPool.free(streamFromPool!!)
             }

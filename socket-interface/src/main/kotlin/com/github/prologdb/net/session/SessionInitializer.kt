@@ -31,7 +31,7 @@ class SessionInitializer(
      * [SessionHandle] instance for the negotiated parameters.
      */
     fun init(channel: AsynchronousByteChannel): CompletionStage<SessionHandle> {
-        return channel.readSingleDelimited(ToServer::class.java).thenCompose<SessionHandle> { clientHelloEnvelope ->
+        val clientHelloRead = channel.readSingleDelimited(ToServer::class.java).thenCompose<SessionHandle> { clientHelloEnvelope ->
             val clientHello = clientHelloEnvelope.hello!!
 
             val targetVersion: SemanticVersion? = if (clientHello.desiredProtocolVersionList.isEmpty()) {
@@ -63,7 +63,7 @@ class SessionInitializer(
             return@thenCompose onHelloSent
                 .thenCompose { versionHandleFactories[targetVersion]!!(channel, clientHello) }
         }
-        .whenComplete { _, ex ->
+        clientHelloRead.whenComplete { _, ex ->
             if (ex == null) return@whenComplete
 
             val error = when (ex) {
@@ -87,6 +87,8 @@ class SessionInitializer(
                 .build()
                 .writeDelimitedTo(channel)
         }
+
+        return clientHelloRead
     }
 
     companion object {

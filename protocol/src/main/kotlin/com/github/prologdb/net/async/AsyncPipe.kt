@@ -66,9 +66,10 @@ class AsyncPipe<Item, ConsumptionResult>(private val consumer: (Item, Completabl
 
         val (item, callback) = nextItem
 
-        consumer(item, callback.whenComplete { r, e ->
+        callback.whenComplete { r, e ->
             consume(onQueueDepleted)
-        })
+        }
+        consumer(item, callback)
     }
 
     @Volatile var closed = false
