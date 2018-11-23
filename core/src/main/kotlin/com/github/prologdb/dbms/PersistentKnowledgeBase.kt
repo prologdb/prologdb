@@ -21,8 +21,11 @@ import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.FactStoreFeature
 import com.github.prologdb.storage.fact.FactStoreLoader
+import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+
+private val log = LoggerFactory.getLogger("prologdb.dbmanager")
 
 /**
  * The central element of the database management system (compare RDBMS). For every
@@ -108,8 +111,28 @@ class PersistentKnowledgeBase(
         }
     }
 
+    private val closingMutex = Any()
+    private @Volatile var closed = false
+
     fun close() {
-        TODO()
+        if (closed) return
+        synchronized(closingMutex) {
+            if (closed) return
+            closed = true
+        }
+
+        // TODO: close open queries
+
+        for (factStore in factStores.values) {
+            log.debug("Closing fact store {}, ", factStore.indicator)
+            try {
+                factStore.close()
+                log.info("Closed fact store {}", factStore.indicator)
+            }
+            catch (ex: Throwable) {
+                log.error("Failed to close fact store ${factStore.indicator}", ex)
+            }
+        }
     }
 
     override fun fulfill(query: Query, authorization: Authorization, randomVariableScope: RandomVariableScope): LazySequence<Unification> {

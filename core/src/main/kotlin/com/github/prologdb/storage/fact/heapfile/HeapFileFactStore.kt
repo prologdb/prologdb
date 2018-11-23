@@ -127,4 +127,9 @@ class HeapFileFactStore(
             )
         }
     }
+
+    override fun close() {
+        heapFile.close()
+        bufferOutStream.clear()
+    }
 }

@@ -100,4 +100,8 @@ class MemoryFactStore(override val indicator: ClauseIndicator) : FactStore {
             }
         }
     }
+
+    override fun close() {
+        // nothing to to, really
+    }
 }

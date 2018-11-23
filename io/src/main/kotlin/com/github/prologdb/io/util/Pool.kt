@@ -31,7 +31,7 @@ class Pool<T>(
      * the object is not returned to the pool.
      */
     fun <R> using(action: (T) -> R): R {
-        val o = storage.poll() ?: initializer()
+        val o = get()
         val r = action(o)
         free(o)
 
@@ -45,5 +45,12 @@ class Pool<T>(
     fun free(o: T) {
         sanitizer(o)
         storage.offer(o)
+    }
+
+    /**
+     * Releases all the objects in the pool.
+     */
+    fun clear() {
+        storage.clear()
     }
 }

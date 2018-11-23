@@ -118,3 +118,7 @@ data class QuerySolutionMessage(
 
     val solution: Unification
 ) : ProtocolMessage()
+
+@ToClient
+@ToServer
+class ConnectionCloseEvent : ProtocolMessage()

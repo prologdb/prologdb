@@ -4,7 +4,13 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologDeserializationException
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
-import com.github.prologdb.net.*
+import com.github.prologdb.net.PrologDeserializationException
+import com.github.prologdb.net.PrologParseException
+import com.github.prologdb.net.QueryRelatedException
+import com.github.prologdb.net.async.AsyncByteChannelDelimitedProtobufReader
+import com.github.prologdb.net.async.AsyncChannelProtobufOutgoingQueue
+import com.github.prologdb.net.async.PipeClosedException
+import com.github.prologdb.net.async.writeDelimitedTo
 import com.github.prologdb.net.session.*
 import com.github.prologdb.net.v1.messages.*
 import com.github.prologdb.net.v1.messages.GeneralError
@@ -48,6 +54,11 @@ internal class ProtocolVersion1SessionHandle(
         val incomingVersionMessages = AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel).observable
 
         incomingMessages = incomingVersionMessages
+            .doOnEach { it ->
+                if (it.isOnNext && it.value!!.commandCase == ToServer.CommandCase.GOODBYE) {
+                    closeSession()
+                }
+            }
             .map { versionMessage ->
                 when (versionMessage.commandCase!!) {
                     ToServer.CommandCase.CONSUME_RESULTS -> Optional.of(versionMessage.consumeResults.toIndependent())
@@ -93,6 +104,8 @@ internal class ProtocolVersion1SessionHandle(
                         ).toProtocol())
                         Optional.empty()
                     }
+                    // this should have been handled earlier
+                    ToServer.CommandCase.GOODBYE -> Optional.of(ConnectionCloseEvent())
                 }
             }
             .filter { it.isPresent }
@@ -103,7 +116,7 @@ internal class ProtocolVersion1SessionHandle(
                 } else {
                     ToClient.newBuilder()
                         .setServerError(GeneralError.newBuilder()
-                            .setMessage(ex.message)
+                            .setMessage(ex.message ?: "")
                             .build()
                         )
                         .build()
@@ -125,6 +138,14 @@ internal class ProtocolVersion1SessionHandle(
     }
 
     override fun closeSession() {
+        try {
+            outQueue.queue(ToClient.newBuilder()
+                .setGoodbye(Goodbye.getDefaultInstance())
+                .build()
+            )
+        }
+        catch (ex: PipeClosedException) {}
+
         outQueue.close()
         channel.close()
     }

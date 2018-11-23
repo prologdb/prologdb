@@ -1,14 +1,15 @@
 package com.github.prologdb.net.session
 
 import com.github.prologdb.net.HandshakeFailedException
+import com.github.prologdb.net.async.readSingleDelimited
+import com.github.prologdb.net.async.writeDelimitedTo
 import com.github.prologdb.net.negotiation.*
 import com.github.prologdb.net.negotiation.ToClient
 import com.github.prologdb.net.negotiation.ToServer
-import com.github.prologdb.net.readSingleDelimited
 import com.github.prologdb.net.session.handle.SessionHandle
-import com.github.prologdb.net.writeDelimitedTo
 import com.google.protobuf.InvalidProtocolBufferException
 import io.reactivex.Single
+import io.reactivex.subjects.SingleSubject
 import java.nio.channels.AsynchronousByteChannel
 
 /**
@@ -53,11 +54,14 @@ class SessionInitializer(
                 shb.vendor = serverVendorName
             }
 
-            return@flatMap com.github.prologdb.net.negotiation.ToClient.newBuilder()
+            val onHelloSent = SingleSubject.create<Unit>()
+            com.github.prologdb.net.negotiation.ToClient.newBuilder()
                     .setHello(shb.build())
                     .build()
-                    .writeDelimitedTo(channel)
-                    .flatMap { versionHandleFactories[targetVersion]!!(channel, clientHello) }
+                    .writeDelimitedTo(channel, onHelloSent)
+
+            return@flatMap onHelloSent
+                .flatMap { versionHandleFactories[targetVersion]!!(channel, clientHello) }
         }
         .doOnError { ex ->
             val error = when (ex) {
