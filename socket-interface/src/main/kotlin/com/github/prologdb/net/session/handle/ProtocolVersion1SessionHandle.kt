@@ -25,10 +25,13 @@ import com.github.prologdb.runtime.unification.VariableBucket
 import com.google.protobuf.ByteString
 import com.google.protobuf.GeneratedMessageV3
 import io.reactivex.Observable
+import io.reactivex.subjects.PublishSubject
 import org.slf4j.LoggerFactory
 import java.io.DataOutputStream
 import java.nio.channels.AsynchronousByteChannel
 import java.util.*
+import java.util.concurrent.Callable
+import java.util.function.Consumer
 
 private val log = LoggerFactory.getLogger("prologdb.network")
 
@@ -51,7 +54,14 @@ internal class ProtocolVersion1SessionHandle(
     private val prologWriter = ProtocolVersion1PrologWriter(binaryWriter)
 
     init {
-        val incomingVersionMessages = AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel).observable
+        val incomingVersionMessages = PublishSubject.create<ToServer>()
+        AsyncByteChannelDelimitedProtobufReader(
+            ToServer::class.java,
+            channel,
+            Consumer { incomingVersionMessages.onNext(it) },
+            Consumer { incomingVersionMessages.onError(it) },
+            Callable<Unit> { incomingVersionMessages.onComplete() }
+        )
 
         incomingMessages = incomingVersionMessages
             .doOnEach { it ->

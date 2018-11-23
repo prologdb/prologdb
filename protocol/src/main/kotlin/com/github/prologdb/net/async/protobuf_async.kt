@@ -11,7 +11,6 @@ import java.nio.channels.AsynchronousByteChannel
 import java.nio.channels.CompletionHandler
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
-import java.util.concurrent.Future
 import kotlin.experimental.and
 
 // buffer space for all purposes
@@ -104,7 +103,7 @@ fun AsynchronousByteChannel.readVarUInt32(): CompletionStage<Long> {
     return future
 }
 
-fun <T : GeneratedMessageV3> AsynchronousByteChannel.readSingleDelimited(typeClass: Class<T>): Future<T> {
+fun <T : GeneratedMessageV3> AsynchronousByteChannel.readSingleDelimited(typeClass: Class<T>): CompletionStage<T> {
     if (typeClass == GeneratedMessageV3::class.java) {
         throw IllegalArgumentException("\$typeClass must be a subclass of ${GeneratedMessageV3::class.java.name}")
     }

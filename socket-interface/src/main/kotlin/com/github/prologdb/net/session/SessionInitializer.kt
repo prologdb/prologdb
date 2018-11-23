@@ -8,9 +8,9 @@ import com.github.prologdb.net.negotiation.ToClient
 import com.github.prologdb.net.negotiation.ToServer
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.google.protobuf.InvalidProtocolBufferException
-import io.reactivex.Single
-import io.reactivex.subjects.SingleSubject
 import java.nio.channels.AsynchronousByteChannel
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 
 /**
  * Performs the handshake with a connection and returns a [SessionHandle] from that.
@@ -18,7 +18,7 @@ import java.nio.channels.AsynchronousByteChannel
 class SessionInitializer(
     private val serverVendorName: String?,
     private val serverVersion: SemanticVersion,
-    private val versionHandleFactories: Map<SemanticVersion, (AsynchronousByteChannel, ClientHello) -> Single<SessionHandle>>
+    private val versionHandleFactories: Map<SemanticVersion, (AsynchronousByteChannel, ClientHello) -> CompletionStage<SessionHandle>>
 ) {
     private val preferredVersion: SemanticVersion = versionHandleFactories.keys
         .asSequence()
@@ -30,8 +30,8 @@ class SessionInitializer(
      * Performs the handshake with the oder side and initializes a suitable
      * [SessionHandle] instance for the negotiated parameters.
      */
-    fun init(channel: AsynchronousByteChannel): Single<SessionHandle> {
-        return channel.readSingleDelimited(ToServer::class.java).flatMap { clientHelloEnvelope ->
+    fun init(channel: AsynchronousByteChannel): CompletionStage<SessionHandle> {
+        return channel.readSingleDelimited(ToServer::class.java).thenCompose<SessionHandle> { clientHelloEnvelope ->
             val clientHello = clientHelloEnvelope.hello!!
 
             val targetVersion: SemanticVersion? = if (clientHello.desiredProtocolVersionList.isEmpty()) {
@@ -54,16 +54,18 @@ class SessionInitializer(
                 shb.vendor = serverVendorName
             }
 
-            val onHelloSent = SingleSubject.create<Unit>()
+            val onHelloSent = CompletableFuture<Unit>()
             com.github.prologdb.net.negotiation.ToClient.newBuilder()
                     .setHello(shb.build())
                     .build()
                     .writeDelimitedTo(channel, onHelloSent)
 
-            return@flatMap onHelloSent
-                .flatMap { versionHandleFactories[targetVersion]!!(channel, clientHello) }
+            return@thenCompose onHelloSent
+                .thenCompose { versionHandleFactories[targetVersion]!!(channel, clientHello) }
         }
-        .doOnError { ex ->
+        .whenComplete { _, ex ->
+            if (ex == null) return@whenComplete
+
             val error = when (ex) {
                 is InvalidProtocolBufferException ->
                     ServerError.newBuilder()

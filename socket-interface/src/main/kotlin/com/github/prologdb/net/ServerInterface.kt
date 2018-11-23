@@ -389,38 +389,38 @@ class ServerInterface(
             }
 
             try {
-                sessionInitializer.init(channel)
+                Single.fromFuture(sessionInitializer.init(channel).toCompletableFuture())
                     .map {
                         Pair(it, this@ServerInterface.databaseEngine.initializeSession())
                     }
                     .subscribeBy(
-                    onSuccess= { (handle, sessionState) ->
-                        handle.sessionState = sessionState
-                        openSessions.add(handle)
+                        onSuccess= { (handle, sessionState) ->
+                            handle.sessionState = sessionState
+                            openSessions.add(handle)
 
-                        handle.incomingMessages.subscribeBy(
-                            onNext = { handleMessage(it, handle) },
-                            onError = { ex ->
-                                if (ex is QueryRelatedException) {
-                                    handle.queueMessage(ex.errorObject)
-                                } else {
-                                    // TODO: log properly
-                                    ex.printStackTrace(System.err)
-                                    handle.closeSession()
+                            handle.incomingMessages.subscribeBy(
+                                onNext = { handleMessage(it, handle) },
+                                onError = { ex ->
+                                    if (ex is QueryRelatedException) {
+                                        handle.queueMessage(ex.errorObject)
+                                    } else {
+                                        // TODO: log properly
+                                        ex.printStackTrace(System.err)
+                                        handle.closeSession()
+                                    }
+                                },
+                                onComplete = {
+                                    openSessions.remove(handle)
+                                    this@ServerInterface.databaseEngine.onSessionDestroyed(handle.sessionState)
                                 }
-                            },
-                            onComplete = {
-                                openSessions.remove(handle)
-                                this@ServerInterface.databaseEngine.onSessionDestroyed(handle.sessionState)
-                            }
-                        )
-                    },
-                    onError = { ex ->
-                        log.info("Failed to negotiate session parameters with client, closing connection.")
-                        ex.printStackTrace(System.err)
-                        channel.close()
-                    }
-                )
+                            )
+                        },
+                        onError = { ex ->
+                            log.info("Failed to negotiate session parameters with client, closing connection.")
+                            ex.printStackTrace(System.err)
+                            channel.close()
+                        }
+                    )
             }
             catch (ex: Throwable) {
                 log.info("Failed to negotiate session parameters with client, closing connection.")

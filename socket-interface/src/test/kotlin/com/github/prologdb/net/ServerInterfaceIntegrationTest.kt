@@ -26,13 +26,13 @@ import io.kotlintest.*
 import io.kotlintest.extensions.TestListener
 import io.kotlintest.matchers.collections.contain
 import io.kotlintest.specs.FreeSpec
-import io.reactivex.Single
-import io.reactivex.subjects.SingleSubject
 import java.lang.Math.ceil
 import java.net.Socket
 import java.nio.channels.AsynchronousByteChannel
 import java.nio.charset.Charset
 import java.util.*
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 import com.github.prologdb.net.negotiation.ToClient as ToClientHS
 import com.github.prologdb.net.negotiation.ToServer as ToServerHS
 
@@ -542,14 +542,14 @@ private fun Socket.startDirective(id: Int, command: String) {
         .writeDelimitedTo(getOutputStream())
 }
 
-private val ProtoclVersion1HandleFactory: (AsynchronousByteChannel, ClientHello) -> Single<SessionHandle> = { channel, _ ->
-    val source = SingleSubject.create<SessionHandle>()
-    source.onSuccess(ProtocolVersion1SessionHandle(
+private val ProtoclVersion1HandleFactory: (AsynchronousByteChannel, ClientHello) -> CompletionStage<SessionHandle> = { channel, _ ->
+    val future = CompletableFuture<SessionHandle>()
+    future.complete(ProtocolVersion1SessionHandle(
         UUID.randomUUID().toString(),
         channel,
         IsoOpsStatelessParserDelegate,
         BinaryPrologReader.getDefaultInstance(),
         BinaryPrologWriter.getDefaultInstance()
     ))
-    source
+    future
 }
