@@ -10,7 +10,6 @@ import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.google.protobuf.ByteString
 import java.net.Socket
-import java.nio.charset.Charset
 import kotlin.concurrent.thread
 import com.github.prologdb.net.negotiation.ToClient as ToClientHS
 import com.github.prologdb.net.negotiation.ToServer as ToServerHS
@@ -189,7 +188,7 @@ private val PROTOCOL_VERSION1_SEMVER = SemanticVersion.newBuilder()
 
 private val String.asNetworkQuery: Query
     get() = Query.newBuilder()
-        .setData(ByteString.copyFrom(this, Charset.defaultCharset()))
+        .setData(ByteString.copyFrom(this, Charsets.UTF_8))
         .setType(Query.Type.STRING)
         .build()
 
