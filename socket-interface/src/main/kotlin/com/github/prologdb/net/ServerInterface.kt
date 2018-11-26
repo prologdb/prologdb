@@ -153,13 +153,12 @@ class ServerInterface(
             return
         }
 
-        if (context.closed) {
-            return
+        try {
+            context.doWith {
+                it.registerConsumptionRequest(command)
+            }
         }
-
-        context.doWith {
-            it.registerConsumptionRequest(command)
-        }
+        catch (ex: QueryContextClosedException) { /* ignore */ }
     }
 
     private fun handleClientError(error: GeneralError, handle: SessionHandle) {

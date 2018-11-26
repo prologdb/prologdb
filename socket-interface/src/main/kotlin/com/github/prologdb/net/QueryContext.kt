@@ -73,10 +73,10 @@ internal class QueryContext(
      * case.
      */
     fun <T> doWith(action: (ActionInterface) -> T): T {
-        if (closed) throw IllegalStateException("Query context already closed.")
+        if (closed) throw QueryContextClosedException()
 
         return lock.withLock {
-            if (closed) throw IllegalStateException("Query context already closed!")
+            if (closed) throw QueryContextClosedException()
             action(actionInterface)
         }
     }
@@ -178,3 +178,5 @@ internal class QueryContext(
         fun onError(queryId: Int, ex: Throwable)
     }
 }
+
+class QueryContextClosedException : IllegalStateException()
