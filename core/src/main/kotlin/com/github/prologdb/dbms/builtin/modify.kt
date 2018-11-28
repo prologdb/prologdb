@@ -9,10 +9,10 @@ import com.github.prologdb.runtime.unification.Unification
 
 private val Builtin_Assert_1 = databaseBuiltin("assert", 1) { args, ctxt ->
     val arg0 = args[0] as? Predicate
-        ?: throw PrologRuntimeException("Argument 0 to assert/1 must be a predicate, got ${args[0].prologTypeName}")
+        ?: throw PrologRuntimeException("Argument 1 to assert/1 must be a predicate, got ${args[0].prologTypeName}")
 
     if (arg0.arity == 2 && arg0.name == ":-") {
-        TODO("adding rules not implemented yet")
+        throw PrologRuntimeException("Cannot assert rules; you need to declare them in a library.")
     } else {
         val indicator = ClauseIndicator.of(arg0)
         if (!ctxt.authorization.mayWrite(indicator)) {
