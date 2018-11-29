@@ -1,13 +1,36 @@
 # Query execution plans
 
+The prologdb can be seen as a prolog runtime with persistent state. Contrary to what one might
+think then, the language with which to program/instruct that runtime is **not** prolog. It is
+the execution plan. When prologdb receives a prolog query, the execution planner first
+converts the query into an execution plan. The plan is then executed.
+This has a bunch of advantages:
+
+* when asked to show the execution plan to a prolog query, the result is *guaranteed* to be
+  correct (correct as in: "what actually happens", not as in "what is supposed to happen")
+* the execution plan contains all the detail useful for optimizing performance so that the
+  prolog queries do not need to concern themselves with expressing such detail (e.g. what index
+  to use, ...)
+* developers can send queries as execution-plans (rather than prolog) to gain a better understanding
+  of the execution plans (ultimately making them better at optimizing indices and planner settings).  
+  Taken to an extreme, one could also use this to write queries optimized in ways that the planner
+  is just not capable of (or including implicit assumptions that the planner just cannot reasonably
+  make).
+  
+This document defines the execution plan language. This document is authoritative when it comes
+to interpreting execution plans (which also means prologdb has to interpret its own execution
+plans in the way defined here).
+
 ## Background Information
 
-When prologdb stores a predicate with `assert/1` the predicate gets assigned a *persistence id*.
-This ID is unique to the indicator, e.g. unique among all instances of `foo/2` but may be duplicate
-across indicators.
+Here is some background information to aid in understanding the atomics of the execution plan
+language:
 
-When a stored predicate qualifies to be indexed, the indexed data of the instance is written to
-the index along with the persistence id of the original record. When querying an index,
+When prologdb stores a fact with `assert/1` the fact gets assigned a *persistence id*.
+This ID is unique to the predicate, e.g. unique among all instances of `foo/2`.
+
+When a stored fact qualifies to be indexed, the indexed data of the fact is written to
+the index along with the persistence id of the original fact. When querying an index,
 only persistence ids and the indexed data can be obtained. To get the entire instance,
 the fact store has to be consulted using the persistence id.
 
@@ -18,34 +41,5 @@ and as such readers of execution plans must be aware of that mechanism.
 Facts and rules are treated very separately: rules are either inlined into the query or are
 a completely separate query apart from the query that calls them (compare SQL sub-query). 
 
+# Execution Plan Language
 
-## Structure
-
-Execution plans are formatted as prolog code, a special syntax similar to that of prolog
-queries. `|` denotes a conjunction/join just like the `,` in prolog whereas `;` denotes
-a combination/union (same as in prolog). The operands these act upon are different than in
-prolog, though.
-
-Each operand is a function invocation, denoted by a prolog predicate (e.g. `fact_scan(foo/3)`).
-Functions MAY take an arbitrary number of arguments, MAY produce a sequence as output and MAY
-take a value as their primary input. The `|` operator pipes two functions together: for each
-element in the sequence returned by the left-hand-side function, the function on the right
-hand side is invoked with the element as the primary input.  
-For example: given this prolog query: `foo(X), bar(X, Y)`: `foo(X)` returns a sequence of
-solutions, each instantiating X. For every solution, the next predicate is sort-of given that
-solution as an input (so that the `X` in `bar(X, Y)` can be replaced with its instantiation
-from the `foo(X)` query). The `bar(X, Y)` is then run, producing another sequence of solutions.  
-The execution plan for `foo(X), bar(X, Y)` may look like so:
-
-    fact_scan(foo/1) | unify(foo(X)) | fact_scan(bar(X, Y))
-    
-Here, `fact_scan` produces a sequence of all facts known for `foo/1`. Each of these facts is 
-then given to `unify`, which takes the fact as the primary input and yields the unification
-as an output (if any). 
-
-Query: `foo(a)`  
-Plan: `fact_scan(foo/1) | unify(foo(a))`
-
-### `fact_scan(indicator) -> seq<[+, predicate]>`
-
-### `[+, predicate]`
