@@ -228,7 +228,7 @@ Consider these facts stored:
 |             3 | `a(5, baz)`           |
 |             6 | `a(2, foo)`           |
 
-And this index used: `:- index(pk, (a(A), number(A)), [constant_time_read])`. 
+And this index used: `:- index(pk, (a(A, _), number(A)), [constant_time_read])`. 
 
 Then this query can be optimized using the index: `a(2, X)`:
 
