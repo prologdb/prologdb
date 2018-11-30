@@ -114,7 +114,8 @@ are used. These have a simple type system associated with them:
 
 Types available:
 
-* `=` (Unification ; a set of variable-value pairs)
+* `=` (Unification ; a set of variable-value pairs). Written as a list of `=/2` instances, e.g.
+  `[A = 1, B = foo]`
 * `+` (Persistence ID)
 * `fact` (A predicate instance, e.g. `bar(2)`)
 * `atom` (A prolog atom, used for indentifiers)
@@ -127,8 +128,11 @@ Types available:
 
 ### `* -> fact_scan(indicator) -> [fact, +]`
 
-**Input**: discards the input  
-**Action**: Reads all facts of the given indicator from the underlying store (from disk, or, if available,
+**Input**: is discarded  
+**Arguments**:
+1. The indicator of the facts to scan
+
+**Action**: reads all facts of the given indicator from the underlying store (from disk, or, if available,
 from cache).  
 **Yields**: the facts along with their associated persistence ID.  
 **Instantiates**: nothing.
@@ -136,6 +140,9 @@ from cache).
 This is the equivalent of an SQL table-scan
 
 ### `[fact, +] -> unify(fact) -> +`
+
+**Arguments:**
+1. The fact unify with, usually as given in the prolog query
 
 **Action:**  Does an isolated unification of the input fact with the argument fact.
 **Yields:** The input persistence ID if the unification succeeds.
@@ -185,6 +192,60 @@ However, prolog first randomizes the variables in both the goal and rule before 
 5. The final result is `X = 1`
 
 Step 1 to 3 are an isolated unification.
+
+### `+ fact_get(indicator) -> [fact, +]`
+
+**Input**: the persistence ID of the fact to read
+**Arguments:**
+1. the indicator of the fact to read
+
+**Action**: reads a single fact from the store of the indicator, using the given persistence ID.
+**Yields:** the fact associated with the persistence id 
+**Instantiates:** nothing
+
+### `* -> lookup(indicator, atom, =) -> +`
+
+An index-lookup
+
+**Input**: is discarded  
+**Arguments**:
+1. The indicator whichs facts are being looked up
+2. Name of the index (is unique for the indicator)
+3. The index keys to look up
+
+**Action**: Looks up predicate IDs for the given indicator where the indexed values
+match those given in the 3rd argument.
+**Yields**: the matching persistence IDs.
+
+#### Example
+
+Consider these facts stored:
+
+| PersistenceID | Fact                  |
+|---------------|-----------------------|
+|             1 | `a(1, foo)`           |
+|             2 | `a(2, bar)`           |
+|             3 | `a(5, baz)`           |
+|             6 | `a(2, foo)`           |
+
+And this index used: `:- index(pk, (a(A), number(A)), [constant_time_read])`. 
+
+Then this query can be optimized using the index: `a(2, X)`:
+
+    lookup(a/2, pk, [A = 2]) | fact_get(a/2) | unify(a(_, X))
+    
+### `[fact, +] -> fact_delete(indicator) -> void`<br> `+ -> fact_delete(indicator) -> void` 
+
+Deletes a fact
+
+**Input**: care only about the persistence ID, two overloads for compatibility with
+`index_lookup`, `unify` and `fact_scan`.
+**Arguments**:
+1. The indicator of the fact to delete
+
+**Action**: deletes the fact associated with the persistence ID from the fact store.
+**Yields**: one empty element if the fact existed within the fact store, nothing otherwise.
+**Instantiates**: nothing
 
 [bash pipes]: https://ryanstutorials.net/linuxtutorial/piping.php
 [jq]: https://stedolan.github.io/jq/tutorial/ 
