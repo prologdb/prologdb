@@ -134,7 +134,7 @@ Types available:
 
 **Action**: reads all facts of the given indicator from the underlying store (from disk, or, if available,
 from cache).  
-**Yields**: the facts along with their associated persistence ID.  
+**Yields**: the facts along with their associated persistence ID.    
 **Instantiates**: nothing.
 
 This is the equivalent of an SQL table-scan
@@ -144,9 +144,9 @@ This is the equivalent of an SQL table-scan
 **Arguments:**
 1. The fact unify with, usually as given in the prolog query
 
-**Action:**  Does an isolated unification of the input fact with the argument fact.
-**Yields:** The input persistence ID if the unification succeeds.
-**Instantiates:** the variables found in the argument fact
+**Action:**  Does an isolated unification of the input fact with the argument fact.  
+**Yields:** The input persistence ID if the unification succeeds.  
+**Instantiates:** the variables found in the argument fact  
 
 An isolated unification is different from a regular unification in that the variable scopes
 are of LHS and RHS are separated, e.g.:
@@ -195,12 +195,12 @@ Step 1 to 3 are an isolated unification.
 
 ### `+ fact_get(indicator) -> [fact, +]`
 
-**Input**: the persistence ID of the fact to read
+**Input**: the persistence ID of the fact to read  
 **Arguments:**
 1. the indicator of the fact to read
 
-**Action**: reads a single fact from the store of the indicator, using the given persistence ID.
-**Yields:** the fact associated with the persistence id 
+**Action**: reads a single fact from the store of the indicator, using the given persistence ID.    
+**Yields:** the fact associated with the persistence id  
 **Instantiates:** nothing
 
 ### `* -> lookup(indicator, atom, =) -> +`
@@ -214,7 +214,7 @@ An index-lookup
 3. The index keys to look up
 
 **Action**: Looks up predicate IDs for the given indicator where the indexed values
-match those given in the 3rd argument.
+match those given in the 3rd argument.  
 **Yields**: the matching persistence IDs.
 
 #### Example
@@ -239,12 +239,12 @@ Then this query can be optimized using the index: `a(2, X)`:
 Deletes a fact
 
 **Input**: care only about the persistence ID, two overloads for compatibility with
-`index_lookup`, `unify` and `fact_scan`.
+`index_lookup`, `unify` and `fact_scan`.  
 **Arguments**:
 1. The indicator of the fact to delete
 
-**Action**: deletes the fact associated with the persistence ID from the fact store.
-**Yields**: one empty element if the fact existed within the fact store, nothing otherwise.
+**Action**: deletes the fact associated with the persistence ID from the fact store.  
+**Yields**: one empty element if the fact existed within the fact store, nothing otherwise.  
 **Instantiates**: nothing
 
 [bash pipes]: https://ryanstutorials.net/linuxtutorial/piping.php
