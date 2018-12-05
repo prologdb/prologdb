@@ -234,18 +234,21 @@ Then this query can be optimized using the index: `a(2, X)`:
 
     lookup(a/2, pk, [A = 2]) | fact_get(a/2) | unify(a(_, X))
     
-### `[fact, +] -> fact_delete(indicator) -> void`<br> `+ -> fact_delete(indicator) -> void` 
+### `[fact, +] -> fact_delete(indicator) -> void` 
 
 Deletes a fact
 
-**Input**: care only about the persistence ID, two overloads for compatibility with
-`index_lookup`, `unify` and `fact_scan`.  
+**Input**: cares only about the persistence ID
 **Arguments**:
 1. The indicator of the fact to delete
 
 **Action**: deletes the fact associated with the persistence ID from the fact store.  
 **Yields**: one empty element if the fact existed within the fact store, nothing otherwise.  
 **Instantiates**: nothing
+
+#### Overloads
+
+* `+ -> fact_delete_0(indicator) -> void`
 
 [bash pipes]: https://ryanstutorials.net/linuxtutorial/piping.php
 [jq]: https://stedolan.github.io/jq/tutorial/ 
