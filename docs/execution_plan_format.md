@@ -64,7 +64,7 @@ present in the last functor/stage, not the result element of the functor.*
 
 For example, lets look at the `fact_scan` functor:
 
-    * -> fact_scan(indicator) -> [fact, +]
+    * -> fact_scan(indicator) -> [+, fact]
     
 This signature means "Takes anything as input (`*`), takes one argument which is a predicate
 indicator and yields a sequence of facts along with their persistence id (`+`)."
@@ -77,7 +77,7 @@ Which would cause prologdb to read all facts of `bar/1` off the disk (and then d
 
 To actually make use of that, we can combine it with the `unify` functor:
 
-    [fact, +] -> unify(fact) -> +
+    [+, fact] -> unify(fact) -> +
     
 It works pretty much like `=/2` does in prolog: the functor unifies the input fact and
 the argument fact. If unification succeeds, it yields the input persistence id and instantiates
@@ -121,12 +121,12 @@ Types available:
 * `atom` (A prolog atom, used for indentifiers)
 * `*` any value, used only for functor input.
 * `void` no value
-* `[A, B, ...]` tuple of values of type A and B, e.g. `[fact, +]` is a tuple of a fact and a persistence ID
+* `[A, B, ...]` tuple of values of type A and B, e.g. `[+, fact]` is a tuple of a persistence id a fact
 * `indicator` a predicate indicator, e.g. `bar/1`
 
 ## Functors
 
-### `* -> fact_scan(indicator) -> [fact, +]`
+### `* -> fact_scan(indicator) -> [+, fact]`
 
 **Input**: is discarded  
 **Arguments**:
@@ -139,7 +139,7 @@ from cache).
 
 This is the equivalent of an SQL table-scan
 
-### `[fact, +] -> unify(fact) -> +`
+### `[+, fact] -> unify(fact) -> +`
 
 **Arguments:**
 1. The fact unify with, usually as given in the prolog query
@@ -193,7 +193,7 @@ However, prolog first randomizes the variables in both the goal and rule before 
 
 Step 1 to 3 are an isolated unification.
 
-### `+ fact_get(indicator) -> [fact, +]`
+### `+ fact_get(indicator) -> [+, fact]`
 
 **Input**: the persistence ID of the fact to read  
 **Arguments:**
@@ -234,11 +234,11 @@ Then this query can be optimized using the index: `a(2, X)`:
 
     lookup(a/2, pk, [A = 2]) | fact_get(a/2) | unify(a(_, X))
     
-### `[fact, +] -> fact_delete(indicator) -> void` 
+### `+ -> fact_delete(indicator) -> void` 
 
 Deletes a fact
 
-**Input**: cares only about the persistence ID
+**Input**: the persistence ID of the fact to delete
 **Arguments**:
 1. The indicator of the fact to delete
 
@@ -248,7 +248,8 @@ Deletes a fact
 
 #### Overloads
 
-* `+ -> fact_delete_0(indicator) -> void`
+* `[+, fact] -> fact_delete_0(indicator) -> void`  
+  Ignores the input fact.
 
 [bash pipes]: https://ryanstutorials.net/linuxtutorial/piping.php
 [jq]: https://stedolan.github.io/jq/tutorial/ 
