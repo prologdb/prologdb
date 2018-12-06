@@ -13,3 +13,8 @@ dist/
 nbdist/
 .nb-gradle/
 nbactions.xml
+
+# VS Code
+.project
+.classpath
+.settings
