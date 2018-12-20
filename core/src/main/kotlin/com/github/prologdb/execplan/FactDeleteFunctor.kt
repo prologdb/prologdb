@@ -21,7 +21,7 @@ class FactDeleteFunctor(
         
         return inputs.flatMapRemaining { (variableCarry, persistenceID) ->
             val present = await(delete(ctxt, indicator, persistenceID, factStore))
-            if (present) LazySequence.of(Pair(variableCarry, Unit)) else LazySequence.empty()
+            if (present) yield(Pair(variableCarry, Unit))
         }
     }
 
@@ -38,7 +38,7 @@ class FactDeleteFunctorOverload0(
         
         return inputs.flatMapRemaining { (variableCarry, pidAndFact) ->
             val present = await(delete(ctxt, indicator, pidAndFact.first, factStore))
-            if (present) LazySequence.of(Pair(variableCarry, Unit)) else LazySequence.empty()
+            if (present) yield(Pair(variableCarry, Unit))
         }
     }
 

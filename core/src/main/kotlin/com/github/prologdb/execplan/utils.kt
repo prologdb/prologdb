@@ -6,5 +6,5 @@ import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.term.PrologInteger
 
 internal fun ClauseIndicator.toIdiomatic(): Predicate = object : Predicate("/", arrayOf(Atom(name), PrologInteger.createUsingStringOptimizerCache(arity.toLong()))) {
-    override fun toString() = "$name/$arity"
+    override fun toString() = "${this@toIdiomatic.name}/${this@toIdiomatic.arity}"
 }

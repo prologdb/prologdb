@@ -2,6 +2,7 @@ package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.flatMapRemaining
+import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologStackTraceElement
@@ -31,9 +32,12 @@ class FactScanFunctor(
         
         return inputs
             .flatMapRemaining<Pair<VariableBucket, Any?>, Pair<VariableBucket, Pair<PersistenceID, Predicate>>> { (variableCarry, _) ->
-                factStore.all(ctxt.principal).flatMapRemaining<Pair<PersistenceID, Predicate>, Pair<VariableBucket, Pair<PersistenceID, Predicate>>> { (persistenceID, fact) ->
-                    Pair(variableCarry, Pair(persistenceID, fact))
-                }
+                yieldAll(
+                    factStore.all(ctxt.principal)
+                        .mapRemaining { (persistenceID, fact) ->
+                            Pair(variableCarry, Pair(persistenceID, fact))
+                        }
+                )
             }
             .amendExceptionsWithStackTraceOnRemaining(stackFrame)
     }

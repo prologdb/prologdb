@@ -20,13 +20,15 @@ class FactGetFunctor(
         }
         
         return inputs.flatMapRemaining { (variableCarry, persistenceID) ->
-            Pair(
+            val retrieved = await(factStore.retrieve(principal, persistenceID))
+            
+            if (retrieved != null) yield(Pair(
                 variableCarry,
                 Pair(
                     persistenceID,
-                    await(factStore.retrieve(principal, persistenceID))
+                    retrieved
                 )
-            )
+            ))
         }
     }
 

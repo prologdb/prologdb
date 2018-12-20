@@ -156,7 +156,10 @@ class PersistentKnowledgeBase(
     {
         override val fulfillAttach: suspend LazySequenceBuilder<Unification>.(Query, VariableBucket) -> Unit = { query, vars ->
             val plan = planner.planExecution(query, this@PersistentKnowledgeBase.planningInformation, randomVariableScope)
-            plan.execute(this, this@PSContext, vars)
+            yieldAll(
+                plan.invoke(this@PSContext, LazySequence.singleton(Pair(vars, Unit), principal))
+                    .mapRemaining { (vars, _) -> Unification(vars) }
+            )
         }
 
         override val factStores: Map<ClauseIndicator, FactStore> = this@PersistentKnowledgeBase.factStores
