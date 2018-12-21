@@ -1,8 +1,7 @@
 package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequenceBuilder
-import com.github.prologdb.async.filterRemainingNotNull
-import com.github.prologdb.async.mapRemaining
+import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.*
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
@@ -39,15 +38,14 @@ class ScanStep(
             val randomGoal = ctxt.randomVariableScope.withRandomVariables(goal, goalMapping)
 
             yieldAll(factStore.all(principal)
-                .mapRemaining { (_, fact) ->
+                .flatMapRemaining { (_, fact) ->
                     val randomFact = ctxt.randomVariableScope.withRandomVariables(fact, VariableMapping())
                     randomGoal.unify(randomFact)?.let { unification ->
                         val resolvedBucket = unification.variableValues.withVariablesResolvedFrom(goalMapping)
                         resolvedBucket.retainAll(goalVariables)
-                        Unification(resolvedBucket)
+                        yield(Unification(resolvedBucket))
                     }
                 }
-                .filterRemainingNotNull()
                 .amendExceptionsWithStackTraceOnRemaining(stackFrame)
             )
         }

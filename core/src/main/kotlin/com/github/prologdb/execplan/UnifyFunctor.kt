@@ -1,8 +1,7 @@
 package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequence
-import com.github.prologdb.async.filterRemainingNotNull
-import com.github.prologdb.async.mapRemaining
+import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.VariableMapping
 import com.github.prologdb.runtime.term.Predicate
@@ -23,7 +22,7 @@ class UnifyFunctor(
         val rhsMapping = VariableMapping()
         val randomRHS = ctxt.randomVariableScope.withRandomVariables(rhs, rhsMapping)
         return inputs
-            .mapRemaining { (variableCarry, pidAndFact) ->
+            .flatMapRemaining { (variableCarry, pidAndFact) ->
                 val (persistenceID, fact) = pidAndFact
                 val randomFact = ctxt.randomVariableScope.withRandomVariables(fact, VariableMapping())
                 randomRHS.unify(randomFact)?.let { unification ->
@@ -31,13 +30,12 @@ class UnifyFunctor(
                     resolvedBucket.retainAll(rhsVariables)
                     try {
                         resolvedBucket.incorporate(variableCarry)
-                        Pair(resolvedBucket, persistenceID)
+                        yield(Pair(resolvedBucket, persistenceID))
                     } catch (ex: VariableDiscrepancyException) {
-                        null
+                        // mismatch, do not yield (equals to prolog false)
                     }
                 }
             }
-            .filterRemainingNotNull()
     }
     
     override val explanation: Predicate
