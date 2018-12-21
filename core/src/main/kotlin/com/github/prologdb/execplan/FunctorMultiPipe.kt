@@ -7,8 +7,7 @@ import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.VariableBucket
 
-
-class UnionFunctor<Input, Output>(
+class FunctorMultiPipe<Input, Output>(
     val steps: Array<PlanFunctor<Input, Output>>
 ): PlanFunctor<Input, Output> {
     override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Input>>): LazySequence<Pair<VariableBucket, Output>> {

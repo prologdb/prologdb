@@ -5,7 +5,7 @@ import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.VariableBucket
 
-class JoinFunctor<Input, Intermediate, Output>(
+class FunctorPipe<Input, Intermediate, Output>(
     val first: PlanFunctor<Input, Intermediate>,
     val second: PlanFunctor<Intermediate, Output>
 ) : PlanFunctor<Input, Output> {

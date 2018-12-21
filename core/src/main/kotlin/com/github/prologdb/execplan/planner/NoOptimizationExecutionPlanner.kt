@@ -27,7 +27,7 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
     }
     
     private fun planUnionExecution(query: OrQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
-        return UnionFunctor(query.goals.map { planExecutionInternal(it, db, randomVariableScope) }.toTypedArray())
+        return FunctorMultiPipe(query.goals.map { planExecutionInternal(it, db, randomVariableScope) }.toTypedArray())
     }
     
     private fun planJoinExecution(query: AndQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
@@ -36,14 +36,14 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
             in Int.MIN_VALUE..0 -> throw RuntimeException("Cannot plan an ${AndQuery::class.qualifiedName} with no goals.")
                               1 -> planExecutionInternal(goals[0], db, randomVariableScope)
                            else -> {
-                               val first = JoinFunctor(
+                               val first = FunctorPipe(
                                    planExecutionInternal(goals[0], db, randomVariableScope),
                                    planExecutionInternal(goals[1], db, randomVariableScope)
                                )
                                
                                return goals.asSequence()
                                    .drop(2)
-                                   .fold(first) { fnc, q -> JoinFunctor(fnc, planExecutionInternal(q, db, randomVariableScope))}
+                                   .fold(first) { fnc, q -> FunctorPipe(fnc, planExecutionInternal(q, db, randomVariableScope))}
                            }
         }
     }
@@ -54,8 +54,8 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
         return if (indicator in db.staticBuiltins) {
             BuiltinInvocationFunctor(query.predicate) as PlanFunctor<Any?, Any?>
         } else {
-            UnionFunctor(arrayOf(
-                JoinFunctor(
+            FunctorMultiPipe(arrayOf(
+                FunctorPipe(
                     FactScanFunctor(ClauseIndicator.of(query.predicate), query::stackFrame),
                     UnifyFunctor(query.predicate)
                 ) as PlanFunctor<Any?, Any?>,
