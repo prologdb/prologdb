@@ -1,7 +1,7 @@
 package com.github.prologdb.indexing.index
 
-import com.github.prologdb.indexing.PredicateArgumentIndex
-import com.github.prologdb.indexing.RangeQueryPredicateArgumentIndex
+import com.github.prologdb.indexing.FactIndex
+import com.github.prologdb.indexing.RangeQueryFactIndex
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
@@ -10,7 +10,7 @@ import kotlin.reflect.full.isSubclassOf
  * * when creating, users can specify features/properties. the application an then choose the best implementation
  * * when querying, the query optimizer can optimize the query based on the features of the available indexes
  */
-enum class IndexFeature(private val predicate: (KClass<out PredicateArgumentIndex>) -> Boolean) {
+enum class IndexFeature(private val predicate: (KClass<out FactIndex>) -> Boolean) {
     /** The index can read entries in O(n) time where n is the number of affected rows */
     CONSTANT_TIME_READ(hasAnnotation(ConstantTimeRead::class)),
 
@@ -18,17 +18,17 @@ enum class IndexFeature(private val predicate: (KClass<out PredicateArgumentInde
     CONSTANT_TIME_WRITE(hasAnnotation(ConstantTimeWrite::class)),
 
     /** The index' data structure allows for range-queries that are not index scans */
-    EFFICIENT_RANGE_QUERIES(implementsInterface(RangeQueryPredicateArgumentIndex::class));
+    EFFICIENT_RANGE_QUERIES(implementsInterface(RangeQueryFactIndex::class));
 
     /** @return Whether the given index implementation claims to support this feature */
-    infix fun isSupportedBy(indexImplClass: KClass<out PredicateArgumentIndex>): Boolean = predicate(indexImplClass)
+    infix fun isSupportedBy(indexImplClass: KClass<out FactIndex>): Boolean = predicate(indexImplClass)
 
     /** @return Whether the given index implementation claims to support this feature */
-    infix fun isSupportedBy(indexImpl: PredicateArgumentIndex): Boolean = predicate(indexImpl::class)
+    infix fun isSupportedBy(indexImpl: FactIndex): Boolean = predicate(indexImpl::class)
 }
 
 /**
- * Marker annotation for [PredicateArgumentIndex]es that can read in O(n) time where n is the number of affected
+ * Marker annotation for [FactIndex]es that can read in O(n) time where n is the number of affected
  * entries.
  */
 @Retention(AnnotationRetention.RUNTIME)
@@ -36,7 +36,7 @@ enum class IndexFeature(private val predicate: (KClass<out PredicateArgumentInde
 annotation class ConstantTimeRead
 
 /**
- * Marker annotation for [PredicateArgumentIndex]ex that can write entries in O(1) time
+ * Marker annotation for [FactIndex]ex that can write entries in O(1) time
  */
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.CLASS)

@@ -48,6 +48,11 @@
             <artifactId>jackson-module-kotlin</artifactId>
             <version>${jackson.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.lmdbjava</groupId>
+            <artifactId>lmdbjava</artifactId>
+            <version>0.6.1</version>
+        </dependency>
 
         <dependency>
             <groupId>io.kotest</groupId>
