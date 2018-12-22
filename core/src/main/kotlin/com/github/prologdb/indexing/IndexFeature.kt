@@ -1,7 +1,8 @@
-package com.github.prologdb.indexing.index
+package com.github.prologdb.indexing
 
-import com.github.prologdb.indexing.FactIndex
-import com.github.prologdb.indexing.RangeQueryFactIndex
+import com.github.prologdb.storage.AcceleratedStorage
+import com.github.prologdb.storage.PersistentStorage
+import com.github.prologdb.storage.VolatileStorage
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
@@ -11,6 +12,18 @@ import kotlin.reflect.full.isSubclassOf
  * * when querying, the query optimizer can optimize the query based on the features of the available indexes
  */
 enum class IndexFeature(private val predicate: (KClass<out FactIndex>) -> Boolean) {
+    /** The index is persistent (does not have to be recreated after the DB process has been stopped. */
+    PERSISTENT(hasAnnotation(PersistentStorage::class) and !hasAnnotation(VolatileStorage::class)),
+    
+    /** The index is volatile; when the [FactIndex] instance is GCed, the index data is lost (has to be rebuilt) */
+    VOLATILE(hasAnnotation(VolatileStorage::class) and !hasAnnotation(PersistentStorage::class)),
+
+    /**
+     * The storage has a cache that is considerably faster than the stores main means of
+     * storage. This also includes 100% in-memory stores.
+     */
+    ACCELERATED(hasAnnotation(AcceleratedStorage::class)),
+    
     /** The index can read entries in O(n) time where n is the number of affected rows */
     CONSTANT_TIME_READ(hasAnnotation(ConstantTimeRead::class)),
 
@@ -47,3 +60,9 @@ private fun implementsInterface(intf: KClass<*>): (KClass<*>) -> Boolean
 
 private fun hasAnnotation(annotationCls: KClass<out Annotation>): (KClass<*>) -> Boolean
         = { cls -> cls.annotations.any { it.annotationClass.isSubclassOf(annotationCls) }}
+
+private infix fun <T> ((T) -> Boolean).and(rhs: (T) -> Boolean): (T) -> Boolean = {
+    this(it) && rhs(it)
+} 
+
+private operator fun <T> ((T) -> Boolean).not(): (T) -> Boolean = { !this(it) }
