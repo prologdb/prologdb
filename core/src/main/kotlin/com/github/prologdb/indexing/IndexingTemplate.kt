@@ -3,10 +3,7 @@ package com.github.prologdb.indexing
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.VariableMapping
 import com.github.prologdb.runtime.query.PredicateQuery
-import com.github.prologdb.runtime.term.Predicate
-import com.github.prologdb.runtime.term.Term
-import com.github.prologdb.runtime.term.Variable
-import com.github.prologdb.runtime.term.isGround
+import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.VariableBucket
 import java.util.*
 import kotlin.reflect.KClass
@@ -92,6 +89,46 @@ class IndexingTemplate(
         }
         
         return true
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is IndexingTemplate) return false
+
+        if (templateFact != other.templateFact) return false
+        if (typeRestrictions != other.typeRestrictions) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = templateFact.hashCode()
+        result = 31 * result + typeRestrictions.hashCode()
+        return result
+    }
+
+    override fun toString(): String {
+        var str = templateFact.toString()
+        
+        if (typeRestrictions.isNotEmpty()) {
+            str += typeRestrictions.asIterable().joinToString(
+                prefix = ", ",
+                separator = ", ",
+                transform = { (variable, typeClass) ->
+                    when (typeClass) {
+                        Atom::class          -> "atom($variable)"
+                        PrologInteger::class -> "integer($variable)"
+                        PrologDecimal::class -> "decimal($variable)"
+                        PrologNumber::class  -> "number($variable)"
+                        String::class        -> "string($variable)"
+                        PrologList::class    -> "is_list($variable)"
+                        else                 -> "$variable is_a ${typeClass.simpleName}"
+                    }
+                }
+            )
+        }
+        
+        return str
     }
     
     // TODO: implement intrinsic serialization/deserialization to avoid any issues with inconsistent implementations in index impls
