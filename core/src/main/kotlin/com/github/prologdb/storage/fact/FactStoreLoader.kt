@@ -5,7 +5,7 @@ import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.storage.StorageException
 
 /**
- * Creates new [FactStore]s for given [ClauseIndicator]s.
+ * Creates [FactStore]s for given [ClauseIndicator]s.
  *
  * Implementations need not be thread safe. Code using objects of this
  * type should synchronize on the loader object.
