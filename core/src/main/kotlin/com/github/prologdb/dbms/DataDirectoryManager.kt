@@ -4,6 +4,7 @@ import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.util.concurrency.locks.PIDLockFile
 import com.github.prologdb.util.metadata.FileMetadataRepository
 import com.github.prologdb.util.metadata.MetadataRepository
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -73,37 +74,7 @@ class DataDirectoryManager private constructor(
             FileMetadataRepository(path)
         }
 
-        /**
-         * Reserves a filename for a file purposed to storing facts.
-         * Then invokes the given code with the path.
-         * Forwards exceptions from `init`; if an exception is thrown,
-         * the path is freed again.
-         * @return forwarded from the `init` function
-         */
-        fun <T> createStorageFile(init: (Path) -> T): T {
-            synchronized(mutex) {
-                var counter = 0
-                var path: Path
-                do {
-                    path = contextDirectory.resolve("storage_facts_$counter")
-                    counter++
-                } while (Files.isRegularFile(path))
-
-                try {
-                    return init(path)
-                }
-                catch (ex: Throwable) {
-                    try {
-                        Files.deleteIfExists(path)
-                    }
-                    catch (ex2: Throwable) {
-                        ex.addSuppressed(ex2)
-                    }
-
-                    throw ex
-                }
-            }
-        }
+        val storageFileManager: StorageFileManager = DirectoryStorageFileManager(contextDirectory)
     }
 
     private fun discoverClauseStoresWithin(path: Path): Set<ClauseStoreScope> {
@@ -137,6 +108,90 @@ class DataDirectoryManager private constructor(
             }
 
             return DataDirectoryManager(dataDirectory)
+        }
+    }
+}
+
+/**
+ * Manages arbitrary-purpose storage files inside a scope/directory,
+ * e.g. all storage files for a predicate indicator.
+ */
+interface StorageFileManager {
+    /**
+     * Reserves a filename. Then invokes the given code with the path.
+     * Forwards exceptions from `init`; if an exception is thrown,
+     * the path is freed again.
+     * @return first: forwarded from the `init` function, second: an ID that
+     * can be used with the [initStorageFile] function to open the file again.
+     */
+    fun <T> initStorageFile(purpose: Purpose, init: (Path) -> T): Pair<T, String>
+
+    /**
+     * If the file with the given ID exists, returns its path.
+     * @throws FileNotFoundException if a file with the given ID does not exist.
+     */
+    @Throws(FileNotFoundException::class)
+    fun getStorageFilePath(id: String): Path
+
+    /**
+     * Denotes the purpose of a storage file created with [createStorageFile].
+     */
+    enum class Purpose {
+        /** Stores entire facts with all data */
+        FACT_FULL,
+        
+        /** Stores index data for a fact */
+        FACT_INDEX
+    }
+}
+
+private class DirectoryStorageFileManager(
+    val directory: Path
+) : StorageFileManager {
+    
+    private val mutex = Any()
+    
+    override fun <T> initStorageFile(purpose: StorageFileManager.Purpose, init: (Path) -> T): Pair<T, String> {
+        synchronized(mutex) {
+            var counter = 0
+            var path: Path
+            var id: String
+            do {
+                id = "storage_${purpose.name.toLowerCase()}_$counter"
+                path = directory.resolve(id)
+                counter++
+            } while (Files.isRegularFile(path))
+
+            try {
+                return Pair(init(path), id)
+            } catch (ex: Throwable) {
+                try {
+                    Files.deleteIfExists(path)
+                } catch (ex2: Throwable) {
+                    ex.addSuppressed(ex2)
+                }
+
+                throw ex
+            }
+        }
+    }
+
+    @Throws(FileNotFoundException::class)
+    override fun getStorageFilePath(id: String): Path {
+        synchronized(mutex) {
+            val directoryAbsolute = directory.toAbsolutePath()
+            val path = directoryAbsolute.resolve(id).toAbsolutePath()
+
+            if (path.nameCount != directoryAbsolute.nameCount + 1) {
+                // ID uses directories -> invalid
+                throw IllegalArgumentException("Storage file ID $id is not valid.")
+            }
+
+            if (!Files.isRegularFile(path)) {
+                throw FileNotFoundException("Storage file with ID $id does not exist")
+            }
+
+            return path
         }
     }
 }

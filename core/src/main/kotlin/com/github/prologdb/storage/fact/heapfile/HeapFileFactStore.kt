@@ -4,6 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.Principal
 import com.github.prologdb.async.launchWorkableFuture
 import com.github.prologdb.dbms.DataDirectoryManager
+import com.github.prologdb.dbms.StorageFileManager
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
@@ -22,7 +23,6 @@ import com.github.prologdb.util.metadata.load
 import java.io.DataOutput
 import java.io.DataOutputStream
 import java.nio.ByteBuffer
-import java.nio.file.Paths
 import java.util.concurrent.Future
 
 /**
@@ -103,20 +103,20 @@ class HeapFileFactStore(
         override val type = HeapFileFactStore::class
 
         override fun createOrLoad(directoryManager: DataDirectoryManager.ClauseStoreScope): HeapFileFactStore {
-            val pathAsString = directoryManager.metadata.load<String>("${type.qualifiedName}.heap_file_name")
+            val fileID = directoryManager.metadata.load<String>("${type.qualifiedName}.heap_file_id")
 
-            val path = if (pathAsString != null) Paths.get(pathAsString) else {
-                directoryManager.createStorageFile { path ->
-                    directoryManager.metadata.save("${type.qualifiedName}.heap_file_name", path.toAbsolutePath().normalize().toString())
-
+            val path = if (fileID != null) directoryManager.storageFileManager.getStorageFilePath(fileID) else {
+                val (_, fileIDNewly) = directoryManager.storageFileManager.initStorageFile(StorageFileManager.Purpose.FACT_FULL) { path ->
                     val deviceProperties = path.rootDeviceProperties
                     when (deviceProperties?.physicalStorageStrategy) {
                         StorageStrategy.SOLID_STATE -> HeapFile.initializeForContiguousDevice(path)
                         else ->                        HeapFile.initializeForBlockDevice(path)
                     }
-
-                    path
                 }
+
+                directoryManager.metadata.save("${type.qualifiedName}.heap_file_id", fileIDNewly)
+                
+                directoryManager.storageFileManager.getStorageFilePath(fileIDNewly)
             }
 
             return HeapFileFactStore(
