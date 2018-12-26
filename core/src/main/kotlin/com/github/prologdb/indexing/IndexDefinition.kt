@@ -18,4 +18,11 @@ data class IndexDefinition(
     val requiredFeatures: Set<IndexFeature>,
     val optionalFeatures: Set<IndexFeature>
     // TODO sort directions??
-)
+) {
+    init {
+        // none of the optional features may be a required feature
+        optionalFeatures.firstOrNull { it in requiredFeatures }?.let {
+            throw IllegalArgumentException("Optional feature $it is also listed as a required feature.")
+        }
+    }
+}
