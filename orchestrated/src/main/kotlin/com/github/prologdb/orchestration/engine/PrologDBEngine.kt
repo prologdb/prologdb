@@ -148,7 +148,7 @@ class PrologDBEngine(
         log.info("Knowledge base $kbName initialized.")
     }
 
-    private val globalDirectives = ProgramaticServerKnowledgeBase {
+    private val globalDirectives = ProgrammaticServerKnowledgeBase {
         directive("select_knowledge_base"/1) { ctxt, args ->
             if (args[0] !is PrologString && args[0] !is Atom) {
                 return@directive lazyError<Unification>(PrologRuntimeException("Argument 1 to select_knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))

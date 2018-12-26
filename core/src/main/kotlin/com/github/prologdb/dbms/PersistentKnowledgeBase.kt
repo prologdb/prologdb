@@ -5,6 +5,7 @@ import com.github.prologdb.dbms.builtin.DBLibrary
 import com.github.prologdb.dbms.builtin.ModifyLibrary
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.execplan.planner.PlanningInformation
+import com.github.prologdb.indexing.IndexDefinition
 import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.RandomVariableScope
@@ -111,6 +112,13 @@ class PersistentKnowledgeBase(
         }
     }
 
+    /**
+     * TODO
+     */
+    fun createIndex(definition: IndexDefinition) {
+        TODO()
+    }
+    
     private val closingMutex = Any()
     private @Volatile var closed = false
 
