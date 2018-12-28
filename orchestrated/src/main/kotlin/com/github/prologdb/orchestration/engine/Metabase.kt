@@ -74,7 +74,7 @@ private fun Term.toTypeRestriction(): Pair<Variable, KClass<out Term>> {
 }
 
 private fun indexDefinitionFromProlog(term: Predicate): IndexDefinition {
-    if (term.arity != 3 || term.name != "index") {
+    if (term.arity != 4 || term.name != "index") {
         throw PrologRuntimeException("Cannot construct an index definition from an instance of ${ClauseIndicator.of(term)}")
     }
     

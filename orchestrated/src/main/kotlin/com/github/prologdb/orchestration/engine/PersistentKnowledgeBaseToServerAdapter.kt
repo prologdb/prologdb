@@ -9,23 +9,23 @@ import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.unification.Unification
 
 class PersistentKnowledgeBaseToServerAdapter(
-    private val kb: PersistentKnowledgeBase
+    val adapted: PersistentKnowledgeBase
 ) : ServerKnowledgeBase {
 
     override val operators
-        get() = kb.operators
+        get() = adapted.operators
 
-    override val planningInformation = kb.planningInformation
+    override val planningInformation = adapted.planningInformation
 
     override fun startQuery(session: SessionContext, query: Query, totalLimit: Long?): LazySequence<Unification> {
-        return kb.fulfill(query, ReadWriteAuthorization)
+        return adapted.fulfill(query, ReadWriteAuthorization)
     }
 
     override fun startDirective(session: SessionContext, command: Predicate, totalLimit: Long?): LazySequence<Unification> {
-        return kb.invokeDirective(command.name, ReadWriteAuthorization, command.arguments)
+        return adapted.invokeDirective(command.name, ReadWriteAuthorization, command.arguments)
     }
 
     override fun close() {
-        kb.close()
+        adapted.close()
     }
 }

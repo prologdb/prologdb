@@ -50,6 +50,8 @@ class PrologDBEngine(
      */
     private val knowledgeBases: MutableMap<String, ServerKnowledgeBase> = ConcurrentHashMap()
     private val knowledgeBaseCreateOrDropMutex = Any()
+    
+    private val metabases: MutableMap<String, Metabase> = ConcurrentHashMap()
 
     // discover knowledge bases
     init {
@@ -65,7 +67,7 @@ class PrologDBEngine(
     }
 
     override fun startQuery(session: SessionContext, query: Query, totalLimit: Long?): LazySequence<Unification> {
-        val kb = session.knowledgeBase?.second ?: return lazyError(PrologRuntimeException("No knowledge base selected."))
+        val kb = session.knowledgeBase ?: return lazyError(PrologRuntimeException("No knowledge base selected."))
         return kb.startQuery(session, query, totalLimit)
     }
 
@@ -75,20 +77,20 @@ class PrologDBEngine(
             return globalDirectives.startDirective(session, command, totalLimit)
         }
 
-        val kb = session.knowledgeBase?.second ?: return lazyError(PrologRuntimeException("No knowledge base selected."))
+        val kb = session.knowledgeBase ?: return lazyError(PrologRuntimeException("No knowledge base selected."))
         return kb.startDirective(session, command, totalLimit)
     }
 
     private val parser = PrologParser()
 
     override fun parseTerm(context: SessionContext?, codeToParse: String, origin: SourceUnit): ParseResult<Term> {
-        val operatorsForParsing = context?.knowledgeBase?.second?.operators ?: ISOOpsOperatorRegistry
+        val operatorsForParsing = context?.knowledgeBase?.operators ?: ISOOpsOperatorRegistry
         val lexer = Lexer(origin, codeToParse.iterator())
         return parser.parseTerm(lexer, operatorsForParsing, STOP_AT_EOF)
     }
 
     override fun parseQuery(context: SessionContext?, codeToParse: String, origin: SourceUnit): ParseResult<Query> {
-        val operatorsForParsing = context?.knowledgeBase?.second?.operators ?: ISOOpsOperatorRegistry
+        val operatorsForParsing = context?.knowledgeBase?.operators ?: ISOOpsOperatorRegistry
         val lexer = Lexer(origin, codeToParse.iterator())
         return parser.parseQuery(lexer, operatorsForParsing, STOP_AT_EOF_OR_FULL_STOP)
     }
@@ -142,6 +144,7 @@ class PrologDBEngine(
             kb.load(DictLibrary.asDBCompatible())
 
             knowledgeBases[kbName] = PersistentKnowledgeBaseToServerAdapter(kb)
+            metabases[kbName] = Metabase(kb)
         }
 
 
@@ -154,18 +157,44 @@ class PrologDBEngine(
                 return@directive lazyError<Unification>(PrologRuntimeException("Argument 1 to select_knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))
             }
             val name = (args[0] as? Atom)?.name ?: (args[0] as PrologString).toKotlinString()
-
+            
             val base = knowledgeBases[name]
                 ?: return@directive lazyError<Unification>(PrologRuntimeException("Knowledge base $name does not exist."))
 
-            ctxt.knowledgeBase = Pair(name, base)
+            ctxt.knowledgeBase = base
+            LazySequence.of(Unification.TRUE)
+        }
+        
+        directive("select_knowledge_base_meta"/1) { ctxt, args ->
+            if (args[0] !is PrologString && args[0] !is Atom) {
+                return@directive lazyError<Unification>(PrologRuntimeException("Argument 1 to select_knowledge_base_meta/1 must a a string or atom, git ${args[0].prologTypeName}"))
+            }
+            
+            val name = (args[0] as? Atom)?.name ?: (args[0] as PrologString).toKotlinString()
+            
+            knowledgeBases[name] ?: return@directive lazyError<Unification>(PrologRuntimeException("Knowledge base $name does not exist."))
+            val metabase = metabases[name] ?: throw RuntimeException("Knowledge base $name not properly initialized: metabase not registered.")
+            
+            ctxt.knowledgeBase = metabase
             LazySequence.of(Unification.TRUE)
         }
 
         directive("current_knowledge_base"/1) { ctxt, args ->
-            val name = ctxt.knowledgeBase?.first?.let { PrologString(it) }
+            val base = ctxt.knowledgeBase ?: return@directive LazySequence.empty()
 
-            LazySequence.ofNullable(name?.unify(args[0]))
+            val descriptor = if (base is PersistentKnowledgeBaseToServerAdapter) {
+                val name = knowledgeBases.entries.first { it.value === base }.key
+                PrologString(name)
+            }
+            else if (base is Metabase) {
+                val name = metabases.entries.first { it.value == base }.key
+                Predicate("meta", arrayOf(PrologString(name)))
+            }
+            else {
+                throw RuntimeException("Knowledge base not properly initialized/selected.")
+            }
+            
+            LazySequence.ofNullable(descriptor?.unify(args[0]))
         }
 
         directive("create_knowledge_base"/1) { ctxt, args ->
@@ -195,7 +224,7 @@ class PrologDBEngine(
         directive("explain"/1) { ctxt, args ->
             val arg0 = args[0] as? Predicate ?: return@directive lazyError<Unification>(PrologRuntimeException("Argument 0 to explain/1 must be a query."))
 
-            val currentKB = ctxt.knowledgeBase?.second ?: return@directive lazyError<Unification>(PrologRuntimeException("No knowledge base selected."))
+            val currentKB = ctxt.knowledgeBase ?: return@directive lazyError<Unification>(PrologRuntimeException("No knowledge base selected."))
 
             val query = predicateToQuery(arg0)
             val plan = executionPlanner.planExecution(query, currentKB.planningInformation)

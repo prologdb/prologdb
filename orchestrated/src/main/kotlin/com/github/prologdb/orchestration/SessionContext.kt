@@ -8,8 +8,7 @@ import com.github.prologdb.orchestration.engine.ServerKnowledgeBase
  */
 class SessionContext {
     /**
-     * The currently selected knowledge-base. First: name,
-     * second: the manager
+     * The currently selected knowledge-base.
      */
-    var knowledgeBase: Pair<String, ServerKnowledgeBase>? = null
+    var knowledgeBase: ServerKnowledgeBase? = null
 }
