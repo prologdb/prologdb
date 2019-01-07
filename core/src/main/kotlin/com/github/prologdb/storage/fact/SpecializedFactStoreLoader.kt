@@ -18,8 +18,6 @@ interface SpecializedFactStoreLoader<T : FactStore> {
     /**
      * Create a new [FactStore] of type [T] or load an existing fact store from
      * persistence.
-     * @param forPredicates The indicator that will apply to all predicates stored in
-     *                      the created [FactStore].
      * @throws StorageException
      */
     fun createOrLoad(directoryManager: DataDirectoryManager.ClauseStoreScope): T

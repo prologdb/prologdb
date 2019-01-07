@@ -178,7 +178,7 @@ class ServerInterface(
 
     private fun InitializeQueryCommand.startUsing(sessionState: Any?, engine: DatabaseEngine<Any?>): LazySequence<Unification> {
         if (kind == InitializeQueryCommand.Kind.DIRECTIVE && instruction !is PredicateInvocationQuery) {
-            throw PrologRuntimeException("Directives must consist of a single predicate, found compound query.")
+            throw PrologRuntimeException("Directives must consist of a single predicate invocation query, found compound query.")
         }
 
         val instruction = if (preInstantiations == null || preInstantiations.isEmpty) instruction else {

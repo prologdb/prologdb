@@ -1,9 +1,10 @@
 package com.github.prologdb.indexing
 
+import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.PersistenceID
 
 /**
- * An immutable set of [PersistenceID]s relating to a [PredicateStore].
+ * An immutable set of [PersistenceID]s relating to a [FactStore].
  */
 interface PersistenceIDSet : Iterable<PersistenceID> {
     /**

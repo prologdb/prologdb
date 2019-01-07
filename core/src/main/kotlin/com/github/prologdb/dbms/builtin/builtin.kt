@@ -44,7 +44,7 @@ fun Library.asDBCompatible(): DBLibrary {
                 exports[indicator] = givenClause.asRule()
             }
             else {
-                throw PrologException("Runtime library $name is not compatible with ${DBLibrary::class.simpleName}: clause $indicator is neither a rule nor a predicate.")
+                throw PrologException("Runtime library $name is not compatible with ${DBLibrary::class.simpleName}: clause $indicator is neither a rule nor a fact.")
             }
         }
 

@@ -7,7 +7,7 @@ import com.github.prologdb.runtime.term.CompoundTerm
 import java.util.concurrent.Future
 
 /**
- * An identifier for individual predicates stored in a [FactStore].
+ * An identifier for individual facts stored in a [FactStore].
  * One such indentifier is only meaningful to the [FactStore]
  * that defined it.
  */
@@ -18,7 +18,7 @@ typealias PersistenceID = Long
  * Implementations MUST be thread-safe.
  */
 interface FactStore {
-    /** Indicates the kinds of predicates stored in this store. */
+    /** Indicates the predicate for which facts are stored in this store. */
     val indicator: ClauseIndicator
 
     /**
@@ -29,24 +29,24 @@ interface FactStore {
     fun store(asPrincipal: Principal, item: CompoundTerm): Future<PersistenceID>
 
     /**
-     * @return The predicate that was [store]d with the given
-     * [PersistenceID]; null if no such predicate was ever stored or when
+     * @return The fact that was [store]d with the given
+     * [PersistenceID]; null if no such fact was ever stored or when
      * it was [delete]d
      */
     fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<CompoundTerm?>
 
     /**
-     * Removes the predicate stored with the given ID from
+     * Removes the fact stored with the given ID from
      * the store. Subsequent calls to [retrieve] with the same
      * [PersistenceID] will return null.
      *
-     * @return Whether the given [PersistenceID] was assoicated with a
-     * predicate.
+     * @return Whether the given [PersistenceID] was associated with a
+     * fact.
      */
     fun delete(asPrincipal: Principal, id: PersistenceID): Future<Boolean>
 
     /**
-     * @return A lazy sequence of all the predicates stored in this store.
+     * @return A lazy sequence of all the facts stored in this store.
      */
     fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, CompoundTerm>>
 

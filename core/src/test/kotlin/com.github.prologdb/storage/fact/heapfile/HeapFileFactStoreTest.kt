@@ -33,14 +33,14 @@ class HeapFileFactStoreTest : FreeSpec({
             .get()
     }
 
-    "write of predicate with wrong name fails" {
+    "write of fact with wrong functor fails" {
         shouldThrow<IllegalArgumentException> {
             store.store(IrrelevantPrincipal, CompoundTerm("bar", abc))
                 .get()
         }
     }
 
-    "write of predicate with wrong arity fails" {
+    "write of fact with wrong arity fails" {
         shouldThrow<IllegalArgumentException> {
             store.store(IrrelevantPrincipal, CompoundTerm("foo", arrayOf(Atom("a"))))
         }

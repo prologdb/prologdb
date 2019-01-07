@@ -12,7 +12,7 @@ import com.github.prologdb.storage.StorageException
  */
 interface FactStoreLoader {
     /**
-     * Creates a new [FactStore] for predicates of the given indicator.
+     * Creates a new [FactStore] for facts of the given indicator.
      * @param directoryManager manager for the directory scoped to the knowledge base name and clause indicator
      * @param requiredFeatures The returned fact store is guaranteed to have all these features
      *                         contained in [requiredFeatures].
@@ -32,7 +32,7 @@ interface FactStoreLoader {
     ) : FactStore
 
     /**
-     * Loads the [FactStore] for predicates of the given indicator. Though stores can be loaded
+     * Loads the [FactStore] for facts of the given indicator. Though stores can be loaded
      * multiple times. If both loaded stores are used, the behaviour of the stores is undefined.
      * @param directoryManager manager for the directory scoped to the knowledge base name and clause indicator
      * @return the loaded store or `null` if a store for the given database and predicate does not exist yet.

@@ -21,7 +21,7 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
         return when(query) {
             is OrQuery -> planUnionExecution(query, db, randomVariableScope)
             is AndQuery -> planJoinExecution(query, db, randomVariableScope)
-            is PredicateInvocationQuery -> planPredicateLookup(query, db, randomVariableScope)
+            is PredicateInvocationQuery -> planPredicateInvocation(query, db, randomVariableScope)
             else -> throw PrologQueryException("Unsupported query type ${query::class.simpleName}")
         }
     }
@@ -48,7 +48,7 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
         }
     }
     
-    private fun planPredicateLookup(query: PredicateInvocationQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
+    private fun planPredicateInvocation(query: PredicateInvocationQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
         val indicator = ClauseIndicator.of(query.predicate)
 
         return if (indicator in db.staticBuiltins) {

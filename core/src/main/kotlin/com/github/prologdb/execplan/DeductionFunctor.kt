@@ -51,20 +51,20 @@ class DeductionFunctor(
  */
 internal fun deduceWithRuleForFunctor(goal: CompoundTerm, rule: Rule, context: DBProofSearchContext): LazySequence<Pair<VariableBucket, Unit>> {
     val goalRandomMapping = VariableMapping()
-    val randomPredicate = context.randomVariableScope.withRandomVariables(goal, goalRandomMapping)
+    val randomGoal = context.randomVariableScope.withRandomVariables(goal, goalRandomMapping)
 
     val ruleRandomVarsMapping = VariableMapping()
     val randomHead = context.randomVariableScope.withRandomVariables(rule.head, ruleRandomVarsMapping)
 
-    val predicateAndHeadUnification = randomHead.unify(randomPredicate)
-    if (predicateAndHeadUnification == null) {
+    val goalAndHeadUnification = randomHead.unify(randomGoal)
+    if (goalAndHeadUnification == null) {
         // this rule cannot be used to fulfill the given predicate
         return LazySequence.empty()
     }
 
     val randomQuery = rule.query
         .withRandomVariables(context.randomVariableScope, ruleRandomVarsMapping)
-        .substituteVariables(predicateAndHeadUnification.variableValues)
+        .substituteVariables(goalAndHeadUnification.variableValues)
 
     return buildLazySequence<Unification>(context.principal) {
         context.fulfillAttach(this, randomQuery, VariableBucket())
@@ -72,18 +72,18 @@ internal fun deduceWithRuleForFunctor(goal: CompoundTerm, rule: Rule, context: D
         .mapRemaining { unification ->
             val solutionVars = VariableBucket()
 
-            for (randomPredicateVariable in randomPredicate.variables)
+            for (randomGoalVariable in randomGoal.variables)
             {
-                if (predicateAndHeadUnification.variableValues.isInstantiated(randomPredicateVariable)) {
-                    val value = predicateAndHeadUnification.variableValues[randomPredicateVariable]
+                if (goalAndHeadUnification.variableValues.isInstantiated(randomGoalVariable)) {
+                    val value = goalAndHeadUnification.variableValues[randomGoalVariable]
                         .substituteVariables(unification.variableValues.asSubstitutionMapper())
-                        .substituteVariables(predicateAndHeadUnification.variableValues.asSubstitutionMapper())
+                        .substituteVariables(goalAndHeadUnification.variableValues.asSubstitutionMapper())
 
-                    solutionVars.instantiate(randomPredicateVariable, value)
+                    solutionVars.instantiate(randomGoalVariable, value)
                 }
-                else if (unification.variableValues.isInstantiated(randomPredicateVariable)) {
-                    val originalVar = goalRandomMapping.getOriginal(randomPredicateVariable)!!
-                    solutionVars.instantiate(originalVar, unification.variableValues[randomPredicateVariable])
+                else if (unification.variableValues.isInstantiated(randomGoalVariable)) {
+                    val originalVar = goalRandomMapping.getOriginal(randomGoalVariable)!!
+                    solutionVars.instantiate(originalVar, unification.variableValues[randomGoalVariable])
                 }
             }
 

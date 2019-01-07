@@ -18,10 +18,10 @@ import java.util.concurrent.Future
 @AcceleratedStorage
 class MemoryFactStore(override val indicator: ClauseIndicator) : FactStore {
 
-    /** Stores predicates gets resized throughout the lifetime */
-    private var store = Array<CompoundTerm?>(100, { null })
+    /** Stores facts. Gets resized throughout the lifetime */
+    private var store = Array<CompoundTerm?>(100) { null }
 
-    /** To be [synchronized] on when mutating [store] and/or [nPredicates] */
+    /** To be [synchronized] on when mutating [store] */
     private val storeMutationMutex = Any()
 
     /**
