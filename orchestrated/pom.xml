@@ -87,6 +87,7 @@
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
+                <filtering>true</filtering>
             </resource>
         </resources>
 
@@ -115,6 +116,24 @@
                 <configuration>
                     <jvmTarget>1.8</jvmTarget>
                     <experimentalCoroutines>enable</experimentalCoroutines>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.helger.maven</groupId>
+                <artifactId>ph-buildinfo-maven-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate-buildinfo</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <targetPath>${build.outputDirectory}</targetPath>
+                    <withAllEnvVars>false</withAllEnvVars>
+                    <withAllSystemProperties>false</withAllSystemProperties>
+
                 </configuration>
             </plugin>
             <plugin>

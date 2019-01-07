@@ -3,7 +3,7 @@ package com.github.prologdb.storage.heapfile
 import com.github.prologdb.async.*
 import com.github.prologdb.io.util.Pool
 import com.github.prologdb.storage.*
-import com.github.prologdb.storage.predicate.PersistenceID
+import com.github.prologdb.storage.fact.PersistenceID
 import com.github.prologdb.util.concurrency.locks.RegionReadWriteLockManager
 import com.github.prologdb.util.memory.FirstFitHeapManager
 import com.github.prologdb.util.memory.HeapManager
@@ -350,7 +350,7 @@ private constructor(
                             ConcurrentModificationException("The record has been modified while reading.")
                         )
                     } else if (!isFirstPage && !(pageFlags hasFlag PAGE_FLAG_CONTINUATION)) {
-                        throw StorageException("Invalid internal state - record contains non-continuation flagged page (offset of first page in record: $offsetFirstPageOfRecord)")
+                        throw InvalidPersistenceIDException(actualPersistenceID, "Invalid internal state - record contains non-continuation flagged page (offset of first page in record: $offsetFirstPageOfRecord)")
                     }
 
                     bufferObj.flip()
@@ -489,6 +489,9 @@ private constructor(
 
         // wait for all ongoing actions to complete
         readWriteLockManager.close(RegionReadWriteLockManager.CloseMode.WAITING)
+
+        fileChannel.force(true)
+        fileChannel.close()
     }
 
     /**
@@ -549,7 +552,7 @@ private constructor(
             val raf = RandomAccessFile(file.toFile(), "rw")
             raf.seek(0)
             raf.writeInt(0x00000001)
-            raf.writeStruct(HeapFileHeader(1024, 0))
+            raf.writeStruct(HeapFileHeader(256, 0))
             raf.close()
         }
 

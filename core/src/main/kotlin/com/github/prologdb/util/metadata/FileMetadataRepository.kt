@@ -1,6 +1,7 @@
 package com.github.prologdb.util.metadata
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.nio.file.Path
@@ -11,7 +12,7 @@ import java.util.*
  */
 class FileMetadataRepository(
     file: Path,
-    private val valueObjectMapper: ObjectMapper
+    private val valueObjectMapper: ObjectMapper = jacksonObjectMapper()
 ) : MetadataRepository {
 
     private val file = file.toFile()

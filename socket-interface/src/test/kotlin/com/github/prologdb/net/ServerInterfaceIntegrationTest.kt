@@ -8,14 +8,13 @@ import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.net.negotiation.*
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.net.session.SessionInitializer
-import com.github.prologdb.net.session.handle.ProtocolVersion1PrologReader
-import com.github.prologdb.net.session.handle.ProtocolVersion1PrologWriter
+import com.github.prologdb.net.session.handle.IsoOpsStatelessParserDelegate
 import com.github.prologdb.net.session.handle.ProtocolVersion1SessionHandle
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.v1.messages.*
-import com.github.prologdb.parser.parser.PrologParser
+import com.github.prologdb.parser.parser.ParseResult
+import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.PrologRuntimeException
-import com.github.prologdb.runtime.knowledge.library.DefaultOperatorRegistry
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Predicate
 import com.github.prologdb.runtime.term.PrologString
@@ -27,13 +26,13 @@ import io.kotlintest.*
 import io.kotlintest.extensions.TestListener
 import io.kotlintest.matchers.collections.contain
 import io.kotlintest.specs.FreeSpec
-import io.reactivex.Single
-import io.reactivex.subjects.SingleSubject
 import java.lang.Math.ceil
 import java.net.Socket
 import java.nio.channels.AsynchronousByteChannel
 import java.nio.charset.Charset
 import java.util.*
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 import com.github.prologdb.net.negotiation.ToClient as ToClientHS
 import com.github.prologdb.net.negotiation.ToServer as ToServerHS
 
@@ -482,6 +481,14 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
             }
         }
     }
+
+    override fun parseTerm(context: Map<String, String>?, codeToParse: String, origin: SourceUnit): ParseResult<com.github.prologdb.runtime.term.Term> {
+        TODO()
+    }
+
+    override fun parseQuery(context: Map<String, String>?, codeToParse: String, origin: SourceUnit): ParseResult<Query> {
+        TODO()
+    }
 }
 
 private fun initConnection(serverInterface: ServerInterface): Pair<ServerHello, Socket> {
@@ -535,18 +542,14 @@ private fun Socket.startDirective(id: Int, command: String) {
         .writeDelimitedTo(getOutputStream())
 }
 
-private val ProtoclVersion1HandleFactory: (AsynchronousByteChannel, ClientHello) -> Single<SessionHandle> = { channel, _ ->
-    val source = SingleSubject.create<SessionHandle>()
-    source.onSuccess(ProtocolVersion1SessionHandle(
+private val ProtoclVersion1HandleFactory: (AsynchronousByteChannel, ClientHello) -> CompletionStage<SessionHandle> = { channel, _ ->
+    val future = CompletableFuture<SessionHandle>()
+    future.complete(ProtocolVersion1SessionHandle(
+        UUID.randomUUID().toString(),
         channel,
-        ProtocolVersion1PrologReader(
-            PrologParser(),
-            BinaryPrologReader.getDefaultInstance(),
-            DefaultOperatorRegistry()
-        ),
-        ProtocolVersion1PrologWriter(
-            BinaryPrologWriter.getDefaultInstance()
-        )
+        IsoOpsStatelessParserDelegate,
+        BinaryPrologReader.getDefaultInstance(),
+        BinaryPrologWriter.getDefaultInstance()
     ))
-    source
+    future
 }

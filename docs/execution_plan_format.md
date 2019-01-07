@@ -1,184 +1,271 @@
 # Query execution plans
 
-prologdb can explain how it runs queries just like a lot of relational databases
-do. To get the execution plan of a query, wrap it into `pdb_explain/1`:
+The prologdb can be seen as a prolog runtime with persistent state. Contrary to what one might
+think then, the language with which to program/instruct that runtime is **not** prolog. It is
+the execution plan. When prologdb receives a prolog query, the execution planner first
+converts the query into an execution plan. The plan is then executed.
+This has a bunch of advantages:
 
-    ?- pdb_explain(foo(X), bar(a, Y), Y > 5; z(Y)).
-    
-The result will have exactly one solution with exactly one random variable.
-That variable is instantiated to a a predicate that models the execution plan,
-e.g. something like this:
-
-    _G1 = union(
-        join(
-            scan(foo(X)),
-            lookup(
-                bar(a, _G2),
-                _G2 = Y,
-                range(gt(5))
-            )
-        ),
-        scan(z(Y))                    
-    ).
-    
------  
-
-Beyond the simple prove search there are two very basic building blocks
-in prolog queries - and so are in the execution plan:
-conjunction and disjunction. In queries, these are `,/2` and `;/2`, respectively.
-In the execution plan, these show up as `join/_` and `union/_`:
-
-    % without any indexes
-    
-    ?- pdb_explain(foo(X), bar(X)).
-    _G1 = join(scan(foo(X)), scan(bar(X)))
-    
-    ?- pdb_explain(foo(X); bar(X)).
-    _G1 = union(scan(foo(X)), scan(bar(X)))
-    
-The arguments to the `join` and `union` predicates an be anything, also nested
-`join` and `union`. What follows is a list of the other possible predicates
-and the querying strategy they represent:
-
-## `scan/1`
-
-Reads every known instance of the predicate from the data store and attempts
-to unify. This is closely to a table scan in RDBMs.
-
-### Example
-
-`scan(foo(a))` will read every stored instance of `foo/1` and unify with
-`foo(a)`.
-
-## `deduce_from/1`
-
-Runs all the rules known for the given predicate. These are essentially
-sub-queries.
-
-### Example
-
-`deduce_from(foo(a))` will try to run all rules with the indicator `foo/1` against
-the goal `foo(a)`; of course, as with regular prolog, rule heads that do not unify
-with `foo(a)` will not be run.
-    
-## `lookup/3`
-
-Utilizes an index to read only a subset of all known predicate instances. Rules
-are not part of that lookup and are run separately.
-
-The first argument is the predicate as it was given in the original query with
-one change: the argument that is used for the lookup is replaced by a random
-variable.
-
-The second argument makes the replacement transparent. Is an instance of `=/2`
-where the first argument is the random variable and the second argument is the
-term it replaces.
-
-The third argument is the strategy being used to look things up in the index (see
-below).
-
-E.g. a query `bar(a, Y), Y > 5` with an execution plan
-
-    lookup(
-        bar(a, _G6),
-        _G6 = Y,
-        range(gt(5))
-    )
-    
-will do this:
-
-1. use the index on the second argument of `bar/2` with the constraint
-`range(gt(5))` (see below) to obtain all instances of `bar/2` where
-the second argument is a number and is greater than 5.
-2. unify each of the found predicates with `bar(a, Y)`
-   
-
-### Index lookup types
-
-#### `unifies(:Term)`
-
-All entries from the index are used where the indexed term unifies
-with `:Term`. This does not promise any optimizations compared to a
-separate `scan/1` step; but optimizations may be applied where the
-database implementation sees fit.
-
-#### `kind(:Kind)`
-
-All entries from the indexed where the indexed term is of the specified `:Kind`. This
-is used when an indexed predicate appears in conjunction with a type check on
-an uninstantiated, indexed argument to that predicate.
-
-##### Kinds
-
-|regular prolog type check|index lookup type|
-|-------------------------|-----------------|
-|`integer/1`              |`kind(integer)`  |
-|`float/1`                |`kind(float)`    |
-|`number/1`               |`kind(number)`   |
-|`string/1`               |`kind(string)`   |
-|`atom/1`                 |`kind(atom)`     |
-|`is_list/1`              |`kind(list)`     |
-|`is_dict/1`              |`kind(dict)`     |
-|`nonvar/1`               |not available    |
-|`blob/2`                 |not available    |
-|`atomic/1`               |not available    |
-|`compound/1`             |not available    |
-
-
-##### Examples
-
-Query `bar(X), atom(X)`. Here, the first argument to `bar/1` is indexed,
-the variable is definitely not instantiated at the time `bar/1` is called
-and there is a conjunctive type check on that same variable. This gets 
-optimized into this execution plan:
-
-    lookup(
-        bar(X),
-        X,
-        kind(atom)
-    )
-
-#### `range(:RangeQuery)`
-
-This is used when the index supports range queries (e.g. a B-Tree). In
-order for the query optimizer to use range queries, it must be able to
-combine a conjunction between a prove search and a comparison (see 
-examples).
-
-The variants of `:RangeQuery`:
-
-|Variant        |Description|
-|---------------|-----------|
-|`gt(:Value)`   |The indexed term is strictly greater than `:Value`|
-|`gte(:Value)`  |The indexed term is greater than or equal to `:Value`|
-|`lt(:Value)`   |The indexed term is strictly less than `:Value`|
-|`lte(:Value)`  |The indexed term is less than or equal to `:Value`|
-|`between(:Lower, :Upper, :LowerInclusive, :UpperInclusive)`|The indexed term is greater than `:Lower` and less than `:Upper`.  Whether indexed terms equal to `:Lower` and `:Upper` are also considered depends on `:LowerInclusive` and `:UpperInclusive`. These are either `1` or `0` representing inclusion or exclusion, respectively.|
+* when asked to show the execution plan to a prolog query, the result is *guaranteed* to be
+  correct (correct as in: "what actually happens", not as in "what is supposed to happen")
+* the execution plan contains all the detail useful for optimizing performance so that the
+  prolog queries do not need to concern themselves with expressing such detail (e.g. what index
+  to use, ...)
+* developers can send queries as execution-plans (rather than prolog) to gain a better understanding
+  of the execution plans (ultimately making them better at optimizing indices and planner settings).  
+  Taken to an extreme, one could also use this to write queries optimized in ways that the planner
+  is just not capable of (or including implicit assumptions that the planner just cannot reasonably
+  make).
   
-### Examples
+This document defines the execution plan language. This document is authoritative when it comes
+to interpreting execution plans (which also means prologdb has to interpret its own execution
+plans in the way defined here).
 
-    % for foo/2, the first argument has an index
-    ?- pdb_explain(foo(a, X)).
-    _G1 = lookup(
-        foo(_G1, X),
-        _G1,
-        unified(a)
-    ) 
----    
+## Background Information
+
+Here is some background information to aid in understanding the atomics of the execution plan
+language:
+
+When prologdb stores a fact with `assert/1` the fact gets assigned a *persistence id*.
+This ID is unique to the predicate, e.g. unique among all instances of `foo/2`.
+
+When a stored fact qualifies to be indexed, the indexed data of the fact is written to
+the index along with the persistence id of the original fact. When querying an index,
+only persistence ids and the indexed data can be obtained. To get the entire instance,
+the fact store has to be consulted using the persistence id.
+
+This separation is important: when using multiple indices for one fact lookup the
+results from querying the indices have to be combined. The execution plan shows these steps
+and as such readers of execution plans must be aware of that mechanism.
+
+Facts and rules are treated very separately: rules are either inlined into the query or are
+a completely separate query apart from the query that calls them (compare SQL sub-query). 
+
+# Execution Plan Language
+
+Execution plans are written with prolog syntax. Variable instantiation semantics across goals
+also works 1:1. However, the operators are different (except `=/2` and `;/2`) and there are no
+user-defined predicates.  
+Secondly, execution plans borrow semantics from stream-based languages such as [bash pipes] or
+[jq] (you'll see later).
+
+## Functor
+
+The core element of an execution plan are functors. A functor is written as a goal/predicate
+and resembles a function invocation. A functor takes two inputs
+
+* an input element
+* arguments
+
+It then does it's job. The result is a sequence of elements. The results are lazily computed
+as each element of the result sequence is passed on to the next functor as the input or
+treated as a solution to the query. *The solution contains only the variable instantiations
+present in the last functor/stage, not the result element of the functor.*
+
+For example, lets look at the `fact_scan` functor:
+
+    * -> fact_scan(indicator) -> [+, fact]
     
-    % for foo/2, the first argument has an index supporting range queries
-    ?- pdb_explain(foo(X, Y), X > 10).
-    _G1 = lookup(
-        foo(_G1, Y),
-        _G1,
-        range(gt(10))
-    )
+This signature means "Takes anything as input (`*`), takes one argument which is a predicate
+indicator and yields a sequence of facts along with their persistence id (`+`)."
+
+In an actual execution plan, the functor could be used like so:
+
+    fact_scan(bar/1)
     
-    ?- pdb_explain(foo(X, Y), X > 10, X =< 50).
-    _G1 = lookup(
-        foo(_G1, Y),
-        _G1,
-        range(between(10, 50, 0, 1))
-    )
----
+Which would cause prologdb to read all facts of `bar/1` off the disk (and then do nothing with it).
+
+To actually make use of that, we can combine it with the `unify` functor:
+
+    [+, fact] -> unify(fact) -> +
     
+It works pretty much like `=/2` does in prolog: the functor unifies the input fact and
+the argument fact. If unification succeeds, it yields the input persistence id and instantiates
+variables as necessary. Otherwise, it yields nothing.
+
+So, both in combination:
+
+    fact_scan(bar/1) | unify(bar(X))
+    
+This would read all instances of `bar/1` off disk and then unify each instance with `bar(X)`,
+instantiating `X` as necessary. For every element `unify` yields, the server will recognize one
+solution and send the variable instantiations (for `X`) out.
+
+## Functor combination
+
+You surely have noticed the `|` operator. It works like the `,` in regular prolog **plus** that
+it chains the functors inputs and outputs together (for each element in the LHS, the RHS gets
+invoked once).
+
+Finally, the `;` operator has to be mentioned: it works just like in prolog. For example:
+
+Query:
+    
+    foo(X) ; bar(X)
+    
+Execution plan:
+
+    (fact_scan(foo/1) | unify(foo(X))) ; (fact_scan(bar/1) | unify(bar(X)))
+    
+## Signatures
+
+This document describes all available functors. To describe those, signatures (like shown above)
+are used. These have a simple type system associated with them:
+
+Types available:
+
+* `=` (Unification ; a set of variable-value pairs). Written as a list of `=/2` instances, e.g.
+  `[A = 1, B = foo]`
+* `+` (Persistence ID)
+* `fact` (A predicate instance, e.g. `bar(2)`)
+* `atom` (A prolog atom, used for indentifiers)
+* `*` any value, used only for functor input.
+* `void` no value
+* `[A, B, ...]` tuple of values of type A and B, e.g. `[+, fact]` is a tuple of a persistence id a fact
+* `indicator` a predicate indicator, e.g. `bar/1`
+
+## Functors
+
+### `* -> fact_scan(indicator) -> [+, fact]`
+
+**Input**: is discarded  
+**Arguments**:
+1. The indicator of the facts to scan
+
+**Action**: reads all facts of the given indicator from the underlying store (from disk, or, if available,
+from cache).  
+**Yields**: the facts along with their associated persistence ID.    
+**Instantiates**: nothing.
+
+This is the equivalent of an SQL table-scan
+
+### `[+, fact] -> unify(fact) -> +`
+
+**Arguments:**
+1. The fact unify with, usually as given in the prolog query
+
+**Action:**  Does an isolated unification of the input fact with the argument fact.  
+**Yields:** The input persistence ID if the unification succeeds.  
+**Instantiates:** the variables found in the argument fact  
+
+An isolated unification is different from a regular unification in that the variable scopes
+are of LHS and RHS are separated, e.g.:
+
+Using regular unification:
+
+    ?- a(X, 1, Z) = a(1, 1, 1).
+    X = 1,
+    Z = 1.
+    
+    ?- a(X, 2) = a(1, X).
+    false.
+    
+Using isolated unification:
+
+    ?- a(X, 1, Z) = a(1, 1, 1).
+    LHS: X = 1, Z = 1.
+    RHS: true.
+    
+    ?- a(X, 2) = a(1, X).
+    LHS: X = 1.
+    RHS: X = 2.  
+
+The `unify` functor instantiates the variables for the argument fact:
+
+Input: `a(1, X)`  
+Functor invocation: `unify(a(Z, 2))`
+Instantiates: `Z = 1`
+
+Regular prolog does an isolated unification when invoking a rule by randomizing
+the variables, e.g.:
+
+    a(1, X) :- X > 5.
+    ?- a(X, 10)
+    
+`a(1, X) = a(X, 10)` does not even unify, not speaking of satisfying the `X > 5` constraint.
+However, prolog first randomizes the variables in both the goal and rule before going ahead:
+
+1. The rule becomes `a(1, _G1) :- _G1 > 5.`
+2. The goal becomes `a(_G2, 10)`
+3. Prolog does `a(_G2, 10) = a(1, _G1)` instantiating `_G2 = 1, _G1 = 10`
+4. then carries on running the rule query with the instantiated variables...
+5. The final result is `X = 1`
+
+Step 1 to 3 are an isolated unification.
+
+### `+ fact_get(indicator) -> [+, fact]`
+
+**Input**: the persistence ID of the fact to read  
+**Arguments:**
+1. the indicator of the fact to read
+
+**Action**: reads a single fact from the store of the indicator, using the given persistence ID.    
+**Yields:** the fact associated with the persistence id  
+**Instantiates:** nothing
+
+### `* -> lookup(indicator, atom, =) -> +`
+
+An index-lookup
+
+**Input**: is discarded  
+**Arguments**:
+1. The indicator whichs facts are being looked up
+2. Name of the index (is unique for the indicator)
+3. The index keys to look up
+
+**Action**: Looks up predicate IDs for the given indicator where the indexed values
+match those given in the 3rd argument.  
+**Yields**: the matching persistence IDs.
+
+#### Example
+
+Consider these facts stored:
+
+| PersistenceID | Fact                  |
+|---------------|-----------------------|
+|             1 | `a(1, foo)`           |
+|             2 | `a(2, bar)`           |
+|             3 | `a(5, baz)`           |
+|             6 | `a(2, foo)`           |
+
+And this index used: `:- index(pk, (a(A, _), number(A)), [constant_time_read])`. 
+
+Then this query can be optimized using the index: `a(2, X)`:
+
+    lookup(a/2, pk, [A = 2]) | fact_get(a/2) | unify(a(_, X))
+    
+### `+ -> fact_delete(indicator) -> void` 
+
+Deletes a fact
+
+**Input**: the persistence ID of the fact to delete
+**Arguments**:
+1. The indicator of the fact to delete
+
+**Action**: deletes the fact associated with the persistence ID from the fact store.  
+**Yields**: one empty element if the fact existed within the fact store, nothing otherwise.  
+**Instantiates**: nothing
+
+#### Overloads
+
+* `[+, fact] -> fact_delete_0(indicator) -> void`  
+  Ignores the input fact.
+
+[bash pipes]: https://ryanstutorials.net/linuxtutorial/piping.php
+[jq]: https://stedolan.github.io/jq/tutorial/ 
+
+### `* -> invoke_compiled(fact) -> void`
+
+Invokes a compiled predicate. Compiled predicates are either builtins
+or are user-defined rules that, transitively, do not need access to the
+persistent storages (e.g. `append/3` or `member/2`).
+
+Whether the predicate code is *actually* compiled into code native
+to the database program or interpreted is not defined as of now.
+
+**Input**: is discarded/ignored
+**Arguments**:
+1. The invocation to the compiled predicate
+
+**Yields**: nothing, results from the compiled code are carried along
+**Instantiates**: as per the results of the invocation

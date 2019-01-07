@@ -11,6 +11,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.*
+import kotlin.reflect.jvm.jvmErasure
 
 private val validator: Validator = {
     // force english validation messages
@@ -43,7 +44,7 @@ val ConstraintViolation<*>.prettyPrinted: String
 private fun Logger.logViolations(error: ValidationException, additionalMessage: String, to: (String, Throwable?) -> Any?) {
     var message = "$additionalMessage: ${error.violations.first().prettyPrinted}"
     if (error.violations.size > 1) {
-        message += " (${error.violations.size - 1} more)"
+        message += " (${error.violations.size - 1} additional violations)"
     }
 
     to(message, error.cause)
@@ -87,6 +88,8 @@ fun Path.toYAMLPath(rootBeanType: KClass<*>): String {
             }
             ElementKind.PROPERTY -> {
                 val property = contextType.propertyFor(node as Path.PropertyNode) !!
+
+                contextType = property.returnType.jvmErasure
 
                 if (!isFirst) sb.append('.')
                 sb.append(property.findAnnotation<JsonProperty>()?.value?.emptyToNull() ?: property.name.lowerCamelCaseToKebabCase())

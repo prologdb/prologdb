@@ -1,6 +1,7 @@
 package com.github.prologdb.net
 
 import com.github.prologdb.io.util.ByteArrayOutputStream
+import com.github.prologdb.net.async.AsyncByteChannelDelimitedProtobufReader
 import com.github.prologdb.net.v1.messages.Query
 import com.github.prologdb.net.v1.messages.QueryInitialization
 import com.github.prologdb.net.v1.messages.ToServer
@@ -15,6 +16,9 @@ import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousByteChannel
 import java.nio.channels.CompletionHandler
 import java.nio.charset.Charset
+import java.util.concurrent.Callable
+import java.util.concurrent.CompletableFuture
+import java.util.function.Consumer
 
 class AsyncByteChannelDelimitedProtobufReaderTest : FreeSpec({
     val channel = mockkClass(AsynchronousByteChannel::class)
@@ -59,9 +63,15 @@ class AsyncByteChannelDelimitedProtobufReaderTest : FreeSpec({
         }
 
         // ACT
-        val messagesRead = AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel).observable
-            .collectInto(ArrayList<ToServer>(), { l, m -> l.add(m) })
-            .blockingGet()
+        val messagesRead = ArrayList<ToServer>()
+        var completeCalled = CompletableFuture<Unit>()
+
+        AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel,
+            Consumer { messagesRead.add(it) },
+            Consumer { throw it },
+            Callable<Unit> { completeCalled.complete(Unit) }
+        )
+        completeCalled.get()
 
         // ASSERT
         messagesRead.size shouldBe 1
@@ -94,9 +104,15 @@ class AsyncByteChannelDelimitedProtobufReaderTest : FreeSpec({
         }
 
         // ACT
-        val messagesRead = AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel).observable
-            .collectInto(ArrayList<ToServer>(), { l, m -> l.add(m) })
-            .blockingGet()
+        val messagesRead = ArrayList<ToServer>()
+        var completeCalled = CompletableFuture<Unit>()
+
+        AsyncByteChannelDelimitedProtobufReader(ToServer::class.java, channel,
+            Consumer { messagesRead.add(it) },
+            Consumer { throw it },
+            Callable<Unit> { completeCalled.complete(Unit) }
+        )
+        completeCalled.get()
 
         // ASSERT
         messagesRead.size shouldBe 1

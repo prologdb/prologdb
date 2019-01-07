@@ -45,6 +45,8 @@ class PIDLockFile(val pidFile: File) {
                 return true
             }
 
+            pidFile.createNewFile()
+
             val raf = RandomAccessFile(pidFile, "rws")
 
             try {
@@ -55,10 +57,12 @@ class PIDLockFile(val pidFile: File) {
                 }
 
                 try {
-                    val existingPIDString = raf.readLine()
+                    val existingPIDString = raf.readLine() ?: ""
                     if (existingPIDString.isNotBlank()) {
-                        val existingPID = try {
-                            existingPIDString.toLong()
+                        val existingPID: Long
+
+                        try {
+                            existingPID = existingPIDString.toLong()
                         } catch (ex: NumberFormatException) {
                             // don't know who is holding the lock
                             lock.release()
@@ -116,13 +120,21 @@ class PIDLockFile(val pidFile: File) {
     fun release() {
         synchronized(mutex) {
             if (currentLock == null || currentLocking == null) {
-                throw IllegalStateException("Currently not acquired.")
+                return
             }
 
             currentLock!!.release()
             currentLocking!!.close()
 
-            Runtime.getRuntime().removeShutdownHook(releaseHook)
+            try {
+                Runtime.getRuntime().removeShutdownHook(releaseHook)
+            }
+            catch (ex: java.lang.IllegalStateException) {
+                /* When the VM is shutting down, this fails
+                 * but that's fine since that action is not needed
+                 * anymore.
+                 */
+            }
 
             currentLock = null
             currentLocking = null
@@ -135,6 +147,8 @@ class PIDLockFile(val pidFile: File) {
     private val releaseHook = thread(start = false) {
         release()
     }
+
+    override fun toString() = pidFile.toString()
 }
 
 private fun isProcessAlive(pid: Long): Boolean {
@@ -149,10 +163,10 @@ private fun isProcessAlive(pid: Long): Boolean {
     else
     {
         // try dos tasklist
-        val process = Runtime.getRuntime().exec("""tasklist /fi "PID eq $pid" /fo list""")
+        val process = Runtime.getRuntime().exec("""tasklist /fi "PID eq $pid" /fo list | findstr $pid""")
         val firstOutLine = process.inputStream.bufferedReader(Charset.defaultCharset()).readLine()
         val exitCode = process.waitFor()
-        return firstOutLine.trim().isNotEmpty() // TODO: actually test this on a windows machine
+        return firstOutLine != null && firstOutLine.trim().isNotEmpty()
     }
 }
 
@@ -171,6 +185,7 @@ private val JVM_PROCESS_ID: Long by lazy {
         }
         // else: go ahead
     }
+    catch (ex: ReflectiveOperationException) { /* carry on... */ }
     catch (ex: ReflectionException) { /* carry on... */ }
     catch (ex: SecurityException) { /* carry on... */ }
     catch (ex: InvocationTargetException) { /* carry on... */ }

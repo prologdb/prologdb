@@ -16,9 +16,11 @@
 
     <modules>
         <module>io</module>
+        <module>protocol</module>
         <module>socket-interface</module>
         <module>core</module>
         <module>orchestrated</module>
+        <module>client</module>
     </modules>
 
     <properties>
@@ -72,6 +74,11 @@
             <dependency>
                 <groupId>com.github.prologdb</groupId>
                 <artifactId>prologdb-io</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.prologdb</groupId>
+                <artifactId>prologdb-protocol</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

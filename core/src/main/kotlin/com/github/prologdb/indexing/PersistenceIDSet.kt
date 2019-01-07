@@ -1,6 +1,6 @@
 package com.github.prologdb.indexing
 
-import com.github.prologdb.storage.predicate.PersistenceID
+import com.github.prologdb.storage.fact.PersistenceID
 
 /**
  * An immutable set of [PersistenceID]s relating to a [PredicateStore].

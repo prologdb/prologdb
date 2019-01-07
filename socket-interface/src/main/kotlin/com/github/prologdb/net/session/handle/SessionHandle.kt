@@ -25,6 +25,11 @@ interface SessionHandle {
     var sessionState: Any?
 
     /**
+     * An identifier for this very connection to the server.
+     */
+    val clientId: String
+
+    /**
      * Queues the given message for later sending. The order
      * in which the messages are queued is preserved for the
      * sending.

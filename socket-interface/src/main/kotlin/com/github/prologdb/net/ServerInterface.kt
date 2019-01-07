@@ -12,14 +12,19 @@ import com.github.prologdb.runtime.unification.Unification
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.subjects.SingleSubject
+import org.slf4j.LoggerFactory
 import java.lang.Math.floor
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetSocketAddress
+import java.nio.channels.AsynchronousCloseException
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
 import kotlin.concurrent.thread
+
+private val log = LoggerFactory.getLogger("prologdb.srv-intf")
 
 class ServerInterface(
     /**
@@ -81,6 +86,7 @@ class ServerInterface(
             is InitializeQueryCommand -> initializeQuery(message, handle)
             is ConsumeQuerySolutionsCommand -> consumeQuerySolutions(message, handle)
             is GeneralError -> handleClientError(message, handle)
+            is ConnectionCloseEvent -> closeSession(handle)
             else -> throw IllegalArgumentException("Tasks with message of type ${message.javaClass.name} not supported")
         }
     }
@@ -107,6 +113,8 @@ class ServerInterface(
             command.startUsing(handle.sessionState, databaseEngine)
         }
         catch (ex: Throwable) {
+            log.error("Unknown error while trying to start command ${command.instruction} as ${command.kind.name}", ex)
+
             handle.queueMessage(QueryRelatedError(
                 command.desiredQueryId,
                 QueryRelatedError.Kind.ERROR_GENERIC,
@@ -119,7 +127,8 @@ class ServerInterface(
 
         val queryContext = QueryContext(
             command.desiredQueryId,
-            initialized
+            initialized,
+            command.instruction
         )
 
         // catch the race condition
@@ -144,20 +153,27 @@ class ServerInterface(
             return
         }
 
-        context.doWith {
-            it.registerConsumptionRequest(command)
+        try {
+            context.doWith {
+                it.registerConsumptionRequest(command)
+            }
         }
+        catch (ex: QueryContextClosedException) { /* ignore */ }
     }
 
     private fun handleClientError(error: GeneralError, handle: SessionHandle) {
-        // TODO: log
         val contexts = queryContexts.remove(handle)
         if (contexts != null) {
             contexts.values.forEach {
                 it.doWith { it.close() }
             }
         }
-        handle.closeSession()
+        closeSession(handle)
+    }
+
+    private fun closeSession(session: SessionHandle) {
+        session.closeSession()
+
     }
 
     private fun InitializeQueryCommand.startUsing(sessionState: Any?, engine: DatabaseEngine<Any?>): LazySequence<Unification> {
@@ -221,7 +237,6 @@ class ServerInterface(
                                 it.step()
                                 it.consumeSolutions(this)
                                 currentSessionHandle = null
-
                                 nContextsWorkedOn++
                             }
                         }
@@ -249,6 +264,14 @@ class ServerInterface(
         }
 
         override fun onReturnSolution(queryId: Int, solution: Unification) {
+            // remove variables starting with an underscore that were present in the original query
+            val original = queryContexts[currentSessionHandle]!![queryId]!!.originalQuery
+            if (original.variables.any { it.name.startsWith('_') }) {
+                val varsToRetain = solution.variableValues.variables
+                    .filter { it !in original.variables || (it in original.variables && !it.name.startsWith('_')) }
+                solution.variableValues.retainAll(varsToRetain)
+            }
+
             currentSessionHandle!!.queueMessage(QuerySolutionMessage(queryId, solution))
         }
 
@@ -261,6 +284,8 @@ class ServerInterface(
         }
 
         override fun onError(queryId: Int, ex: Throwable) {
+            log.error("Query $queryId errored", ex)
+
             currentSessionHandle!!.queueMessage(QueryRelatedError(
                 queryId,
                 QueryRelatedError.Kind.ERROR_GENERIC,
@@ -282,29 +307,31 @@ class ServerInterface(
             try {
                 val nDesiredWorkers = nWorkerThreadsSource()
                 if (nDesiredWorkers < 1) {
-                    // TODO: log properly
+                    log.warn("Desired number of workers is < 1.")
                     return
                 }
 
                 pruneDeadWorkers()
                 while (nDesiredWorkers > workers.size) {
+                    log.info("nDesiredWorkers = {}, nWorkers = {}, starting another", nDesiredWorkers, workers.size)
                     val runnable = WorkerRunnable()
                     val thread = Thread(runnable, "prologdb-interface-$localAddressPretty-worker-$workerIncrement")
                     workerIncrement++
                     workers.add(Pair(runnable, thread))
                     thread.start()
-                    // TODO: log
+                    log.debug("Worker thread {} started", thread.name)
                 }
 
                 while (nDesiredWorkers < workers.size) {
+                    log.info("nDesiredWorkers = {}, nWorkers = {}, stopping one", nDesiredWorkers, workers.size)
                     val entry = workers.first()
                     entry.first.close()
                     workers.remove(entry)
-                    // TODO: log
+                    log.debug("Worker {} has been stopped.", entry.second.name)
                 }
             }
             catch (ex: Throwable) {
-                // TODO: log properly
+                log.error("Exception while trying to scale worker threads", ex)
             }
         }
 
@@ -315,13 +342,11 @@ class ServerInterface(
             dead.forEach {
                 it.first.completedEv.subscribeBy(
                     onError = { ex ->
-                        ex.printStackTrace(System.err)
-                        // TODO: log
+                        log.error("Worker thread ${it.second.name} died because of an exception", ex)
                     },
                     onSuccess = { _ ->
                         // TODO: log
-                        // this is far more interesting than error because nothing else
-                        // should be closing workers but apparently still does.
+                        log.error("Worker thread ${it.second.name} stopped by itself (did not report an exception)")
                     }
                 )
             }
@@ -340,48 +365,64 @@ class ServerInterface(
     private val accepterThread = thread(name = "prologdb-interface-$localAddressPretty-accepter") {
         while (!closed) {
             val channel = try {
-                serverChannel.accept().get()
-            } catch (ex: Throwable) {
-                // TODO: log
+                try {
+                    serverChannel.accept().get()
+                } catch (ex: ExecutionException) {
+                    throw ex.cause ?: ex
+                }
+            }
+            catch (ex: AsynchronousCloseException) {
+                if (!closed) {
+                    // server socket closed, but the interface is supposed to be open?
+                    log.error("Server socket was closed unexpectedly.", ex)
+                    // TODO: attempt to reopen??
+                    break
+                } else {
+                    // interface closed, all good
+                    continue
+                }
+            }
+            catch (ex: Throwable) {
+                log.info("Failed to accept client connection", ex)
                 continue
             }
 
             try {
-                sessionInitializer.init(channel)
+                Single.fromFuture(sessionInitializer.init(channel).toCompletableFuture())
                     .map {
                         Pair(it, this@ServerInterface.databaseEngine.initializeSession())
                     }
                     .subscribeBy(
-                    onSuccess= { (handle, sessionState) ->
-                        handle.sessionState = sessionState
-                        openSessions.add(handle)
+                        onSuccess= { (handle, sessionState) ->
+                            handle.sessionState = sessionState
+                            openSessions.add(handle)
 
-                        handle.incomingMessages.subscribeBy(
-                            onNext = { handleMessage(it, handle) },
-                            onError = { ex ->
-                                if (ex is QueryRelatedException) {
-                                    handle.queueMessage(ex.errorObject)
-                                } else {
-                                    // TODO: log properly
-                                    ex.printStackTrace(System.err)
-                                    handle.closeSession()
+                            handle.incomingMessages.subscribeBy(
+                                onNext = { handleMessage(it, handle) },
+                                onError = { ex ->
+                                    if (ex is QueryRelatedException) {
+                                        handle.queueMessage(ex.errorObject)
+                                    } else {
+                                        // TODO: log properly
+                                        ex.printStackTrace(System.err)
+                                        handle.closeSession()
+                                    }
+                                },
+                                onComplete = {
+                                    openSessions.remove(handle)
+                                    this@ServerInterface.databaseEngine.onSessionDestroyed(handle.sessionState)
                                 }
-                            },
-                            onComplete = {
-                                openSessions.remove(handle)
-                                this@ServerInterface.databaseEngine.onSessionDestroyed(handle.sessionState)
-                            }
-                        )
-                    },
-                    onError = { ex ->
-                        // TODO: log
-                        ex.printStackTrace(System.err)
-                        channel.close()
-                    }
-                )
+                            )
+                        },
+                        onError = { ex ->
+                            log.info("Failed to negotiate session parameters with client, closing connection.")
+                            ex.printStackTrace(System.err)
+                            channel.close()
+                        }
+                    )
             }
             catch (ex: Throwable) {
-                // TODO: log
+                log.info("Failed to negotiate session parameters with client, closing connection.")
             }
         }
     }
@@ -393,8 +434,10 @@ class ServerInterface(
             .map { it.first.close() }
             .forEach { it.blockingGet() }
 
+        // TODO: close all running queries
         // TODO: notify clients!
 
+        // this will also interrupt the accepterThread
         serverChannel.close()
     }
 }
