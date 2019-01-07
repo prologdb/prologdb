@@ -2,7 +2,7 @@ package com.github.prologdb.io.binaryprolog
 
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
-import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.*
 import java.io.DataOutput
@@ -290,14 +290,14 @@ object DictionaryWriter : BinaryPrologWriter.TermWriter<PrologDictionary> {
 private object QueryWriter {
     fun writeQueryTo(query: Query, out: DataOutput, writerRef: BinaryPrologWriter) {
         when (query) {
-            is PredicateQuery -> writePredicateQueryTo(query, out, writerRef)
+            is PredicateInvocationQuery -> writePredicateQueryTo(query, out, writerRef)
             is AndQuery -> writeCombinedQueryTo(0x00, query.goals, out, writerRef)
             is OrQuery -> writeCombinedQueryTo(0x01, query.goals, out, writerRef)
             else -> throw BinaryPrologSerializationException("Query type ${query::class.java.name} not supported by binary prolog 1.0")
         }
     }
 
-    private fun writePredicateQueryTo(query: PredicateQuery, out: DataOutput, writerRef: BinaryPrologWriter) {
+    private fun writePredicateQueryTo(query: PredicateInvocationQuery, out: DataOutput, writerRef: BinaryPrologWriter) {
         out.writeByte(0x60)
         PredicateWriter.writeWithoutTypeByteTo(query.predicate, out, writerRef)
     }

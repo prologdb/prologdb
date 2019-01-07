@@ -2,7 +2,7 @@ package com.github.prologdb.io.binaryprolog
 
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
-import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.term.*
 import io.kotlintest.forOne
 import io.kotlintest.matchers.beInstanceOf
@@ -235,7 +235,7 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readQueryFrom(buffer)
 
             buffer.position() shouldBe 9
-            result as PredicateQuery
+            result as PredicateInvocationQuery
 
             result.predicate shouldBe CompoundTerm("foo", arrayOf(PrologInteger(5)))
         }
@@ -254,8 +254,8 @@ class BinaryPrologReaderTest : FreeSpec({
             result as AndQuery
             result.goals.size shouldBe 2
             forOne(result.goals) {
-                it should beInstanceOf(PredicateQuery::class)
-                it as PredicateQuery
+                it should beInstanceOf(PredicateInvocationQuery::class)
+                it as PredicateInvocationQuery
                 it.predicate shouldBe CompoundTerm("fuzz", arrayOf(Variable("Y")))
             }
             forOne(result.goals) { outer ->
@@ -263,13 +263,13 @@ class BinaryPrologReaderTest : FreeSpec({
                 outer as OrQuery
                 outer.goals.size shouldBe 2
                 forOne(outer.goals) {
-                    it should beInstanceOf(PredicateQuery::class)
-                    it as PredicateQuery
+                    it should beInstanceOf(PredicateInvocationQuery::class)
+                    it as PredicateInvocationQuery
                     it.predicate shouldBe CompoundTerm("foo", arrayOf(Variable("X")))
                 }
                 forOne(outer.goals) {
-                    it should beInstanceOf(PredicateQuery::class)
-                    it as PredicateQuery
+                    it should beInstanceOf(PredicateInvocationQuery::class)
+                    it as PredicateInvocationQuery
                     it.predicate shouldBe CompoundTerm("bar", arrayOf(Variable("X")))
                 }
             }

@@ -2,7 +2,7 @@ package com.github.prologdb.io.binaryprolog
 
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
-import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.term.*
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.FreeSpec
@@ -285,7 +285,7 @@ class BinaryPrologWriterTest : FreeSpec({
             val out = DataOutputStream(buffer)
 
             BinaryPrologWriter.getDefaultInstance().writeQueryTo(
-                PredicateQuery(CompoundTerm("foo", arrayOf(PrologInteger(5)))),
+                PredicateInvocationQuery(CompoundTerm("foo", arrayOf(PrologInteger(5)))),
                 out
             )
 
@@ -301,10 +301,10 @@ class BinaryPrologWriterTest : FreeSpec({
             BinaryPrologWriter.getDefaultInstance().writeQueryTo(
                 AndQuery(arrayOf(
                    OrQuery(arrayOf(
-                       PredicateQuery(CompoundTerm("foo", arrayOf(Variable("X")))),
-                       PredicateQuery(CompoundTerm("bar", arrayOf(Variable("X"))))
+                       PredicateInvocationQuery(CompoundTerm("foo", arrayOf(Variable("X")))),
+                       PredicateInvocationQuery(CompoundTerm("bar", arrayOf(Variable("X"))))
                    )),
-                   PredicateQuery(CompoundTerm("fuzz", arrayOf(Variable("Y"))))
+                   PredicateInvocationQuery(CompoundTerm("fuzz", arrayOf(Variable("Y"))))
                 )),
                 out
             )

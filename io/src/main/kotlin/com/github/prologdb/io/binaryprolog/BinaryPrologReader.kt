@@ -2,7 +2,7 @@ package com.github.prologdb.io.binaryprolog
 
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
-import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.*
 import java.nio.ByteBuffer
@@ -293,8 +293,8 @@ private object QueryReader {
         }
     }
 
-    private fun readPredicateQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): PredicateQuery {
-        return PredicateQuery(PredicateReader.readTermFrom(buffer, readerRef))
+    private fun readPredicateQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): PredicateInvocationQuery {
+        return PredicateInvocationQuery(PredicateReader.readTermFrom(buffer, readerRef))
     }
 
     private fun readCombinedQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): Query {

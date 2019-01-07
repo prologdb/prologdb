@@ -20,7 +20,7 @@ import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.builtin.TypeSafetyLibrary
 import com.github.prologdb.runtime.builtin.dict.DictLibrary
 import com.github.prologdb.runtime.builtin.dynamic.DynamicsLibrary
-import com.github.prologdb.runtime.builtin.dynamic.predicateToQuery
+import com.github.prologdb.runtime.builtin.dynamic.compoundToQuery
 import com.github.prologdb.runtime.builtin.lists.ListsLibrary
 import com.github.prologdb.runtime.builtin.math.MathLibrary
 import com.github.prologdb.runtime.builtin.string.StringsLibrary
@@ -197,7 +197,7 @@ class PrologDBEngine(
 
             val currentKB = ctxt.knowledgeBase?.second ?: return@directive lazyError<Unification>(PrologRuntimeException("No knowledge base selected."))
 
-            val query = predicateToQuery(arg0)
+            val query = compoundToQuery(arg0)
             val plan = executionPlanner.planExecution(query, currentKB.planningInformation)
             val solutionVars = VariableBucket()
             solutionVars.instantiate(Variable("Plan"), plan.explanation)

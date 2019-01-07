@@ -10,7 +10,7 @@ import com.github.prologdb.runtime.builtin.getInvocationStackFrame
 import com.github.prologdb.runtime.knowledge.ProofSearchContext
 import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.*
-import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.PrologInteger
 import com.github.prologdb.runtime.term.Term
@@ -105,7 +105,7 @@ internal interface BuiltinLibraryBuilder : OperatorRegistrationTarget {
     fun add(builtin: NativeCodeRule)
 }
 
-private object TrueQuery : PredicateQuery(CompoundTerm("=", arrayOf(PrologInteger(1), PrologInteger(1)))) {
+private object TrueQuery : PredicateInvocationQuery(CompoundTerm("=", arrayOf(PrologInteger(1), PrologInteger(1)))) {
     override fun substituteVariables(variableValues: VariableBucket) = this
 
     override fun withRandomVariables(randomVarsScope: RandomVariableScope, mapping: VariableMapping) = this
