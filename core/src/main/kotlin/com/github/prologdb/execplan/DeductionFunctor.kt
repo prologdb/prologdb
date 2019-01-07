@@ -50,8 +50,8 @@ class DeductionFunctor(
  * This is a toplevel fun so that it can be used within [DeductionStep] and [BuiltinInvocationStep]
  */
 internal fun deduceWithRuleForFunctor(goal: CompoundTerm, rule: Rule, context: DBProofSearchContext): LazySequence<Pair<VariableBucket, Unit>> {
-    val predicateRandomVarsMapping = VariableMapping()
-    val randomPredicate = context.randomVariableScope.withRandomVariables(goal, predicateRandomVarsMapping)
+    val goalRandomMapping = VariableMapping()
+    val randomPredicate = context.randomVariableScope.withRandomVariables(goal, goalRandomMapping)
 
     val ruleRandomVarsMapping = VariableMapping()
     val randomHead = context.randomVariableScope.withRandomVariables(rule.head, ruleRandomVarsMapping)
@@ -82,13 +82,13 @@ internal fun deduceWithRuleForFunctor(goal: CompoundTerm, rule: Rule, context: D
                     solutionVars.instantiate(randomPredicateVariable, value)
                 }
                 else if (unification.variableValues.isInstantiated(randomPredicateVariable)) {
-                    val originalVar = predicateRandomVarsMapping.getOriginal(randomPredicateVariable)!!
+                    val originalVar = goalRandomMapping.getOriginal(randomPredicateVariable)!!
                     solutionVars.instantiate(originalVar, unification.variableValues[randomPredicateVariable])
                 }
             }
 
             Pair(
-                solutionVars.withVariablesResolvedFrom(predicateRandomVarsMapping),
+                solutionVars.withVariablesResolvedFrom(goalRandomMapping),
                 Unit
             )
         }
