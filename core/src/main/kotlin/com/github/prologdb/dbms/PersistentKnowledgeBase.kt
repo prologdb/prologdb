@@ -5,7 +5,10 @@ import com.github.prologdb.dbms.builtin.DBLibrary
 import com.github.prologdb.dbms.builtin.ModifyLibrary
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.execplan.planner.PlanningInformation
+import com.github.prologdb.indexing.FactIndex
+import com.github.prologdb.indexing.FactIndexLoader
 import com.github.prologdb.indexing.IndexDefinition
+import com.github.prologdb.indexing.IndexingException
 import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.RandomVariableScope
@@ -35,6 +38,7 @@ private val log = LoggerFactory.getLogger("prologdb.dbmanager")
 class PersistentKnowledgeBase(
     private val directoryManager: DataDirectoryManager,
     private val factStoreLoader: FactStoreLoader,
+    private val factIndexLoader: FactIndexLoader,
     @Volatile private var planner: ExecutionPlanner
 ) : KnowledgeBase {
     override val operators = DefaultOperatorRegistry()
@@ -45,6 +49,8 @@ class PersistentKnowledgeBase(
     private val factStores: MutableMap<ClauseIndicator, FactStore> = ConcurrentHashMap()
 
     private val rules: MutableMap<ClauseIndicator, List<Rule>> = ConcurrentHashMap()
+
+    private val indices: MutableMap<ClauseIndicator, MutableSet<FactIndex>> = ConcurrentHashMap()
 
     /**
      * To be synchronized on for modifications in either [loadedLibraries] or
@@ -113,14 +119,27 @@ class PersistentKnowledgeBase(
     }
 
     /**
-     * TODO
+     * @throws IndexingException
      */
     fun createIndex(definition: IndexDefinition) {
+        // assure the predicate is not occupied by a library
+        val indicator = ClauseIndicator.of(definition.template.templateFact)
+
+        if (indicator in builtinImplementations) {
+            throw IndexingException("Cannot index predicate $indicator: is backed by native code.")
+        }
+
+        val clauseDirectoryManager = directoryManager.scopedForFactsOf(indicator)
+
+        indices.computeIfAbsent(indicator) { Collections.newSetFromMap(ConcurrentHashMap()) }
+        val indexInstances = indices[indicator]!!
+
         TODO()
     }
     
     private val closingMutex = Any()
-    private @Volatile var closed = false
+    @Volatile
+    private var closed = false
 
     fun close() {
         if (closed) return
