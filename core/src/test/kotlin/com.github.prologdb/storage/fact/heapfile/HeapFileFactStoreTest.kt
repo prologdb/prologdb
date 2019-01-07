@@ -5,7 +5,7 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.term.Atom
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.storage.heapfile.HeapFile
 import io.kotlintest.matchers.shouldBe
 import io.kotlintest.matchers.shouldThrow
@@ -29,25 +29,25 @@ class HeapFileFactStoreTest : FreeSpec({
     val abc = arrayOf(Atom("a"), Atom("b"), Atom("c"))
 
     "write succeeds" {
-        store.store(IrrelevantPrincipal, Predicate("foo", abc))
+        store.store(IrrelevantPrincipal, CompoundTerm("foo", abc))
             .get()
     }
 
     "write of predicate with wrong name fails" {
         shouldThrow<IllegalArgumentException> {
-            store.store(IrrelevantPrincipal, Predicate("bar", abc))
+            store.store(IrrelevantPrincipal, CompoundTerm("bar", abc))
                 .get()
         }
     }
 
     "write of predicate with wrong arity fails" {
         shouldThrow<IllegalArgumentException> {
-            store.store(IrrelevantPrincipal, Predicate("foo", arrayOf(Atom("a"))))
+            store.store(IrrelevantPrincipal, CompoundTerm("foo", arrayOf(Atom("a"))))
         }
     }
 
     "write and read back" {
-        val original = Predicate("foo", abc)
+        val original = CompoundTerm("foo", abc)
         val pid = store.store(IrrelevantPrincipal, original)
             .get()
 

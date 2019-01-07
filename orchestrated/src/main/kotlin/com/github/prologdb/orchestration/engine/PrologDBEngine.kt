@@ -69,7 +69,7 @@ class PrologDBEngine(
         return kb.startQuery(session, query, totalLimit)
     }
 
-    override fun startDirective(session: SessionContext, command: Predicate, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(session: SessionContext, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
         val indicator = ClauseIndicator.of(command)
         if (globalDirectives.supportsDirective(indicator)) {
             return globalDirectives.startDirective(session, command, totalLimit)
@@ -193,7 +193,7 @@ class PrologDBEngine(
         }
 
         directive("explain"/1) { ctxt, args ->
-            val arg0 = args[0] as? Predicate ?: return@directive lazyError<Unification>(PrologRuntimeException("Argument 0 to explain/1 must be a query."))
+            val arg0 = args[0] as? CompoundTerm ?: return@directive lazyError<Unification>(PrologRuntimeException("Argument 0 to explain/1 must be a query."))
 
             val currentKB = ctxt.knowledgeBase?.second ?: return@directive lazyError<Unification>(PrologRuntimeException("No knowledge base selected."))
 

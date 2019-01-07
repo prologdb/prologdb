@@ -140,7 +140,7 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
             buffer.position() shouldBe 7
-            result as Predicate
+            result as CompoundTerm
             result.arity shouldBe 1
             result.arguments[0] shouldBe Atom("x")
         }
@@ -153,7 +153,7 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
             buffer.position() shouldBe 17
-            result as Predicate
+            result as CompoundTerm
             result.arity shouldBe 3
             result.arguments[0] shouldBe PrologInteger(1)
             result.arguments[1] shouldBe PrologString("bar")
@@ -237,7 +237,7 @@ class BinaryPrologReaderTest : FreeSpec({
             buffer.position() shouldBe 9
             result as PredicateQuery
 
-            result.predicate shouldBe Predicate("foo", arrayOf(PrologInteger(5)))
+            result.predicate shouldBe CompoundTerm("foo", arrayOf(PrologInteger(5)))
         }
 
         "B" {
@@ -256,7 +256,7 @@ class BinaryPrologReaderTest : FreeSpec({
             forOne(result.goals) {
                 it should beInstanceOf(PredicateQuery::class)
                 it as PredicateQuery
-                it.predicate shouldBe Predicate("fuzz", arrayOf(Variable("Y")))
+                it.predicate shouldBe CompoundTerm("fuzz", arrayOf(Variable("Y")))
             }
             forOne(result.goals) { outer ->
                 outer should beInstanceOf(OrQuery::class)
@@ -265,12 +265,12 @@ class BinaryPrologReaderTest : FreeSpec({
                 forOne(outer.goals) {
                     it should beInstanceOf(PredicateQuery::class)
                     it as PredicateQuery
-                    it.predicate shouldBe Predicate("foo", arrayOf(Variable("X")))
+                    it.predicate shouldBe CompoundTerm("foo", arrayOf(Variable("X")))
                 }
                 forOne(outer.goals) {
                     it should beInstanceOf(PredicateQuery::class)
                     it as PredicateQuery
-                    it.predicate shouldBe Predicate("bar", arrayOf(Variable("X")))
+                    it.predicate shouldBe CompoundTerm("bar", arrayOf(Variable("X")))
                 }
             }
         }

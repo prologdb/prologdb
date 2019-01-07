@@ -198,10 +198,10 @@ object AtomReader : BinaryPrologReader.TermReader<Atom> {
     }
 }
 
-object PredicateReader : BinaryPrologReader.TermReader<Predicate> {
+object PredicateReader : BinaryPrologReader.TermReader<CompoundTerm> {
     override val prologTypeName = "predicate"
 
-    override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): Predicate {
+    override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): CompoundTerm {
         val arity = buffer.readEncodedIntegerAsInt()
         val name = AtomReader.readAtomNameFrom(buffer, readerRef)
         val arguments = Array<Term?>(arity) { null }
@@ -210,7 +210,7 @@ object PredicateReader : BinaryPrologReader.TermReader<Predicate> {
             arguments[currentArgumentIndex] = term
         }
 
-        return Predicate(
+        return CompoundTerm(
             name,
             arguments as Array<Term>
         )

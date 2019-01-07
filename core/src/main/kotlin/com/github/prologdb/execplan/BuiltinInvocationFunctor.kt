@@ -8,13 +8,13 @@ import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.NativeCodeRule
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.toStackTraceElement
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 
 class BuiltinInvocationFunctor(
-    val invocation: Predicate
+    val invocation: CompoundTerm
 ) : PlanFunctor<Any?, Unit> {
     
     private val indicator = ClauseIndicator.of(invocation)
@@ -51,6 +51,6 @@ class BuiltinInvocationFunctor(
         }
     }
 
-    override val explanation: Predicate
-        get() = Predicate("invoke_compiled", arrayOf(invocation))
+    override val explanation: CompoundTerm
+        get() = CompoundTerm("invoke_compiled", arrayOf(invocation))
 }

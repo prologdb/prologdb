@@ -165,7 +165,7 @@ class BinaryPrologWriterTest : FreeSpec({
             val out = DataOutputStream(buffer)
 
             BinaryPrologWriter.getDefaultInstance().writeTermTo(
-                Predicate("a", arrayOf(Atom("x"))),
+                CompoundTerm("a", arrayOf(Atom("x"))),
                 out
             )
 
@@ -179,7 +179,7 @@ class BinaryPrologWriterTest : FreeSpec({
             val out = DataOutputStream(buffer)
 
             BinaryPrologWriter.getDefaultInstance().writeTermTo(
-                Predicate("foo", arrayOf(
+                CompoundTerm("foo", arrayOf(
                     PrologInteger(1),
                     PrologString("bar"),
                     Atom("z")
@@ -285,7 +285,7 @@ class BinaryPrologWriterTest : FreeSpec({
             val out = DataOutputStream(buffer)
 
             BinaryPrologWriter.getDefaultInstance().writeQueryTo(
-                PredicateQuery(Predicate("foo", arrayOf(PrologInteger(5)))),
+                PredicateQuery(CompoundTerm("foo", arrayOf(PrologInteger(5)))),
                 out
             )
 
@@ -301,10 +301,10 @@ class BinaryPrologWriterTest : FreeSpec({
             BinaryPrologWriter.getDefaultInstance().writeQueryTo(
                 AndQuery(arrayOf(
                    OrQuery(arrayOf(
-                       PredicateQuery(Predicate("foo", arrayOf(Variable("X")))),
-                       PredicateQuery(Predicate("bar", arrayOf(Variable("X"))))
+                       PredicateQuery(CompoundTerm("foo", arrayOf(Variable("X")))),
+                       PredicateQuery(CompoundTerm("bar", arrayOf(Variable("X"))))
                    )),
-                   PredicateQuery(Predicate("fuzz", arrayOf(Variable("Y"))))
+                   PredicateQuery(CompoundTerm("fuzz", arrayOf(Variable("Y"))))
                 )),
                 out
             )

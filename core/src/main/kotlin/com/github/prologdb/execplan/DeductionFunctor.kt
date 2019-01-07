@@ -9,13 +9,13 @@ import com.github.prologdb.runtime.VariableMapping
 import com.github.prologdb.runtime.amendExceptionsWithStackTraceOnRemaining
 import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.toStackTraceElement
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 
 class DeductionFunctor(
-    val goal: Predicate
+    val goal: CompoundTerm
 ) : PlanFunctor<Any?, Unit> {
     
     val goalIndicator = ClauseIndicator.of(goal)
@@ -40,8 +40,8 @@ class DeductionFunctor(
         }
     }
 
-    override val explanation: Predicate
-        get() = Predicate("deduce_from", arrayOf(goal))
+    override val explanation: CompoundTerm
+        get() = CompoundTerm("deduce_from", arrayOf(goal))
 }
 
 /**
@@ -49,7 +49,7 @@ class DeductionFunctor(
  *
  * This is a toplevel fun so that it can be used within [DeductionStep] and [BuiltinInvocationStep]
  */
-internal fun deduceWithRuleForFunctor(goal: Predicate, rule: Rule, context: DBProofSearchContext): LazySequence<Pair<VariableBucket, Unit>> {
+internal fun deduceWithRuleForFunctor(goal: CompoundTerm, rule: Rule, context: DBProofSearchContext): LazySequence<Pair<VariableBucket, Unit>> {
     val predicateRandomVarsMapping = VariableMapping()
     val randomPredicate = context.randomVariableScope.withRandomVariables(goal, predicateRandomVarsMapping)
 

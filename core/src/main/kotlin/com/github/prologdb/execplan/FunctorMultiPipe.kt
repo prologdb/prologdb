@@ -4,7 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.async.forEachRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 
 class FunctorMultiPipe<Input, Output>(
@@ -20,6 +20,6 @@ class FunctorMultiPipe<Input, Output>(
         }
     }
 
-    override val explanation: Predicate
-        get() = Predicate(";", steps.map { it.explanation }.toTypedArray())
+    override val explanation: CompoundTerm
+        get() = CompoundTerm(";", steps.map { it.explanation }.toTypedArray())
 }

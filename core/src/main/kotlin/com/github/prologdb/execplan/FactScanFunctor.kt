@@ -8,7 +8,7 @@ import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologStackTraceElement
 import com.github.prologdb.runtime.amendExceptionsWithStackTraceOnRemaining
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.fact.PersistenceID
 
@@ -19,11 +19,11 @@ class FactScanFunctor(
     val indicator: ClauseIndicator,
     /** Is invoked on errors; the result will appear in the error stack trace. */
     private val stackFrameProvider: () -> PrologStackTraceElement
-) : PlanFunctor<Any?, Pair<PersistenceID, Predicate>>
+) : PlanFunctor<Any?, Pair<PersistenceID, CompoundTerm>>
 {
     private val stackFrame by lazy(stackFrameProvider)
     
-    override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Pair<PersistenceID, Predicate>>> {
+    override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>> {
         if (!ctxt.authorization.mayRead(indicator)) {
             throw PrologPermissionError("Not allowed to read $indicator")
         }
@@ -31,7 +31,7 @@ class FactScanFunctor(
         val factStore = ctxt.factStores[indicator] ?: return LazySequence.empty()
         
         return inputs
-            .flatMapRemaining<Pair<VariableBucket, Any?>, Pair<VariableBucket, Pair<PersistenceID, Predicate>>> { (variableCarry, _) ->
+            .flatMapRemaining<Pair<VariableBucket, Any?>, Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>> { (variableCarry, _) ->
                 yieldAll(
                     factStore.all(ctxt.principal)
                         .mapRemaining { (persistenceID, fact) ->
@@ -42,6 +42,6 @@ class FactScanFunctor(
             .amendExceptionsWithStackTraceOnRemaining(stackFrame)
     }
 
-    override val explanation: Predicate
-        get() = Predicate("fact_scan", arrayOf(indicator.toIdiomatic()))
+    override val explanation: CompoundTerm
+        get() = CompoundTerm("fact_scan", arrayOf(indicator.toIdiomatic()))
 }

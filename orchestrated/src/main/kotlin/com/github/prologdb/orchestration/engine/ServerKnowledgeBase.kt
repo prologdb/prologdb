@@ -6,7 +6,7 @@ import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.orchestration.SessionContext
 import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
 import com.github.prologdb.runtime.query.Query
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.Unification
 
 /**
@@ -23,7 +23,7 @@ interface ServerKnowledgeBase {
 
     fun startQuery(session: SessionContext, query: Query, totalLimit: Long?): LazySequence<Unification>
 
-    fun startDirective(session: SessionContext, command: Predicate, totalLimit: Long?): LazySequence<Unification>
+    fun startDirective(session: SessionContext, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification>
 
     fun close()
 }

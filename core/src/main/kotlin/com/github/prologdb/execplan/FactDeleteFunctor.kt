@@ -4,7 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.PersistenceID
@@ -25,15 +25,15 @@ class FactDeleteFunctor(
         }
     }
 
-    override val explanation: Predicate
-        get() = Predicate("fact_delete", arrayOf(indicator.toIdiomatic()))
+    override val explanation: CompoundTerm
+        get() = CompoundTerm("fact_delete", arrayOf(indicator.toIdiomatic()))
 }
 
 class FactDeleteFunctorOverload0(
     private val indicator: ClauseIndicator
-) : PlanFunctor<Pair<PersistenceID, Predicate>, Unit> {
+) : PlanFunctor<Pair<PersistenceID, CompoundTerm>, Unit> {
     
-    override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Pair<PersistenceID, Predicate>>>): LazySequence<Pair<VariableBucket, Unit>> {
+    override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>>): LazySequence<Pair<VariableBucket, Unit>> {
         val factStore = ctxt.factStores[indicator] ?: return LazySequence.empty()
         
         return inputs.flatMapRemaining { (variableCarry, pidAndFact) ->
@@ -42,8 +42,8 @@ class FactDeleteFunctorOverload0(
         }
     }
 
-    override val explanation: Predicate
-        get() = Predicate("fact_delete_0", arrayOf(indicator.toIdiomatic()))
+    override val explanation: CompoundTerm
+        get() = CompoundTerm("fact_delete_0", arrayOf(indicator.toIdiomatic()))
 }
 
 /**

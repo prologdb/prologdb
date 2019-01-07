@@ -3,7 +3,7 @@ package com.github.prologdb.storage.fact
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.Principal
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import java.util.concurrent.Future
 
 /**
@@ -26,14 +26,14 @@ interface FactStore {
      * ID.
      * @throws OutOfStorageSpaceException
      */
-    fun store(asPrincipal: Principal, item: Predicate): Future<PersistenceID>
+    fun store(asPrincipal: Principal, item: CompoundTerm): Future<PersistenceID>
 
     /**
      * @return The predicate that was [store]d with the given
      * [PersistenceID]; null if no such predicate was ever stored or when
      * it was [delete]d
      */
-    fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Predicate?>
+    fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<CompoundTerm?>
 
     /**
      * Removes the predicate stored with the given ID from
@@ -48,7 +48,7 @@ interface FactStore {
     /**
      * @return A lazy sequence of all the predicates stored in this store.
      */
-    fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, Predicate>>
+    fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, CompoundTerm>>
 
     /**
      * Does these things in sequence:

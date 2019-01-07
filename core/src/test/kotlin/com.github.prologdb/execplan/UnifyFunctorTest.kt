@@ -18,13 +18,13 @@ class UnifyFunctorTest : FreeSpec({
     
     "multiple inputs - all can be unified" {
         val inputs = buildLazySequence(principal) {
-            yield(Pair(0L, Predicate("foo", arrayOf(PrologInteger(0)))))
-            yield(Pair(1L, Predicate("foo", arrayOf(PrologInteger(1)))))
-            yield(Pair(2L, Predicate("foo", arrayOf(PrologInteger(2)))))
-            yield(Pair(3L, Predicate("foo", arrayOf(PrologInteger(3)))))
+            yield(Pair(0L, CompoundTerm("foo", arrayOf(PrologInteger(0)))))
+            yield(Pair(1L, CompoundTerm("foo", arrayOf(PrologInteger(1)))))
+            yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologInteger(2)))))
+            yield(Pair(3L, CompoundTerm("foo", arrayOf(PrologInteger(3)))))
         }
         val inputsWithVars = inputs.mapRemaining { Pair(VariableBucket(), it) }
-        val functor = UnifyFunctor(Predicate("foo", arrayOf(Variable("A"))))
+        val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
         val ctxt = mockk<DBProofSearchContext>()
         every { ctxt.randomVariableScope } returns RandomVariableScope()
         
@@ -40,13 +40,13 @@ class UnifyFunctorTest : FreeSpec({
 
     "multiple inputs - some do not unify" {
         val inputs = buildLazySequence(principal) {
-            yield(Pair(0L, Predicate("foo", arrayOf(PrologInteger(0)))))
-            yield(Pair(1L, Predicate("foo", arrayOf(PrologInteger(1), Atom("x")))))
-            yield(Pair(2L, Predicate("foo", arrayOf(PrologInteger(2)))))
-            yield(Pair(3L, Predicate("foo", arrayOf(PrologInteger(3), Atom("y")))))
+            yield(Pair(0L, CompoundTerm("foo", arrayOf(PrologInteger(0)))))
+            yield(Pair(1L, CompoundTerm("foo", arrayOf(PrologInteger(1), Atom("x")))))
+            yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologInteger(2)))))
+            yield(Pair(3L, CompoundTerm("foo", arrayOf(PrologInteger(3), Atom("y")))))
         }
         val inputsWithVars = inputs.mapRemaining { Pair(VariableBucket(), it) }
-        val functor = UnifyFunctor(Predicate("foo", arrayOf(Variable("A"))))
+        val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
         val ctxt = mockk<DBProofSearchContext>()
         every { ctxt.randomVariableScope } returns RandomVariableScope()
 

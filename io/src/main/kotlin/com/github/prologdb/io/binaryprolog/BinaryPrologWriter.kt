@@ -64,7 +64,7 @@ class BinaryPrologWriter {
             writer.registerWriter(Variable::class.java, VariableWriter)
             writer.registerWriter(PrologString::class.java, StringWriter)
             writer.registerWriter(Atom::class.java, AtomWriter)
-            writer.registerWriter(Predicate::class.java, PredicateWriter)
+            writer.registerWriter(CompoundTerm::class.java, PredicateWriter)
             writer.registerWriter(PrologList::class.java, ListWriter)
             writer.registerWriter(PrologDictionary::class.java, DictionaryWriter)
 
@@ -196,17 +196,17 @@ object AtomWriter : BinaryPrologWriter.TermWriter<Atom> {
     }
 }
 
-object PredicateWriter : BinaryPrologWriter.TermWriter<Predicate> {
+object PredicateWriter : BinaryPrologWriter.TermWriter<CompoundTerm> {
     override val prologTypeName = "predicate"
 
     private val TYPE_BYTE = 0x30
 
-    override fun writeTermTo(term: Predicate, out: DataOutput, writerRef: BinaryPrologWriter) {
+    override fun writeTermTo(term: CompoundTerm, out: DataOutput, writerRef: BinaryPrologWriter) {
         out.writeByte(TYPE_BYTE)
         writeWithoutTypeByteTo(term, out, writerRef)
     }
 
-    fun writeWithoutTypeByteTo(term: Predicate, out: DataOutput, writerRef: BinaryPrologWriter) {
+    fun writeWithoutTypeByteTo(term: CompoundTerm, out: DataOutput, writerRef: BinaryPrologWriter) {
         out.writeIntEncoded(term.arity)
         AtomWriter.writeWithoutTypeByte(term.name, out)
         for (argument in term.arguments) {

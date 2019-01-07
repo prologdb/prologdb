@@ -8,7 +8,7 @@ import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
 import com.github.prologdb.runtime.query.Query
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 
@@ -34,7 +34,7 @@ open class ProgramaticServerKnowledgeBase(
         return lazyError(PrologRuntimeException("Queries in programatic knowledge bases not supported yet."))
     }
 
-    override fun startDirective(session: SessionContext, command: Predicate, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(session: SessionContext, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
         val indicator = ClauseIndicator.of(command)
         val code = directives[indicator] ?: return lazyError(PrologRuntimeException("Directive $indicator not defined."))
 

@@ -2,7 +2,7 @@ package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.dbms.DBProofSearchContext
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 
 class FunctorPipe<Input, Intermediate, Output>(
@@ -13,6 +13,6 @@ class FunctorPipe<Input, Intermediate, Output>(
         return second.invoke(ctxt, first.invoke(ctxt, inputs))
     }
 
-    override val explanation: Predicate
-        get() = Predicate("|", arrayOf(first.explanation, second.explanation))
+    override val explanation: CompoundTerm
+        get() = CompoundTerm("|", arrayOf(first.explanation, second.explanation))
 }

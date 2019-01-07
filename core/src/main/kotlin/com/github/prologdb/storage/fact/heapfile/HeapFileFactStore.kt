@@ -9,7 +9,7 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.io.util.Pool
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.PersistentStorage
 import com.github.prologdb.storage.StorageStrategy
@@ -53,7 +53,7 @@ class HeapFileFactStore(
         }
     )
 
-    override fun store(asPrincipal: Principal, item: Predicate): Future<PersistenceID> {
+    override fun store(asPrincipal: Principal, item: CompoundTerm): Future<PersistenceID> {
         if (item.arity != indicator.arity || item.name != indicator.name) {
             throw IllegalArgumentException("This fact store is intended for instances of $indicator, got ${item.name}/${item.arity}")
         }
@@ -72,7 +72,7 @@ class HeapFileFactStore(
         }
     }
 
-    override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Predicate?> {
+    override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<CompoundTerm?> {
         return launchWorkableFuture(asPrincipal) {
             return@launchWorkableFuture try {
                 await(heapFile.useRecord(asPrincipal, id, this@HeapFileFactStore::readPredicateFrom))
@@ -90,13 +90,13 @@ class HeapFileFactStore(
         }
     }
 
-    override fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, Predicate>> {
+    override fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, CompoundTerm>> {
         return heapFile.allRecords(asPrincipal, this::readPredicateFrom)
     }
 
-    private fun readPredicateFrom(data: ByteBuffer): Predicate {
+    private fun readPredicateFrom(data: ByteBuffer): CompoundTerm {
         val arguments = Array(indicator.arity) { binaryReader.readTermFrom(data) }
-        return Predicate(indicator.name, arguments)
+        return CompoundTerm(indicator.name, arguments)
     }
 
     object Loader : SpecializedFactStoreLoader<HeapFileFactStore> {
