@@ -11,7 +11,7 @@ private val Builtin_Assert_1 = databaseBuiltin("assert", 1) { args, ctxt ->
     val arg0 = args[0] as? CompoundTerm
         ?: throw PrologRuntimeException("Argument 1 to assert/1 must be a predicate, got ${args[0].prologTypeName}")
 
-    if (arg0.arity == 2 && arg0.name == ":-") {
+    if (arg0.arity == 2 && arg0.functor == ":-") {
         throw PrologRuntimeException("Cannot assert rules; you need to declare them in a library.")
     } else {
         val indicator = ClauseIndicator.of(arg0)

@@ -54,8 +54,8 @@ class HeapFileFactStore(
     )
 
     override fun store(asPrincipal: Principal, item: CompoundTerm): Future<PersistenceID> {
-        if (item.arity != indicator.arity || item.name != indicator.name) {
-            throw IllegalArgumentException("This fact store is intended for instances of $indicator, got ${item.name}/${item.arity}")
+        if (item.arity != indicator.arity || item.functor != indicator.name) {
+            throw IllegalArgumentException("This fact store is intended for instances of $indicator, got ${item.functor}/${item.arity}")
         }
 
         return launchWorkableFuture(asPrincipal) {

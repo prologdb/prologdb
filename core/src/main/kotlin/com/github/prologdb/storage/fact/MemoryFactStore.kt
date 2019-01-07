@@ -31,7 +31,7 @@ class MemoryFactStore(override val indicator: ClauseIndicator) : FactStore {
     private val upscalingFactor = 1.5
 
     override fun store(asPrincipal: Principal, item: CompoundTerm): Future<PersistenceID> {
-        if (item.arity != indicator.arity || item.name != indicator.name) {
+        if (item.arity != indicator.arity || item.functor != indicator.name) {
             throw IllegalArgumentException("This store holds only predicates of type ${indicator.name}/${indicator.arity}")
         }
 

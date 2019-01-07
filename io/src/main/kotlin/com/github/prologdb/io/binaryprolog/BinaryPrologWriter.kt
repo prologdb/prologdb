@@ -208,7 +208,7 @@ object PredicateWriter : BinaryPrologWriter.TermWriter<CompoundTerm> {
 
     fun writeWithoutTypeByteTo(term: CompoundTerm, out: DataOutput, writerRef: BinaryPrologWriter) {
         out.writeIntEncoded(term.arity)
-        AtomWriter.writeWithoutTypeByte(term.name, out)
+        AtomWriter.writeWithoutTypeByte(term.functor, out)
         for (argument in term.arguments) {
             writerRef.writeTermTo(argument, out)
         }

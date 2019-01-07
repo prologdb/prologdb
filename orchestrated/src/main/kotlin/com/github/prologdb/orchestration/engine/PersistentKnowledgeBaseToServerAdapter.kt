@@ -22,7 +22,7 @@ class PersistentKnowledgeBaseToServerAdapter(
     }
 
     override fun startDirective(session: SessionContext, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
-        return kb.invokeDirective(command.name, ReadWriteAuthorization, command.arguments)
+        return kb.invokeDirective(command.functor, ReadWriteAuthorization, command.arguments)
     }
 
     override fun close() {
