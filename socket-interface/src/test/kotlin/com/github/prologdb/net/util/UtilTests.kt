@@ -2,7 +2,7 @@ package com.github.prologdb.net.util
 
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.term.Atom
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.VariableBucket
 import io.kotlintest.shouldBe
@@ -27,19 +27,19 @@ class UtilTests : FreeSpec({
                 // ACT
                 val sorted = bucket.sortForSubstitution()
 
-                var value = Predicate("foo", arrayOf(Variable("A")))
+                var value = CompoundTerm("foo", arrayOf(Variable("A")))
                 sorted.forEach { replacement ->
                     value = value.substituteVariables(replacement.asSubstitutionMapper())
                 }
 
-                value shouldBe Predicate("foo", arrayOf(Atom("a")))
+                value shouldBe CompoundTerm("foo", arrayOf(Atom("a")))
             }
 
             "circular dependency should error" {
                 // SETUP
                 val bucket = VariableBucket()
-                bucket.instantiate(Variable("A"), Predicate("foo", arrayOf(Variable("B"))))
-                bucket.instantiate(Variable("B"), Predicate("bar", arrayOf(Variable("A"))))
+                bucket.instantiate(Variable("A"), CompoundTerm("foo", arrayOf(Variable("B"))))
+                bucket.instantiate(Variable("B"), CompoundTerm("bar", arrayOf(Variable("A"))))
 
                 // ACT & ASSERT
                 shouldThrow<PrologRuntimeException> {

@@ -20,7 +20,7 @@ import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.builtin.TypeSafetyLibrary
 import com.github.prologdb.runtime.builtin.dict.DictLibrary
 import com.github.prologdb.runtime.builtin.dynamic.DynamicsLibrary
-import com.github.prologdb.runtime.builtin.dynamic.predicateToQuery
+import com.github.prologdb.runtime.builtin.dynamic.compoundToQuery
 import com.github.prologdb.runtime.builtin.lists.ListsLibrary
 import com.github.prologdb.runtime.builtin.math.MathLibrary
 import com.github.prologdb.runtime.builtin.string.StringsLibrary
@@ -71,7 +71,7 @@ class PrologDBEngine(
         return kb.startQuery(session, query, totalLimit)
     }
 
-    override fun startDirective(session: SessionContext, command: Predicate, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(session: SessionContext, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
         val indicator = ClauseIndicator.of(command)
         if (globalDirectives.supportsDirective(indicator)) {
             return globalDirectives.startDirective(session, command, totalLimit)
@@ -188,7 +188,7 @@ class PrologDBEngine(
             }
             else if (base is Metabase) {
                 val name = metabases.entries.first { it.value == base }.key
-                Predicate("meta", arrayOf(PrologString(name)))
+                CompoundTerm("meta", arrayOf(PrologString(name)))
             }
             else {
                 throw RuntimeException("Knowledge base not properly initialized/selected.")
@@ -222,11 +222,12 @@ class PrologDBEngine(
         }
 
         directive("explain"/1) { ctxt, args ->
-            val arg0 = args[0] as? Predicate ?: return@directive lazyError<Unification>(PrologRuntimeException("Argument 0 to explain/1 must be a query."))
+            val arg0 = args[0] as? CompoundTerm
+                ?: return@directive lazyError<Unification>(PrologRuntimeException("Argument 0 to explain/1 must be a query."))
 
             val currentKB = ctxt.knowledgeBase ?: return@directive lazyError<Unification>(PrologRuntimeException("No knowledge base selected."))
 
-            val query = predicateToQuery(arg0)
+            val query = compoundToQuery(arg0)
             val plan = executionPlanner.planExecution(query, currentKB.planningInformation)
             val solutionVars = VariableBucket()
             solutionVars.instantiate(Variable("Plan"), plan.explanation)

@@ -3,7 +3,7 @@ package com.github.prologdb.net.session
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.handle.ParserDelegate
 import com.github.prologdb.runtime.query.Query
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.Unification
 
 /**
@@ -40,5 +40,5 @@ interface DatabaseEngine<SessionState> : ParserDelegate<SessionState> {
      * @param command the directive to run
      * @param totalLimit If not null, the number of results is limited to this number.
      */
-    fun startDirective(session: SessionState, command: Predicate, totalLimit: Long?): LazySequence<Unification>
+    fun startDirective(session: SessionState, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification>
 }

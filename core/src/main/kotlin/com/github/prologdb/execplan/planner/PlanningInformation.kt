@@ -1,6 +1,7 @@
 package com.github.prologdb.execplan.planner
 
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.storage.fact.FactStore
 
 /**
  * Exposes information to [ExecutionPlanner] for them to optimize
@@ -8,7 +9,7 @@ import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
  */
 interface PlanningInformation {
     /**
-     * For these indicators there is already a [PredicateStore].
+     * For these indicators there is already a [FactStore].
      */
     val existingDynamicFacts: Set<ClauseIndicator>
 

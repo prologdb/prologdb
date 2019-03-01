@@ -10,8 +10,8 @@ import com.github.prologdb.runtime.builtin.getInvocationStackFrame
 import com.github.prologdb.runtime.knowledge.ProofSearchContext
 import com.github.prologdb.runtime.knowledge.Rule
 import com.github.prologdb.runtime.knowledge.library.*
-import com.github.prologdb.runtime.query.PredicateQuery
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.PrologInteger
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
@@ -39,12 +39,11 @@ fun Library.asDBCompatible(): DBLibrary {
             val indicator = ClauseIndicator.of(givenClause)
             if (givenClause is Rule) {
                 exports[indicator] = givenClause
-            }
-            else if (givenClause is Predicate) {
+            } else if (givenClause is CompoundTerm) {
                 exports[indicator] = givenClause.asRule()
             }
             else {
-                throw PrologException("Runtime library $name is not compatible with ${DBLibrary::class.simpleName}: clause $indicator is neither a rule nor a predicate.")
+                throw PrologException("Runtime library $name is not compatible with ${DBLibrary::class.simpleName}: clause $indicator is neither a rule nor a fact.")
             }
         }
 
@@ -105,7 +104,7 @@ internal interface BuiltinLibraryBuilder : OperatorRegistrationTarget {
     fun add(builtin: NativeCodeRule)
 }
 
-private object TrueQuery : PredicateQuery(Predicate("=", arrayOf(PrologInteger(1), PrologInteger(1)))) {
+private object TrueQuery : PredicateInvocationQuery(CompoundTerm("=", arrayOf(PrologInteger(1), PrologInteger(1)))) {
     override fun substituteVariables(variableValues: VariableBucket) = this
 
     override fun withRandomVariables(randomVarsScope: RandomVariableScope, mapping: VariableMapping) = this
@@ -113,8 +112,8 @@ private object TrueQuery : PredicateQuery(Predicate("=", arrayOf(PrologInteger(1
     override fun toString() = "true"
 }
 
-private fun Predicate.asRule(): Rule = object : Rule(this, TrueQuery) {
-    override val fulfill: suspend LazySequenceBuilder<Unification>.(Predicate, ProofSearchContext) -> Unit = { invocation, ctxt ->
+private fun CompoundTerm.asRule(): Rule = object : Rule(this, TrueQuery) {
+    override val fulfill: suspend LazySequenceBuilder<Unification>.(CompoundTerm, ProofSearchContext) -> Unit = { invocation, ctxt ->
         val invocationMapping = VariableMapping()
         val randomInvocation = ctxt.randomVariableScope.withRandomVariables(invocation, invocationMapping)
         val randomHead = ctxt.randomVariableScope.withRandomVariables(head, VariableMapping())

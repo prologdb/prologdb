@@ -4,14 +4,14 @@ import com.github.prologdb.runtime.PredicateNotDynamicException
 import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.Unification
 
 private val Builtin_Assert_1 = databaseBuiltin("assert", 1) { args, ctxt ->
-    val arg0 = args[0] as? Predicate
-        ?: throw PrologRuntimeException("Argument 1 to assert/1 must be a predicate, got ${args[0].prologTypeName}")
+    val arg0 = args[0] as? CompoundTerm
+        ?: throw PrologRuntimeException("Argument 1 to assert/1 must be a compound term, got ${args[0].prologTypeName}")
 
-    if (arg0.arity == 2 && arg0.name == ":-") {
+    if (arg0.arity == 2 && arg0.functor == ":-") {
         throw PrologRuntimeException("Cannot assert rules; you need to declare them in a library.")
     } else {
         val indicator = ClauseIndicator.of(arg0)

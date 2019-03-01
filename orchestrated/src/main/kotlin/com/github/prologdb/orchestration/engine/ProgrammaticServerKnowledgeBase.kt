@@ -13,9 +13,9 @@ import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
-import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.query.Query
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -47,7 +47,7 @@ open class ProgrammaticServerKnowledgeBase(
         }
     }
 
-    override fun startDirective(session: SessionContext, command: Predicate, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(session: SessionContext, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
         val indicator = ClauseIndicator.of(command)
         val code = directives[indicator] ?: return lazyError(PrologRuntimeException("Directive $indicator not defined."))
 
@@ -79,7 +79,7 @@ open class ProgrammaticServerKnowledgeBase(
             when (q) {
                 is AndQuery -> fulfillAndQuery(q, variables)
                 is OrQuery -> for (goal in q.goals) fulfillOrQuery(q, variables)
-                is PredicateQuery -> fulfillPredicate(q, variables)
+                is PredicateInvocationQuery -> fulfillPredicate(q, variables)
             }
         }
 
@@ -133,8 +133,8 @@ open class ProgrammaticServerKnowledgeBase(
             }
         }
 
-        private suspend fun LazySequenceBuilder<Unification>.fulfillPredicate(query: PredicateQuery, initialVariables: VariableBucket) {
-            val rawInvocationPredicate = query.predicate
+        private suspend fun LazySequenceBuilder<Unification>.fulfillPredicate(query: PredicateInvocationQuery, initialVariables: VariableBucket) {
+            val rawInvocationPredicate = query.goal
             
             val indicator = ClauseIndicator.of(rawInvocationPredicate)
             val callable = callables[indicator] ?: return

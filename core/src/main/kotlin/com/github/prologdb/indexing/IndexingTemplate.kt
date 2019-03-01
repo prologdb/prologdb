@@ -2,7 +2,6 @@ package com.github.prologdb.indexing
 
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.VariableMapping
-import com.github.prologdb.runtime.query.PredicateQuery
 import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.VariableBucket
 import java.util.*
@@ -20,7 +19,7 @@ fun IndexKey.indexKeyToString(): String {
  * result is an [IndexKey]. [FactIndex]es can then associate those keys with [PersistenceID]s.
  */
 class IndexingTemplate(
-    val templateFact: Predicate,
+    val templateFact: CompoundTerm,
     typeRestrictions: Map<Variable, KClass<out Term>>   
 ) {
     init {
@@ -36,7 +35,7 @@ class IndexingTemplate(
     /**
      * @return the corresponding index key if the given fact can be stored / used for lookup, null otherwise.
      */
-    fun unify(with: Predicate, randomVariableScope: RandomVariableScope = RandomVariableScope()): IndexKey? {
+    fun unify(with: CompoundTerm, randomVariableScope: RandomVariableScope = RandomVariableScope()): IndexKey? {
         val templateMapping = VariableMapping()
         val withRandom = randomVariableScope.withRandomVariables(with, VariableMapping())
         val templateWithRandom = randomVariableScope.withRandomVariables(templateFact, templateMapping)

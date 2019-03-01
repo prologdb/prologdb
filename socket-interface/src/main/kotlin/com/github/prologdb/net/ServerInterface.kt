@@ -7,7 +7,7 @@ import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.net.util.sortForSubstitution
 import com.github.prologdb.net.util.unsingedIntHexString
 import com.github.prologdb.runtime.PrologRuntimeException
-import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.unification.Unification
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
@@ -177,8 +177,8 @@ class ServerInterface(
     }
 
     private fun InitializeQueryCommand.startUsing(sessionState: Any?, engine: DatabaseEngine<Any?>): LazySequence<Unification> {
-        if (kind == InitializeQueryCommand.Kind.DIRECTIVE && instruction !is PredicateQuery) {
-            throw PrologRuntimeException("Directives must consist of a single predicate, found compound query.")
+        if (kind == InitializeQueryCommand.Kind.DIRECTIVE && instruction !is PredicateInvocationQuery) {
+            throw PrologRuntimeException("Directives must consist of a single predicate invocation query, found compound query.")
         }
 
         val instruction = if (preInstantiations == null || preInstantiations.isEmpty) instruction else {
@@ -206,7 +206,7 @@ class ServerInterface(
 
         return when (kind) {
             InitializeQueryCommand.Kind.QUERY     -> engine.startQuery(sessionState, instruction, totalLimit)
-            InitializeQueryCommand.Kind.DIRECTIVE -> engine.startDirective(sessionState, (instruction as PredicateQuery).predicate, totalLimit)
+            InitializeQueryCommand.Kind.DIRECTIVE -> engine.startDirective(sessionState, (instruction as PredicateInvocationQuery).goal, totalLimit)
         }
     }
 
@@ -415,14 +415,13 @@ class ServerInterface(
                             )
                         },
                         onError = { ex ->
-                            log.info("Failed to negotiate session parameters with client, closing connection.")
-                            ex.printStackTrace(System.err)
+                            log.debug("Failed to negotiate session parameters with client, closing connection.", ex)
                             channel.close()
                         }
                     )
             }
             catch (ex: Throwable) {
-                log.info("Failed to negotiate session parameters with client, closing connection.")
+                log.debug("Failed to negotiate session parameters with client, closing connection.", ex)
             }
         }
     }

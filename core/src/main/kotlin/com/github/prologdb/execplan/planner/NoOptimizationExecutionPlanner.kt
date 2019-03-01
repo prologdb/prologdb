@@ -5,7 +5,7 @@ import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
-import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.query.Query
 
 /**
@@ -21,7 +21,7 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
         return when(query) {
             is OrQuery -> planUnionExecution(query, db, randomVariableScope)
             is AndQuery -> planJoinExecution(query, db, randomVariableScope)
-            is PredicateQuery -> planPredicateLookup(query, db, randomVariableScope)
+            is PredicateInvocationQuery -> planPredicateInvocation(query, db, randomVariableScope)
             else -> throw PrologQueryException("Unsupported query type ${query::class.simpleName}")
         }
     }
@@ -47,19 +47,19 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
                            }
         }
     }
-    
-    private fun planPredicateLookup(query: PredicateQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
-        val indicator = ClauseIndicator.of(query.predicate)
+
+    private fun planPredicateInvocation(query: PredicateInvocationQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
+        val indicator = ClauseIndicator.of(query.goal)
 
         return if (indicator in db.staticBuiltins) {
-            BuiltinInvocationFunctor(query.predicate) as PlanFunctor<Any?, Any?>
+            BuiltinInvocationFunctor(query.goal) as PlanFunctor<Any?, Any?>
         } else {
             FunctorMultiPipe(arrayOf(
                 FunctorPipe(
-                    FactScanFunctor(ClauseIndicator.of(query.predicate), query::stackFrame),
-                    UnifyFunctor(query.predicate)
+                    FactScanFunctor(ClauseIndicator.of(query.goal), query::stackFrame),
+                    UnifyFunctor(query.goal)
                 ) as PlanFunctor<Any?, Any?>,
-                DeductionFunctor(query.predicate) as PlanFunctor<Any?, Any?>
+                DeductionFunctor(query.goal) as PlanFunctor<Any?, Any?>
             ))
         }
     }

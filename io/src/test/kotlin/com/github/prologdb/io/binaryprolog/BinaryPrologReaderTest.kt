@@ -2,7 +2,7 @@ package com.github.prologdb.io.binaryprolog
 
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
-import com.github.prologdb.runtime.query.PredicateQuery
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.term.*
 import io.kotlintest.forOne
 import io.kotlintest.matchers.beInstanceOf
@@ -140,7 +140,7 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
             buffer.position() shouldBe 7
-            result as Predicate
+            result as CompoundTerm
             result.arity shouldBe 1
             result.arguments[0] shouldBe Atom("x")
         }
@@ -153,7 +153,7 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
             buffer.position() shouldBe 17
-            result as Predicate
+            result as CompoundTerm
             result.arity shouldBe 3
             result.arguments[0] shouldBe PrologInteger(1)
             result.arguments[1] shouldBe PrologString("bar")
@@ -235,9 +235,9 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readQueryFrom(buffer)
 
             buffer.position() shouldBe 9
-            result as PredicateQuery
+            result as PredicateInvocationQuery
 
-            result.predicate shouldBe Predicate("foo", arrayOf(PrologInteger(5)))
+            result.goal shouldBe CompoundTerm("foo", arrayOf(PrologInteger(5)))
         }
 
         "B" {
@@ -254,23 +254,23 @@ class BinaryPrologReaderTest : FreeSpec({
             result as AndQuery
             result.goals.size shouldBe 2
             forOne(result.goals) {
-                it should beInstanceOf(PredicateQuery::class)
-                it as PredicateQuery
-                it.predicate shouldBe Predicate("fuzz", arrayOf(Variable("Y")))
+                it should beInstanceOf(PredicateInvocationQuery::class)
+                it as PredicateInvocationQuery
+                it.goal shouldBe CompoundTerm("fuzz", arrayOf(Variable("Y")))
             }
             forOne(result.goals) { outer ->
                 outer should beInstanceOf(OrQuery::class)
                 outer as OrQuery
                 outer.goals.size shouldBe 2
                 forOne(outer.goals) {
-                    it should beInstanceOf(PredicateQuery::class)
-                    it as PredicateQuery
-                    it.predicate shouldBe Predicate("foo", arrayOf(Variable("X")))
+                    it should beInstanceOf(PredicateInvocationQuery::class)
+                    it as PredicateInvocationQuery
+                    it.goal shouldBe CompoundTerm("foo", arrayOf(Variable("X")))
                 }
                 forOne(outer.goals) {
-                    it should beInstanceOf(PredicateQuery::class)
-                    it as PredicateQuery
-                    it.predicate shouldBe Predicate("bar", arrayOf(Variable("X")))
+                    it should beInstanceOf(PredicateInvocationQuery::class)
+                    it as PredicateInvocationQuery
+                    it.goal shouldBe CompoundTerm("bar", arrayOf(Variable("X")))
                 }
             }
         }

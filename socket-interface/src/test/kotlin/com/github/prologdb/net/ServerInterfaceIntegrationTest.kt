@@ -5,7 +5,10 @@ import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
-import com.github.prologdb.net.negotiation.*
+import com.github.prologdb.net.negotiation.ClientHello
+import com.github.prologdb.net.negotiation.SemanticVersion
+import com.github.prologdb.net.negotiation.ServerError
+import com.github.prologdb.net.negotiation.ServerHello
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.net.session.SessionInitializer
 import com.github.prologdb.net.session.handle.IsoOpsStatelessParserDelegate
@@ -16,7 +19,7 @@ import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.query.Query
-import com.github.prologdb.runtime.term.Predicate
+import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.PrologString
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
@@ -258,7 +261,7 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
                 val Avalue = solution.instantiationsMap["A"]
                 Avalue!!
                 val AvalueParsed = BinaryPrologReader.getDefaultInstance().readTermFrom(Avalue.data.asReadOnlyByteBuffer())
-                AvalueParsed shouldBe Predicate("?-", arrayOf(PrologString("foo(bar(Z))")))
+                AvalueParsed shouldBe CompoundTerm("?-", arrayOf(PrologString("foo(bar(Z))")))
 
                 val queryClosed = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
                     .let {
@@ -361,7 +364,7 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
                 val Avalue = solution.instantiationsMap["A"]
                 Avalue!!
                 val AvalueParsed = BinaryPrologReader.getDefaultInstance().readTermFrom(Avalue.data.asReadOnlyByteBuffer())
-                AvalueParsed shouldBe Predicate("?-", arrayOf(PrologString("foo(5587)")))
+                AvalueParsed shouldBe CompoundTerm("?-", arrayOf(PrologString("foo(5587)")))
 
                 val queryClosed = com.github.prologdb.net.v1.messages.ToClient.parseDelimitedFrom(socket.getInputStream())
                     .let {
@@ -464,19 +467,19 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
                 throw PrologRuntimeException("Error :(")
             } else {
                 val vars = VariableBucket()
-                vars.instantiate(Variable("A"), Predicate("?-", arrayOf(PrologString(query.toString()))))
+                vars.instantiate(Variable("A"), CompoundTerm("?-", arrayOf(PrologString(query.toString()))))
                 yield(Unification(vars))
             }
         }
     }
 
-    override fun startDirective(session: Map<String, String>, command: Predicate, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(session: Map<String, String>, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
             if (errorOnDirective) {
                 throw PrologRuntimeException("Error directive :(")
             } else {
                 val vars = VariableBucket()
-                vars.instantiate(Variable("A"), Predicate(":-", arrayOf(command)))
+                vars.instantiate(Variable("A"), CompoundTerm(":-", arrayOf(command)))
                 yield(Unification(vars))
             }
         }
