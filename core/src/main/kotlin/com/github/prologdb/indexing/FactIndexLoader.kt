@@ -13,7 +13,7 @@ interface FactIndexLoader {
     /**
      * Creates a new index with the given name:
      * * sets up and allocates storage files
-     * * saves metadata about the index so that it can, after a restart, be discovered through
+     * * saves metadata about the index so that it can, even after a restart, be discovered through
      *   [open].
      * @param directoryManager The location and scope of the index
      */
@@ -24,8 +24,8 @@ interface FactIndexLoader {
      * of [IndexDefinition] are ignored.
      * 
      * @param directoryManager The location and scope of the index
-     * 
-     * @throws IndexNotFoundException If an index with 
+     *
+     * @throws IndexNotFoundException If an index with the given name does not exist.
      */
     @Throws(IndexNotFoundException::class)
     fun open(directoryManager: DataDirectoryManager.ClauseStoreScope, definition: IndexDefinition): FactIndex
