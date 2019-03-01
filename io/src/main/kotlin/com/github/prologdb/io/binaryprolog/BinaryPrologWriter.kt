@@ -299,7 +299,7 @@ private object QueryWriter {
 
     private fun writePredicateQueryTo(query: PredicateInvocationQuery, out: DataOutput, writerRef: BinaryPrologWriter) {
         out.writeByte(0x60)
-        PredicateWriter.writeWithoutTypeByteTo(query.predicate, out, writerRef)
+        PredicateWriter.writeWithoutTypeByteTo(query.goal, out, writerRef)
     }
 
     private fun writeCombinedQueryTo(operatorByte: Int, queries: Array<out Query>, out: DataOutput, writerRef: BinaryPrologWriter) {

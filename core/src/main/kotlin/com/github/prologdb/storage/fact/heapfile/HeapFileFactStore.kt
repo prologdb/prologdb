@@ -54,7 +54,7 @@ class HeapFileFactStore(
     )
 
     override fun store(asPrincipal: Principal, item: CompoundTerm): Future<PersistenceID> {
-        if (item.arity != indicator.arity || item.functor != indicator.name) {
+        if (item.arity != indicator.arity || item.functor != indicator.functor) {
             throw IllegalArgumentException("This fact store is intended for instances of $indicator, got ${item.functor}/${item.arity}")
         }
 
@@ -96,7 +96,7 @@ class HeapFileFactStore(
 
     private fun readPredicateFrom(data: ByteBuffer): CompoundTerm {
         val arguments = Array(indicator.arity) { binaryReader.readTermFrom(data) }
-        return CompoundTerm(indicator.name, arguments)
+        return CompoundTerm(indicator.functor, arguments)
     }
 
     object Loader : SpecializedFactStoreLoader<HeapFileFactStore> {

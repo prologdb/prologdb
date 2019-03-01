@@ -237,7 +237,7 @@ class BinaryPrologReaderTest : FreeSpec({
             buffer.position() shouldBe 9
             result as PredicateInvocationQuery
 
-            result.predicate shouldBe CompoundTerm("foo", arrayOf(PrologInteger(5)))
+            result.goal shouldBe CompoundTerm("foo", arrayOf(PrologInteger(5)))
         }
 
         "B" {
@@ -256,7 +256,7 @@ class BinaryPrologReaderTest : FreeSpec({
             forOne(result.goals) {
                 it should beInstanceOf(PredicateInvocationQuery::class)
                 it as PredicateInvocationQuery
-                it.predicate shouldBe CompoundTerm("fuzz", arrayOf(Variable("Y")))
+                it.goal shouldBe CompoundTerm("fuzz", arrayOf(Variable("Y")))
             }
             forOne(result.goals) { outer ->
                 outer should beInstanceOf(OrQuery::class)
@@ -265,12 +265,12 @@ class BinaryPrologReaderTest : FreeSpec({
                 forOne(outer.goals) {
                     it should beInstanceOf(PredicateInvocationQuery::class)
                     it as PredicateInvocationQuery
-                    it.predicate shouldBe CompoundTerm("foo", arrayOf(Variable("X")))
+                    it.goal shouldBe CompoundTerm("foo", arrayOf(Variable("X")))
                 }
                 forOne(outer.goals) {
                     it should beInstanceOf(PredicateInvocationQuery::class)
                     it as PredicateInvocationQuery
-                    it.predicate shouldBe CompoundTerm("bar", arrayOf(Variable("X")))
+                    it.goal shouldBe CompoundTerm("bar", arrayOf(Variable("X")))
                 }
             }
         }

@@ -49,17 +49,17 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
     }
     
     private fun planPredicateInvocation(query: PredicateInvocationQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
-        val indicator = ClauseIndicator.of(query.predicate)
+        val indicator = ClauseIndicator.of(query.goal)
 
         return if (indicator in db.staticBuiltins) {
-            BuiltinInvocationFunctor(query.predicate) as PlanFunctor<Any?, Any?>
+            BuiltinInvocationFunctor(query.goal) as PlanFunctor<Any?, Any?>
         } else {
             FunctorMultiPipe(arrayOf(
                 FunctorPipe(
-                    FactScanFunctor(ClauseIndicator.of(query.predicate), query::stackFrame),
-                    UnifyFunctor(query.predicate)
+                    FactScanFunctor(ClauseIndicator.of(query.goal), query::stackFrame),
+                    UnifyFunctor(query.goal)
                 ) as PlanFunctor<Any?, Any?>,
-                DeductionFunctor(query.predicate) as PlanFunctor<Any?, Any?>
+                DeductionFunctor(query.goal) as PlanFunctor<Any?, Any?>
             ))
         }
     }

@@ -206,7 +206,7 @@ class ServerInterface(
 
         return when (kind) {
             InitializeQueryCommand.Kind.QUERY     -> engine.startQuery(sessionState, instruction, totalLimit)
-            InitializeQueryCommand.Kind.DIRECTIVE -> engine.startDirective(sessionState, (instruction as PredicateInvocationQuery).predicate, totalLimit)
+            InitializeQueryCommand.Kind.DIRECTIVE -> engine.startDirective(sessionState, (instruction as PredicateInvocationQuery).goal, totalLimit)
         }
     }
 
@@ -415,14 +415,13 @@ class ServerInterface(
                             )
                         },
                         onError = { ex ->
-                            log.info("Failed to negotiate session parameters with client, closing connection.")
-                            ex.printStackTrace(System.err)
+                            log.debug("Failed to negotiate session parameters with client, closing connection.", ex)
                             channel.close()
                         }
                     )
             }
             catch (ex: Throwable) {
-                log.info("Failed to negotiate session parameters with client, closing connection.")
+                log.debug("Failed to negotiate session parameters with client, closing connection.", ex)
             }
         }
     }
