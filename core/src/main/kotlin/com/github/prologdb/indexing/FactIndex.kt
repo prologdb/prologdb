@@ -42,14 +42,16 @@ interface FactIndex {
 }
 
 /**
- * A [FactIndex] that supports efficient range-queries (faster than O(n) where n is the number of rows
- * over which to query).
+ * A [FactIndex] that supports efficient range-queries (faster than O(n) where n is the number of facts known to
+ * the index).
  */
 interface RangeQueryFactIndex : FactIndex {
     /**
      * @param lowerBound the lower bound. If null, there is no lower bound (query for greaterThan / greaterThanOrEqualTo)
+     * @param lowerInclusive Is ignored if [lowerBound] is null
      * @param upperBound the upper bound. If null, there is no upper bound (query for lessThan / lessThanOrEqualTo)
-     * @return the indexes in the source list at which the entry's argument is between lowerBound and upper bound
+     * @param upperInclusive Is ignored if [upperBound] is null
+     * @return the [PersistenceID]s of the facts whichs keys are within the given bound
      * @throws IllegalArgumentException If both `lowerBound` and `upperBound` are `null`
      */
     fun findBetween(lowerBound: IndexKey?, lowerInclusive: Boolean, upperBound: IndexKey?, upperInclusive: Boolean): PersistenceIDSet

@@ -16,7 +16,7 @@ fun IndexKey.indexKeyToString(): String {
 /**
  * PrologDB indexes by defining a template fact. The template fact has the same name and arity
  * as the fact it is to help to index. The template fact can be unified with stored facts and
- * [PredicateQuery]s. When retaining only the template's variables from that unification, the
+ * [PredicateInvocationQuery]s. When retaining only the template's variables from that unification, the
  * result is an [IndexKey]. [FactIndex]es can then associate those keys with [PersistenceID]s.
  */
 class IndexingTemplate(
