@@ -2,7 +2,7 @@ package com.github.prologdb.util.metadata
 
 /**
  * A simple key-value store for other objects (database internal ones) to persist metadata.
- * Metadata must be saved as JSON; implementations mus use Jackson to convert to JSON.
+ * Metadata must be saved as JSON; implementations must use Jackson to convert to JSON.
  */
 interface MetadataRepository {
     /**

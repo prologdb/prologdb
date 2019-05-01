@@ -37,7 +37,7 @@ interface ParserDelegate<in SessionState> {
 }
 
 /**
- * To be used as a paremeter to the parse methods of [PrologParser].
+ * To be used as a parameter to the parse methods of [PrologParser].
  */
 val STOP_AT_EOF_OR_FULL_STOP: (TransactionalSequence<Token>) -> Boolean = {
     if (!it.hasNext()) true else {

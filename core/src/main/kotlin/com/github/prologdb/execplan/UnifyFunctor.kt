@@ -25,7 +25,7 @@ class UnifyFunctor(
             .flatMapRemaining { (variableCarry, pidAndFact) ->
                 val (persistenceID, fact) = pidAndFact
                 val randomFact = ctxt.randomVariableScope.withRandomVariables(fact, VariableMapping())
-                randomRHS.unify(randomFact)?.let { unification ->
+                randomRHS.unify(randomFact, ctxt.randomVariableScope)?.let { unification ->
                     val resolvedBucket = unification.variableValues.withVariablesResolvedFrom(rhsMapping)
                     resolvedBucket.retainAll(rhsVariables)
                     try {

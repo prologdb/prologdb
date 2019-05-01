@@ -4,6 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologStackTraceElement
 import com.github.prologdb.runtime.amendExceptionsWithStackTraceOnRemaining

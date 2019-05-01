@@ -48,6 +48,7 @@ class RegionReadWriteLockManager(val name: String? = null) : AutoCloseable, Clos
     private val readWriteLockCache: MutableMap<LongRange, RegionLockHandle> = WeakHashMap()
 
     /** Set to non-null when this manager is closed. Locks cannot be acquired after that */
+    @Volatile
     private var closeMode: CloseMode? = null
 
     /**
@@ -80,13 +81,8 @@ class RegionReadWriteLockManager(val name: String? = null) : AutoCloseable, Clos
 
         if (closeMode != null) throw ClosedException("This manager has been closed.")
 
-        val cached = readWriteLockCache[region]
-        if (cached != null) return cached
-
         synchronized(readWriteLockCache) {
-            val lock = RegionLockHandle(region)
-            readWriteLockCache[region] = lock
-            return lock
+            return readWriteLockCache.computeIfAbsent(region, ::RegionLockHandle)
         }
     }
 

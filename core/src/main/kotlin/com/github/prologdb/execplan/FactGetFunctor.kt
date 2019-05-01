@@ -15,7 +15,7 @@ class FactGetFunctor(
     val indicator: ClauseIndicator
 ) : PlanFunctor<PersistenceID, Pair<PersistenceID, CompoundTerm>> {
     override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, PersistenceID>>): LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>> {
-        val factStore = ctxt.factStores[indicator] ?: return LazySequence.fromGenerator { 
+        val factStore = ctxt.factStores[indicator] ?: return LazySequence.fromGenerator {
             throw PrologQueryException("No fact store for $indicator")
         }
         

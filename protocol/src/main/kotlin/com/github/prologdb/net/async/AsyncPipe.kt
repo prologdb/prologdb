@@ -24,7 +24,7 @@ class AsyncPipe<Item, ConsumptionResult>(private val consumer: (Item, Completabl
      * a new item is queued in the same moment that the batch finishes ([queue] is invoked, checks that current
      * batch is running; current batch detects the queue is empty and quits; item gets appended to queue and is
      * not given to the consumer).
-     * This fact also allowes [itemQueue] not to be thread safe.
+     * This fact also allowes [itemQueue] to not be thread safe.
      */
     private val queueMutex = Any()
 
