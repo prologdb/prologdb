@@ -24,7 +24,7 @@ import com.github.prologdb.runtime.builtin.dynamic.compoundToQuery
 import com.github.prologdb.runtime.builtin.lists.ListsLibrary
 import com.github.prologdb.runtime.builtin.math.MathLibrary
 import com.github.prologdb.runtime.builtin.string.StringsLibrary
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.Unification

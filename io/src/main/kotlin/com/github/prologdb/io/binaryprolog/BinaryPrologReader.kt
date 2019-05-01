@@ -165,9 +165,10 @@ object VariableReader : BinaryPrologReader.TermReader<Variable> {
 
 object AnonymousVariableReader : BinaryPrologReader.TermReader<AnonymousVariable> {
     override val prologTypeName = "variable"
+    private val anonymousVariable = AnonymousVariable()
 
     override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): AnonymousVariable {
-        return AnonymousVariable
+        return anonymousVariable
     }
 }
 

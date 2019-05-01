@@ -1,10 +1,10 @@
 package com.github.prologdb.dbms
 
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
-import com.github.prologdb.runtime.knowledge.library.DefaultOperatorRegistry
-import com.github.prologdb.runtime.knowledge.library.MutableOperatorRegistry
-import com.github.prologdb.runtime.knowledge.library.OperatorDefinition
-import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
+import com.github.prologdb.runtime.util.DefaultOperatorRegistry
+import com.github.prologdb.runtime.util.MutableOperatorRegistry
+import com.github.prologdb.runtime.util.OperatorDefinition
+import com.github.prologdb.runtime.util.OperatorRegistry
 
 /**
  * An [OperatorRegistry] that is split into an immutable part (= the ISO ops) and a mutable part (= user defined

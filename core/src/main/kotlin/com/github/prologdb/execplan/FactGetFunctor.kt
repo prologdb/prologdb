@@ -3,7 +3,7 @@ package com.github.prologdb.execplan
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.fact.PersistenceID
@@ -20,15 +20,16 @@ class FactGetFunctor(
         }
         
         return inputs.flatMapRemaining { (variableCarry, persistenceID) ->
-            val retrieved = await(factStore.retrieve(principal, persistenceID))
-            
-            if (retrieved != null) yield(Pair(
-                variableCarry,
-                Pair(
-                    persistenceID,
-                    retrieved
-                )
-            ))
+            val fact = await(factStore.retrieve(principal, persistenceID))
+            if (fact != null) {
+                yield(Pair(
+                    variableCarry,
+                    Pair(
+                        persistenceID,
+                        fact
+                    )
+                ))
+            }
         }
     }
 

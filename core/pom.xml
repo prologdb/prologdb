@@ -21,11 +21,6 @@
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-reflect</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlinx</groupId>
-            <artifactId>kotlinx-coroutines-core</artifactId>
-            <version>0.25.3</version>
-        </dependency>
 
         <dependency>
             <groupId>com.github.prologdb</groupId>

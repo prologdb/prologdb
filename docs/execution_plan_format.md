@@ -121,7 +121,7 @@ Types available:
 * `atom` (A prolog atom, used for indentifiers)
 * `*` any value, used only for functor input.
 * `void` no value
-* `[A, B, ...]` tuple of values of type A and B, e.g. `[+, fact]` is a tuple of a persistence id a fact
+* `[A, B, ...]` tuple of values of type A and B, e.g. `[+, fact]` is a tuple of a persistence id and a fact
 * `indicator` a predicate indicator, e.g. `bar/1`
 
 ## Functors
@@ -238,7 +238,7 @@ Then this query can be optimized using the index: `a(2, X)`:
 
 Deletes a fact
 
-**Input**: the persistence ID of the fact to delete
+**Input**: the persistence ID of the fact to delete  
 **Arguments**:
 1. The indicator of the fact to delete
 

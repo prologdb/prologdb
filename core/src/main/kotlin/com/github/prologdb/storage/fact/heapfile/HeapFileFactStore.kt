@@ -8,7 +8,7 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.io.util.Pool
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.PersistentStorage

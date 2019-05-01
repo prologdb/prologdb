@@ -468,7 +468,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
             } else {
                 val vars = VariableBucket()
                 vars.instantiate(Variable("A"), CompoundTerm("?-", arrayOf(PrologString(query.toString()))))
-                yield(Unification(vars))
+                Unification(vars)
             }
         }
     }
@@ -480,7 +480,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
             } else {
                 val vars = VariableBucket()
                 vars.instantiate(Variable("A"), CompoundTerm(":-", arrayOf(command)))
-                yield(Unification(vars))
+                Unification(vars)
             }
         }
     }

@@ -95,7 +95,7 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
             buffer.position() shouldBe 1
-            result shouldBe AnonymousVariable
+            result should beInstanceOf<AnonymousVariable>()
         }
     }
 

@@ -7,7 +7,7 @@ import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.NativeCodeRule
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.toStackTraceElement
 import com.github.prologdb.runtime.unification.Unification

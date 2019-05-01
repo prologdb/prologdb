@@ -1,8 +1,8 @@
 package com.github.prologdb.dbms
 
-import com.github.prologdb.runtime.knowledge.ProofSearchContext
-import com.github.prologdb.runtime.knowledge.Rule
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
+import com.github.prologdb.runtime.proofsearch.ProofSearchContext
+import com.github.prologdb.runtime.proofsearch.Rule
 import com.github.prologdb.storage.fact.FactStore
 
 interface DBProofSearchContext : ProofSearchContext {

@@ -10,7 +10,7 @@
         </encoder>
     </appender>
 
-    <logger name="prologdb" level="INFO" additivity="false">
+    <logger name="prologdb" level="TRACE" additivity="false">
         <appender-ref ref="STDOUT" />
     </logger>
 

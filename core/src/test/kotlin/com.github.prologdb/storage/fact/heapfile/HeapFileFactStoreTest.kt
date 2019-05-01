@@ -3,7 +3,7 @@ package com.github.prologdb.storage.fact.heapfile
 import com.github.prologdb.async.IrrelevantPrincipal
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.storage.heapfile.HeapFile

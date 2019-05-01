@@ -8,7 +8,7 @@ import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.VariableMapping
 import com.github.prologdb.runtime.amendExceptionsWithStackTraceOnRemaining
 import com.github.prologdb.runtime.knowledge.Rule
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.toStackTraceElement
 import com.github.prologdb.runtime.unification.Unification

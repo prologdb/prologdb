@@ -1,6 +1,6 @@
 package com.github.prologdb.execplan.planner
 
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.storage.fact.FactStore
 
 /**

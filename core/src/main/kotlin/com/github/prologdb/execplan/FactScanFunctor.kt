@@ -7,7 +7,7 @@ import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologStackTraceElement
 import com.github.prologdb.runtime.amendExceptionsWithStackTraceOnRemaining
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.fact.PersistenceID

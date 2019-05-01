@@ -8,5 +8,5 @@ interface ExecutionPlanner {
     /**
      * Plans the execution of the given query against the given database.
      */
-    fun planExecution(query: Query, db: PlanningInformation, randomVariableScope: RandomVariableScope = RandomVariableScope()): PlanFunctor<Unit, *>
+    fun planExecution(query: Query, db: PlanningInformation, randomVariableScope: RandomVariableScope = RandomVariableScope()): PlanFunctor<in Unit, *>
 }

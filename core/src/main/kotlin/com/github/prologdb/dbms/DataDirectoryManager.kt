@@ -1,6 +1,6 @@
 package com.github.prologdb.dbms
 
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.util.concurrency.locks.PIDLockFile
 import com.github.prologdb.util.metadata.FileMetadataRepository
 import com.github.prologdb.util.metadata.MetadataRepository

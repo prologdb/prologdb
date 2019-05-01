@@ -3,7 +3,7 @@ package com.github.prologdb.dbms.builtin
 import com.github.prologdb.runtime.PredicateNotDynamicException
 import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologRuntimeException
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.Unification
 

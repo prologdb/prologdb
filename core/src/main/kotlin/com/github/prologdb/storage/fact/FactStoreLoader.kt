@@ -1,7 +1,7 @@
 package com.github.prologdb.storage.fact
 
 import com.github.prologdb.dbms.DataDirectoryManager
-import com.github.prologdb.runtime.knowledge.library.ClauseIndicator
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.storage.StorageException
 
 /**
