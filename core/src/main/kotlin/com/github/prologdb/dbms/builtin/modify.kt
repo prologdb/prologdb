@@ -1,5 +1,6 @@
 package com.github.prologdb.dbms.builtin
 
+import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.PredicateNotDynamicException
 import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologRuntimeException

@@ -26,7 +26,7 @@ class FactDeleteFunctor(
     }
 
     override val explanation: CompoundTerm
-        get() = CompoundTerm("fact_delete", arrayOf(faIndicator.toIdiomatic()))
+        get() = CompoundTerm("fact_delete", arrayOf(fqIndicator.toIdiomatic()))
 }
 
 class FactDeleteFunctorOverload0(
