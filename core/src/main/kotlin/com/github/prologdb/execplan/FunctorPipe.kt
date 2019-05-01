@@ -6,7 +6,7 @@ import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 
 /**
- * The pipe between functors; this is the equivalent of an Prolog AND or ,
+ * The pipe between functors; this is the equivalent of a Prolog `,`/conjuction/AND
  */
 class FunctorPipe<Input, Intermediate, Output>(
     val first: PlanFunctor<Input, Intermediate>,
