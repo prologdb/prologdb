@@ -93,14 +93,17 @@ class MemoryFactStore(override val indicator: ClauseIndicator) : FactStore {
     override fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, CompoundTerm>> {
         val _store = store
         return buildLazySequence(asPrincipal) {
-            _store.forEachIndexed { persistenceIDAsInt, predicate ->
-                if (predicate == null) return@forEachIndexed
-                yield(Pair(persistenceIDAsInt.toLong(), predicate))
-            }
+            yieldAllFinal(
+                _store.asSequence()
+                    .filterNotNull()
+                    .mapIndexed { persistenceIdAsInt, fact ->
+                        Pair(persistenceIdAsInt.toLong(), fact)
+                    }
+            )
         }
     }
 
     override fun close() {
-        // nothing to to, really
+        // nothing to do, really
     }
 }
