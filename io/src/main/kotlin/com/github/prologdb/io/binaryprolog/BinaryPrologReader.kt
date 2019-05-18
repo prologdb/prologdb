@@ -23,7 +23,7 @@ class BinaryPrologReader {
      * Reads the next term from the given byte buffer.
      *
      * When this method returns successfully, the byte buffer position must be on the
-     * first byte following the read term.
+     * first byte following the term read.
      * When this method throws any sort of exception, the buffer must be
      * at the same position as it was when this method was invoked.
      */
@@ -288,13 +288,13 @@ private object QueryReader {
     fun readQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): Query {
         val type = buffer.get()
         return when (type) {
-            0x60.toByte() -> readPredicateQueryFrom(buffer, readerRef)
+            0x60.toByte() -> readPredicateInvocationQueryFrom(buffer, readerRef)
             0x61.toByte() -> readCombinedQueryFrom(buffer, readerRef)
             else -> throw BinaryPrologDeserializationException("Unsupported query type $type")
         }
     }
 
-    private fun readPredicateQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): PredicateInvocationQuery {
+    private fun readPredicateInvocationQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): PredicateInvocationQuery {
         return PredicateInvocationQuery(PredicateReader.readTermFrom(buffer, readerRef))
     }
 
