@@ -15,7 +15,7 @@ import com.github.prologdb.runtime.query.Query
  */
 class NoOptimizationExecutionPlanner : ExecutionPlanner {
     @Suppress("UNCHECKED_CAST")
-    override fun planExecution(query: Query, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<in Unit, Any> {
+    override fun planExecution(query: Query, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Unit, Any> {
         return when(query) {
             is OrQuery -> UnionFunctor(
                 query.goals
