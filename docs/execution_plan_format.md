@@ -251,6 +251,10 @@ Deletes a fact
 * `[+, fact] -> fact_delete_0(indicator) -> void`  
   Ignores the input fact.
 
+### `* -> noop() -> void`
+
+Does nothing.
+
 [bash pipes]: https://ryanstutorials.net/linuxtutorial/piping.php
 [jq]: https://stedolan.github.io/jq/tutorial/ 
 

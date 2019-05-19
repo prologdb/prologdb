@@ -1,6 +1,8 @@
 package com.github.prologdb.execplan.planner
 
 import com.github.prologdb.execplan.*
+import com.github.prologdb.runtime.ClauseIndicator
+import com.github.prologdb.runtime.PrologStackTraceElement
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
@@ -12,54 +14,51 @@ import com.github.prologdb.runtime.query.Query
  * stupid and simple prolog system; no indices are utilized.
  */
 class NoOptimizationExecutionPlanner : ExecutionPlanner {
-    override fun planExecution(query: Query, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<in Unit, *> {
-        return planExecutionInternal(query, db, randomVariableScope) as PlanFunctor<Unit, *>
-    }
-
-    private fun planExecutionInternal(query: Query, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
+    @Suppress("UNCHECKED_CAST")
+    override fun planExecution(query: Query, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Unit, Any> {
         return when(query) {
-            is OrQuery -> planUnionExecution(query, db, randomVariableScope)
-            is AndQuery -> planJoinExecution(query, db, randomVariableScope)
-            is PredicateInvocationQuery -> planPredicateInvocation(query, db, randomVariableScope)
+            is OrQuery -> UnionFunctor(
+                query.goals
+                    .map { planExecution(it, db, randomVariableScope) }
+                    .toTypedArray()
+            )
+            is AndQuery -> {
+                when(query.goals.size) {
+                    0 -> NoopFunctor() as PlanFunctor<Unit, Any>
+                    1 -> planExecution(query.goals[0], db, randomVariableScope)
+                    else -> {
+                        var pivot = FunctorPipe(
+                            planExecution(query.goals[0], db, randomVariableScope),
+                            planExecution(query.goals[1], db, randomVariableScope) as PlanFunctor<Any, Any>
+                        )
+
+                        for (i in 2..query.goals.lastIndex) {
+                            pivot = FunctorPipe(
+                                pivot,
+                                planExecution(query.goals[i], db, randomVariableScope) as PlanFunctor<Any, Any>
+                            )
+                        }
+
+                        pivot
+                    }
+                }
+            }
+            is PredicateInvocationQuery -> {
+                val indicator = ClauseIndicator.of(query.goal)
+                val stackTraceElementProvider = {
+                    PrologStackTraceElement(query.goal, query.sourceInformation)
+                }
+
+                if (indicator in db.staticBuiltins) {
+                    TODO()
+                } else {
+                    FunctorPipe(
+                        FactScanFunctor(indicator, stackTraceElementProvider),
+                        UnifyFunctor(query.goal)
+                    ) as PlanFunctor<Unit, Any>
+                }
+            }
             else -> throw PrologQueryException("Unsupported query type ${query::class.simpleName}")
-        }
-    }
-
-    private fun planUnionExecution(query: OrQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
-        return FunctorMultiPipe(query.goals.map { planExecutionInternal(it, db, randomVariableScope) }.toTypedArray())
-    }
-
-    private fun planJoinExecution(query: AndQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
-        val goals = query.goals
-        return when (goals.size) {
-            in Int.MIN_VALUE..0 -> throw RuntimeException("Cannot plan an ${AndQuery::class.qualifiedName} with no goals.")
-                              1 -> planExecutionInternal(goals[0], db, randomVariableScope)
-                           else -> {
-                               val first = FunctorPipe(
-                                   planExecutionInternal(goals[0], db, randomVariableScope),
-                                   planExecutionInternal(goals[1], db, randomVariableScope)
-                               )
-
-                               return goals.asSequence()
-                                   .drop(2)
-                                   .fold(first) { fnc, q -> FunctorPipe(fnc, planExecutionInternal(q, db, randomVariableScope))}
-                           }
-        }
-    }
-
-    private fun planPredicateInvocation(query: PredicateInvocationQuery, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Any?, Any?> {
-        val indicator = ClauseIndicator.of(query.goal)
-
-        return if (indicator in db.staticBuiltins) {
-            BuiltinInvocationFunctor(query.goal) as PlanFunctor<Any?, Any?>
-        } else {
-            FunctorMultiPipe(arrayOf(
-                FunctorPipe(
-                    FactScanFunctor(ClauseIndicator.of(query.goal), query::stackFrame),
-                    UnifyFunctor(query.goal)
-                ) as PlanFunctor<Any?, Any?>,
-                DeductionFunctor(query.goal) as PlanFunctor<Any?, Any?>
-            ))
         }
     }
 }
