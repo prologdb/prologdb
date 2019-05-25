@@ -3,7 +3,6 @@ package com.github.prologdb.execplan
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
-import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.fact.PersistenceID
@@ -12,10 +11,10 @@ import com.github.prologdb.storage.fact.PersistenceID
  * Implements `+ -> fact_get(indicator) -> [+, fact]`
  */
 class FactGetFunctor(
-    val indicator: ClauseIndicator
+    val indicator: FullyQualifiedClauseIndicator
 ) : PlanFunctor<PersistenceID, Pair<PersistenceID, CompoundTerm>> {
     override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, PersistenceID>>): LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>> {
-        val factStore = ctxt.factStores[indicator] ?: return LazySequence.fromGenerator {
+        val factStore = ctxt.factStores[indicator.moduleName]?.get(indicator.indicator) ?: return LazySequence.fromGenerator {
             throw PrologQueryException("No fact store for $indicator")
         }
         

@@ -4,7 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
-import com.github.prologdb.runtime.ClauseIndicator
+import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologStackTraceElement
 import com.github.prologdb.runtime.amendExceptionsWithStackTraceOnRemaining
@@ -17,19 +17,19 @@ import com.github.prologdb.storage.fact.PersistenceID
  * Implements `* -> fact_scan(indicator) -> [+, fact]`.
  */
 class FactScanFunctor(
-    val indicator: ClauseIndicator,
+    val fqIndicator: FullyQualifiedClauseIndicator,
     /** Is invoked on errors; the result will appear in the error stack trace. */
-    private val stackFrameProvider: () -> PrologStackTraceElement
+    stackFrameProvider: () -> PrologStackTraceElement
 ) : PlanFunctor<Any?, Pair<PersistenceID, CompoundTerm>>
 {
     private val stackFrame by lazy(stackFrameProvider)
     
     override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>> {
-        if (!ctxt.authorization.mayRead(indicator)) {
-            throw PrologPermissionError("Not allowed to read $indicator")
+        if (!ctxt.authorization.mayRead(fqIndicator)) {
+            throw PrologPermissionError("Not allowed to read $fqIndicator")
         }
 
-        val factStore = ctxt.factStores[indicator] ?: return LazySequence.empty()
+        val factStore = ctxt.factStores[fqIndicator.moduleName]?.get(fqIndicator.indicator) ?: return LazySequence.empty()
         
         return inputs
             .flatMapRemaining<Pair<VariableBucket, Any?>, Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>> { (variableCarry, _) ->
@@ -44,5 +44,5 @@ class FactScanFunctor(
     }
 
     override val explanation: CompoundTerm
-        get() = CompoundTerm("fact_scan", arrayOf(indicator.toIdiomatic()))
+        get() = CompoundTerm("fact_scan", arrayOf(fqIndicator.toIdiomatic()))
 }

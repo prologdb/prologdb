@@ -14,36 +14,36 @@ import java.util.concurrent.Future
  * Implements `+ -> fact_delete(indicator) -> void`
  */
 class FactDeleteFunctor(
-    val indicator: ClauseIndicator
+    val fqIndicator: FullyQualifiedClauseIndicator
 ) : PlanFunctor<PersistenceID, Unit> {
     override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, PersistenceID>>): LazySequence<Pair<VariableBucket, Unit>> {
-        val factStore = ctxt.factStores[indicator] ?: return LazySequence.empty()
+        val factStore = ctxt.factStores[fqIndicator] ?: return LazySequence.empty()
         
         return inputs.flatMapRemaining { (variableCarry, persistenceID) ->
-            val present = await(delete(ctxt, indicator, persistenceID, factStore))
+            val present = await(delete(ctxt, fqIndicator, persistenceID, factStore))
             if (present) yield(Pair(variableCarry, Unit))
         }
     }
 
     override val explanation: CompoundTerm
-        get() = CompoundTerm("fact_delete", arrayOf(indicator.toIdiomatic()))
+        get() = CompoundTerm("fact_delete", arrayOf(faIndicator.toIdiomatic()))
 }
 
 class FactDeleteFunctorOverload0(
-    private val indicator: ClauseIndicator
+    private val fqIndicator: FullyQualifiedClauseIndicator
 ) : PlanFunctor<Pair<PersistenceID, CompoundTerm>, Unit> {
     
     override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>>): LazySequence<Pair<VariableBucket, Unit>> {
-        val factStore = ctxt.factStores[indicator] ?: return LazySequence.empty()
+        val factStore = ctxt.factStores[fqIndicator.moduleName]?.get(fqIndicator.indicator) ?: return LazySequence.empty()
         
         return inputs.flatMapRemaining { (variableCarry, pidAndFact) ->
-            val present = await(delete(ctxt, indicator, pidAndFact.first, factStore))
-            if (present) yield(Pair(variableCarry, Unit))
+            val present = await(delete(ctxt, fqIndicator.indicator, pidAndFact.first, factStore))
+            if (present) LazySequence.of(Pair(variableCarry, Unit)) else LazySequence.empty()
         }
     }
 
     override val explanation: CompoundTerm
-        get() = CompoundTerm("fact_delete_0", arrayOf(indicator.toIdiomatic()))
+        get() = CompoundTerm("fact_delete_0", arrayOf(fqIndicator.toIdiomatic()))
 }
 
 /**
