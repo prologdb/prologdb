@@ -4,6 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.ClauseIndicator
+import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.fact.FactStore

@@ -6,12 +6,7 @@ import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.PrologStackTraceElement
 import com.github.prologdb.runtime.prologTry
-import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.term.PrologInteger
-
-internal fun ClauseIndicator.toIdiomatic(): CompoundTerm = object : CompoundTerm("/", arrayOf(Atom(functor), PrologInteger.createUsingStringOptimizerCache(arity.toLong()))) {
-    override fun toString() = "${this@toIdiomatic.functor}/${this@toIdiomatic.arity}"
 
 /**
  * Maps the sequence; for every [PrologException] thrown from the original sequence as a result
