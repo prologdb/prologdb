@@ -27,14 +27,23 @@ class FileMetadataRepository(
         bulkSave(mapOf(key to value))
     }
 
+    override fun remove(key: String) {
+        properties.remove(key)
+        flushToFile("last modified properties: $key")
+    }
+
     override fun bulkSave(data: Map<String, Any>) {
         for ((key, value) in data) {
             properties.setProperty(key, valueObjectMapper.writeValueAsString(value))
         }
-        FileOutputStream(file).use { properties.store(it, "last modified properties: ${data.keys.joinToString()}") }
+        flushToFile("last modified properties: ${data.keys.joinToString()}")
     }
 
     override fun <T : Any> load(key: String, valueClass: Class<T>): T? {
         return valueObjectMapper.readValue(properties.getProperty(key, "null"), valueClass)
+    }
+
+    private fun flushToFile(comment: String?) {
+        FileOutputStream(file).use { properties.store(it, comment) }
     }
 }

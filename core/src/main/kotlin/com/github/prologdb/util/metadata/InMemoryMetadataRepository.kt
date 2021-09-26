@@ -10,6 +10,10 @@ class InMemoryMetadataRepository : MetadataRepository {
         }
     }
 
+    override fun remove(key: String) {
+        metadata.remove(key)
+    }
+
     override fun <T : Any> load(key: String, valueClass: Class<T>): T? {
         synchronized(metadata) {
             val obj = metadata[key] ?: return null
