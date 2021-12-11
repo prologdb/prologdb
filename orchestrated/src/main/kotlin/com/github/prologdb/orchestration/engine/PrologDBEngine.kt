@@ -64,8 +64,8 @@ class PrologDBEngine(
         // TODO?
     }
 
-    override fun startQuery(session: SessionContext, query: Query, totalLimit: Long?): LazySequence<Unification> {
-        val kb = session.knowledgeBase?.second ?: return lazyError(PrologRuntimeException("No knowledge base selected."))
+    override fun startQuery(session: Session, query: Query, totalLimit: Long?): LazySequence<Unification> {
+        val module = session.module?.second ?: return lazySequenceOfError(MissingModuleContextException())
         return kb.startQuery(session, query, totalLimit)
     }
 
@@ -75,7 +75,7 @@ class PrologDBEngine(
             return globalDirectives.startDirective(session, command, totalLimit)
         }
 
-        val kb = session.knowledgeBase?.second ?: return lazyError(PrologRuntimeException("No knowledge base selected."))
+        val kb = session.knowledgeBase?.second ?: return lazySequenceOfError(PrologRuntimeException("No knowledge base selected."))
         return kb.startDirective(session, command, totalLimit)
     }
 
@@ -151,12 +151,12 @@ class PrologDBEngine(
     private val globalDirectives = ProgramaticServerKnowledgeBase {
         directive("select_knowledge_base"/1) { ctxt, args ->
             if (args[0] !is PrologString && args[0] !is Atom) {
-                return@directive lazyError<Unification>(PrologRuntimeException("Argument 1 to select_knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))
+                return@directive lazySequenceOfError<Unification>(PrologRuntimeException("Argument 1 to select_knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))
             }
             val name = (args[0] as? Atom)?.name ?: (args[0] as PrologString).toKotlinString()
 
             val base = knowledgeBases[name]
-                ?: return@directive lazyError<Unification>(PrologRuntimeException("Knowledge base $name does not exist."))
+                ?: return@directive lazySequenceOfError<Unification>(PrologRuntimeException("Knowledge base $name does not exist."))
 
             ctxt.knowledgeBase = Pair(name, base)
             LazySequence.of(Unification.TRUE)
@@ -170,7 +170,7 @@ class PrologDBEngine(
 
         directive("create_knowledge_base"/1) { ctxt, args ->
             if (args[0] !is PrologString && args[0] !is Atom) {
-                return@directive lazyError<Unification>(PrologRuntimeException("Argument 1 to create_knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))
+                return@directive lazySequenceOfError<Unification>(PrologRuntimeException("Argument 1 to create_knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))
             }
             val name = (args[0] as? Atom)?.name ?: (args[0] as PrologString).toKotlinString()
 
@@ -179,7 +179,7 @@ class PrologDBEngine(
             synchronized(knowledgeBaseCreateOrDropMutex) {
                 val existing = knowledgeBases[name]
                 if (existing != null) {
-                    return@directive lazyError<Unification>(PrologRuntimeException("A knowledge base with name $name already exists."))
+                    return@directive lazySequenceOfError<Unification>(PrologRuntimeException("A knowledge base with name $name already exists."))
                 }
 
                 val directory = dirManager.directoryForKnowledgeBase(name)

@@ -30,13 +30,13 @@ open class ProgramaticServerKnowledgeBase(
 
     infix fun supportsDirective(indicator: ClauseIndicator): Boolean = indicator in directives
 
-    override fun startQuery(session: SessionContext, query: Query, totalLimit: Long?): LazySequence<Unification> {
-        return lazyError(PrologRuntimeException("Queries in programatic knowledge bases not supported yet."))
+    override fun startQuery(session: Session, query: Query, totalLimit: Long?): LazySequence<Unification> {
+        return lazySequenceOfError(PrologRuntimeException("Queries in programatic knowledge bases not supported yet."))
     }
 
     override fun startDirective(session: SessionContext, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
         val indicator = ClauseIndicator.of(command)
-        val code = directives[indicator] ?: return lazyError(PrologRuntimeException("Directive $indicator not defined."))
+        val code = directives[indicator] ?: return lazySequenceOfError(PrologRuntimeException("Directive $indicator not defined."))
 
         val results = code(session, command.arguments)
         return if (totalLimit != null) results.limitRemaining(totalLimit) else results
