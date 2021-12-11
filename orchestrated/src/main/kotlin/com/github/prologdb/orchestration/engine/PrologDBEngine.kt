@@ -7,7 +7,8 @@ import com.github.prologdb.dbms.builtin.asDBCompatible
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.net.session.handle.STOP_AT_EOF_OR_FULL_STOP
-import com.github.prologdb.orchestration.SessionContext
+import com.github.prologdb.orchestration.Session
+import com.github.prologdb.orchestration.exception.MissingModuleContextException
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
@@ -41,7 +42,7 @@ class PrologDBEngine(
     dataDirectory: Path,
     private val executionPlanner: ExecutionPlanner,
     private val factStoreLoader: FactStoreLoader
-) : DatabaseEngine<SessionContext> {
+) : DatabaseEngine<Session> {
 
     private val dirManager = ServerDataDirectoryManager.open(dataDirectory)
 
@@ -51,16 +52,15 @@ class PrologDBEngine(
     private val knowledgeBases: MutableMap<String, ServerKnowledgeBase> = ConcurrentHashMap()
     private val knowledgeBaseCreateOrDropMutex = Any()
 
-    // discover knowledge bases
     init {
         for (kbName in dirManager.serverMetadata.allKnowledgeBaseNames) {
             initKnowledgeBase(kbName)
         }
     }
 
-    override fun initializeSession() = SessionContext()
+    override fun initializeSession() = Session()
 
-    override fun onSessionDestroyed(state: SessionContext) {
+    override fun onSessionDestroyed(state: Session) {
         // TODO?
     }
 
@@ -69,7 +69,7 @@ class PrologDBEngine(
         return kb.startQuery(session, query, totalLimit)
     }
 
-    override fun startDirective(session: SessionContext, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(session: Session, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
         val indicator = ClauseIndicator.of(command)
         if (globalDirectives.supportsDirective(indicator)) {
             return globalDirectives.startDirective(session, command, totalLimit)
@@ -81,13 +81,13 @@ class PrologDBEngine(
 
     private val parser = PrologParser()
 
-    override fun parseTerm(context: SessionContext?, codeToParse: String, origin: SourceUnit): ParseResult<Term> {
+    override fun parseTerm(context: Session?, codeToParse: String, origin: SourceUnit): ParseResult<Term> {
         val operatorsForParsing = context?.knowledgeBase?.second?.operators ?: ISOOpsOperatorRegistry
         val lexer = Lexer(origin, codeToParse.iterator())
         return parser.parseTerm(lexer, operatorsForParsing, STOP_AT_EOF)
     }
 
-    override fun parseQuery(context: SessionContext?, codeToParse: String, origin: SourceUnit): ParseResult<Query> {
+    override fun parseQuery(context: Session?, codeToParse: String, origin: SourceUnit): ParseResult<Query> {
         val operatorsForParsing = context?.knowledgeBase?.second?.operators ?: ISOOpsOperatorRegistry
         val lexer = Lexer(origin, codeToParse.iterator())
         return parser.parseQuery(lexer, operatorsForParsing, STOP_AT_EOF_OR_FULL_STOP)
@@ -193,9 +193,9 @@ class PrologDBEngine(
         }
 
         directive("explain"/1) { ctxt, args ->
-            val arg0 = args[0] as? CompoundTerm ?: return@directive lazyError<Unification>(PrologRuntimeException("Argument 0 to explain/1 must be a query."))
+            val arg0 = args[0] as? CompoundTerm ?: return@directive lazySequenceOfError<Unification>(PrologRuntimeException("Argument 0 to explain/1 must be a query."))
 
-            val currentKB = ctxt.knowledgeBase?.second ?: return@directive lazyError<Unification>(PrologRuntimeException("No knowledge base selected."))
+            val currentKB = ctxt.knowledgeBase?.second ?: return@directive lazySequenceOfError<Unification>(PrologRuntimeException("No knowledge base selected."))
 
             val query = compoundToQuery(arg0)
             val plan = executionPlanner.planExecution(query, currentKB.planningInformation)
