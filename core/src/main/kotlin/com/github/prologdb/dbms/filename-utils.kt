@@ -4,7 +4,7 @@ package com.github.prologdb.dbms
  * All characters in the string except `A-Z`, `0-9`, `_`
  * and `.` are replaced with an url-encoding like escape sequence:
  * it is prefixed with a `-` (hyphen) followed by the
- * 2-by hexadecimal encoded UNICODE value for the character.
+ * 2-byte hexadecimal encoded UNICODE value for the character.
  */
 fun String.toSaveFileName(): String {
     val originalChars = toCharArray()

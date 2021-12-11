@@ -27,7 +27,7 @@ class SessionInitializer(
         ?: throw IllegalArgumentException("Need support for at least one protocol version.")
 
     /**
-     * Performs the handshake with the oder side and initializes a suitable
+     * Performs the handshake with the other side and initializes a suitable
      * [SessionHandle] instance for the negotiated parameters.
      */
     fun init(channel: AsynchronousByteChannel): CompletionStage<SessionHandle> {
@@ -55,7 +55,7 @@ class SessionInitializer(
             }
 
             val onHelloSent = CompletableFuture<Unit>()
-            com.github.prologdb.net.negotiation.ToClient.newBuilder()
+            ToClient.newBuilder()
                     .setHello(shb.build())
                     .build()
                     .writeDelimitedTo(channel, onHelloSent)
