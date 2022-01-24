@@ -17,6 +17,12 @@
 
 :- module(foo). %-- to avoid the module prefixes
 
+%-- fetch source code of a module as a prolog string (compare stored procedures and views)
+?- foo:source(Output).
+
+%-- update source code of a moudle
+?- foo:source("This is the new prolog source").
+
 %-- CREATE TABLE
 ?- assert(dynamic(foo:persistent/1)).
 
