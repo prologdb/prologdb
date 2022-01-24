@@ -142,14 +142,14 @@ This is the equivalent of an SQL table-scan
 ### `[+, fact] -> unify(fact) -> +`
 
 **Arguments:**
-1. The fact unify with, usually as given in the prolog query
+1. The fact to unify with, usually as given in the prolog query
 
 **Action:**  Does an isolated unification of the input fact with the argument fact.  
 **Yields:** The input persistence ID if the unification succeeds.  
 **Instantiates:** the variables found in the argument fact  
 
 An isolated unification is different from a regular unification in that the variable scopes
-are of LHS and RHS are separated, e.g.:
+of LHS and RHS are separated, e.g.:
 
 Using regular unification:
 
@@ -193,7 +193,7 @@ However, prolog first randomizes the variables in both the goal and rule before 
 
 Step 1 to 3 are an isolated unification.
 
-### `+ fact_get(indicator) -> [+, fact]`
+### `+ -> fact_get(indicator) -> [+, fact]`
 
 **Input**: the persistence ID of the fact to read  
 **Arguments:**
