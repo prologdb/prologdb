@@ -1,20 +1,34 @@
 package com.github.prologdb.dbms
 
-import com.github.prologdb.runtime.ClauseIndicator
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.prologdb.util.concurrency.locks.PIDLockFile
-import com.github.prologdb.util.metadata.FileMetadataRepository
-import com.github.prologdb.util.metadata.MetadataRepository
+import org.slf4j.LoggerFactory
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.stream.Collectors.toSet
+import java.nio.file.StandardOpenOption
+import java.nio.file.attribute.PosixFilePermission
+import java.nio.file.attribute.PosixFilePermissions
+import java.util.UUID
+import java.util.stream.Collectors.toList
+
+private val log = LoggerFactory.getLogger("prologdb.dbmanager")
 
 /**
- * Manages the files in the data directory of a knowledge base.
+ * Manages the files in the data directory of the database.
+ *
+ * TODO: ensure thread safety
  */
 class DataDirectoryManager private constructor(
     private val dataDirectory: Path
 ) {
+    init {
+        require(dataDirectory.isAbsolute)
+        Files.createDirectories(dataDirectory, DIRECTORY_PERMISSIONS_OWNER_ONLY)
+    }
+
     private val lock = PIDLockFile(dataDirectory.resolve("lock.pid").toFile())
     init {
         if (!lock.tryLock()) {
@@ -22,107 +36,85 @@ class DataDirectoryManager private constructor(
         }
     }
 
-    /** Everything synchronizes on this for thread-safety. */
-    private val mutex = Any()
+    private val catalogMapper = jacksonObjectMapper()
 
-    private val storeScopes: MutableMap<ClauseIndicator, ClauseStoreScope>
-    init {
-        // init store scopes
-        storeScopes = discoverClauseStoresWithin(dataDirectory.resolve("clauses"))
-            .fold(HashMap()) { m, s -> m[s.indicator] = s; m }
-    }
+    /**
+     * @param revision If not null, attempts to load this revision of the catalog
+     * @throws SystemCatalogNotFoundException if the requested revision is not available
+     */
+    fun loadSystemCatalog(revision: Long? = null): SystemCatalog {
+        val actualRevision: Long = revision
+            ?: Files.walk(dataDirectory.resolve(CATALOG_SUBDIR), 0)
+                .collect(toList())
+                .mapNotNull { file ->
+                    CATALOG_REVISION_FILENAME_PATTERN.matchEntire(file.fileName.toString())
+                        ?.groupValues
+                        ?.get(1)
+                        ?.toLongOrNull()
+                }
+                .max()
+            ?: return SystemCatalog.INITIAL
 
-    val metadata: KnowledgeBaseMetadata by lazy {
-        val file = dataDirectory.resolve("meta")
-        Files.createDirectories(file.parent)
-        KnowledgeBaseMetadata(FileMetadataRepository(file))
+        val file = dataDirectory.resolve(CATALOG_SUBDIR).resolve("system-$actualRevision.json")
+        val fileContent = try {
+            file.toFile().readText(Charsets.UTF_8)
+        }
+        catch (ex: FileNotFoundException) {
+            throw SystemCatalogNotFoundException(actualRevision, file, ex)
+        }
+
+        return catalogMapper.readValue<SystemCatalog>(fileContent)
+            .copy(revision = actualRevision)
     }
 
     /**
-     * Clauses for which any persistent state is already present.
+     * Saves the given system catalog with the given revision. When this method returns, the catalog is guaranteed
+     * to be saved to disc.
+     * @param keepOldRevisions Any revision older than the given number before [asRevision] will be deleted. Pass null
+     * to not delete any revisions.
+     * @return the given catalog, with [SystemCatalog.revision] set to the given [asRevision] value.
      */
-    val persistedClauses: Set<ClauseIndicator> = storeScopes.keys
-
-    fun scopedForFactsOf(indicator: ClauseIndicator): ClauseStoreScope {
-        synchronized(mutex) {
-            return storeScopes.computeIfAbsent(indicator) { ClauseStoreScope(indicator) }
+    fun saveSystemCatalog(catalog: SystemCatalog, asRevision: Long = catalog.revision + 1, keepOldRevisions: Long? = 5): SystemCatalog {
+        val catalogDir = dataDirectory.resolve(CATALOG_SUBDIR)
+        val serialized = catalogMapper.writeValueAsString(catalog).toByteArray(Charsets.UTF_8)
+        val file = catalogDir.resolve("system-$asRevision")
+        try {
+            Files.write(file, serialized, StandardOpenOption.CREATE_NEW)
         }
+        catch (ex: FileAlreadyExistsException) {
+            throw SystemCatalogOutdatedException("A catalog with revision $asRevision is already saved on disc.", ex)
+        }
+
+        if (keepOldRevisions != null) {
+            try {
+                Files.walk(catalogDir, 0)
+                    .filter { file ->
+                        val revisionNumber = CATALOG_REVISION_FILENAME_PATTERN.matchEntire(file.fileName.toString())
+                            ?.groupValues
+                            ?.get(1)
+                            ?.toLongOrNull()
+
+                        revisionNumber != null && revisionNumber < asRevision - keepOldRevisions
+                    }
+                    .forEach { Files.deleteIfExists(it) }
+            }
+            catch(ex: Exception) {
+                log.warn("Failed to delete old system catalog revisions", ex)
+            }
+        }
+
+        return catalog.copy(revision = asRevision)
     }
 
-    /**
-     * Manages files in the data directory belonging to the predicate
-     * store for the [indicator].
-     */
-    inner class ClauseStoreScope internal constructor(val indicator: ClauseIndicator) {
-        /** Everything synchronizes on this for thread-safety. */
-        private val mutex = Any()
+    fun scopedForPredicate(uuid: UUID): PredicateScope {
+        val predicateDirectory = dataDirectory.resolve("predicates").resolve(uuid.toString())
+        Files.createDirectories(predicateDirectory, DIRECTORY_PERMISSIONS_OWNER_ONLY)
 
-        private val contextDirectory = dataDirectory
-            .resolve("clauses")
-            .resolve(indicator.toString().toSaveFileName())
-
-        init {
-            if (!Files.exists(contextDirectory)) {
-                Files.createDirectories(contextDirectory)
-            }
-        }
-
-        val metadata: MetadataRepository by lazy {
-            val path = contextDirectory.resolve("meta")
-            if (!Files.exists(path)) Files.createFile(path)
-            FileMetadataRepository(path)
-        }
-
-        /**
-         * Reserves a filename for a file purposed to storing facts.
-         * Then invokes the given code with the path.
-         * Forwards exceptions from `init`; if an exception is thrown,
-         * the path is freed again.
-         * @return forwarded from the `init` function
-         */
-        fun <T> createStorageFile(init: (Path) -> T): T {
-            synchronized(mutex) {
-                var counter = 0
-                var path: Path
-                do {
-                    path = contextDirectory.resolve("storage_facts_$counter")
-                    counter++
-                } while (Files.isRegularFile(path))
-
-                try {
-                    return init(path)
-                }
-                catch (ex: Throwable) {
-                    try {
-                        Files.deleteIfExists(path)
-                    }
-                    catch (ex2: Throwable) {
-                        ex.addSuppressed(ex2)
-                    }
-
-                    throw ex
-                }
-            }
-        }
+        return PredicateScope(uuid, predicateDirectory)
     }
 
-    private fun discoverClauseStoresWithin(path: Path): Set<ClauseStoreScope> {
-        if (!Files.exists(path)) return emptySet()
+    inner class PredicateScope(val predicateUuid: UUID, val directory: Path) {
 
-        return Files.list(path)
-            .filter { Files.isDirectory(it) }
-            .map {
-                try {
-                    ClauseIndicator.parse(
-                        it.fileName.toString().fromSaveFileName()
-                    )
-                }
-                catch (ex: IllegalArgumentException) {
-                    throw IllegalStateException("Failed to discover clause persistent state in ${it.normalize()}", ex)
-                }
-            }
-            .map { ClauseStoreScope(it) }
-            .collect(toSet())
     }
 
     companion object {
@@ -132,11 +124,29 @@ class DataDirectoryManager private constructor(
          */
         @JvmStatic
         fun open(dataDirectory: Path): DataDirectoryManager {
-            if (!Files.exists(dataDirectory)) {
-                Files.createDirectories(dataDirectory)
-            }
-
             return DataDirectoryManager(dataDirectory)
         }
+
+        private val CATALOG_SUBDIR = "catalog"
+        private val CATALOG_REVISION_FILENAME_PATTERN = Regex("catalog-(\\d+)\\.json")
+        private val DIRECTORY_PERMISSIONS_OWNER_ONLY = PosixFilePermissions.asFileAttribute(setOf(
+            PosixFilePermission.OWNER_READ,
+            PosixFilePermission.OWNER_WRITE,
+            PosixFilePermission.OWNER_EXECUTE
+        ))
+        private val FILE_PERMISSIONS_OWNER_ONLY = PosixFilePermissions.asFileAttribute(setOf(
+            PosixFilePermission.OWNER_READ,
+            PosixFilePermission.OWNER_WRITE
+        ))
     }
 }
+
+class SystemCatalogNotFoundException(revision: Long, atPath: Path, cause: Throwable? = null) : RuntimeException(
+    "Did not find system catalog with revision $revision at $atPath"
+) {
+    init {
+        require(atPath.isAbsolute)
+    }
+}
+
+class SystemCatalogOutdatedException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
