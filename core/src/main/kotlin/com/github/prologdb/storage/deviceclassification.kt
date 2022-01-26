@@ -83,7 +83,7 @@ class WindowsStorageDeviceInformationProvider : StorageDeviceInformationProvider
 
         val pathDriveLetter = root[0]
 
-        val logicalDrive = locigalDrives
+        val logicalDrive = logicalDrives
             .firstOrNull { it.driveLetter == pathDriveLetter }
             ?: throw IllegalArgumentException("Drive $pathDriveLetter:\\ is not mounted.")
 
@@ -97,7 +97,7 @@ class WindowsStorageDeviceInformationProvider : StorageDeviceInformationProvider
         )
     }
 
-    private val locigalDrives: Collection<LogicalDrive> by lazy {
+    private val logicalDrives: Collection<LogicalDrive> by lazy {
         val outLines = captureOutput("powershell", "get-partition | Format-List -Property DiskNumber,DriveLetter")
         val objects = parsePowershellListFormatOutput(outLines)
         return@lazy objects.map { rawObj ->
@@ -170,7 +170,7 @@ class WindowsStorageDeviceInformationProvider : StorageDeviceInformationProvider
                     currentObject = mutableMapOf()
                 }
 
-                val (propertyName, value) = line.split(delimiters = ":", limit = 2)
+                val (propertyName, value) = line.split(delimiters = *arrayOf(":"), limit = 2)
                 currentObject[propertyName.trim()] = value.trim()
             }
 

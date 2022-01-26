@@ -1,7 +1,7 @@
 package com.github.prologdb.storage
 
 /**
- * Marks a storage engine as being persistent (non-valiatile,
+ * Marks a storage engine as being persistent (non-valatile,
  * on disk, across restarts & reboots)
  */
 @Target(AnnotationTarget.CLASS, AnnotationTarget.TYPEALIAS, AnnotationTarget.ANNOTATION_CLASS)

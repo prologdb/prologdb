@@ -3,13 +3,13 @@ package com.github.prologdb.util.concurrency
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Very much like [ThreadLocal] except that the [clear] method has been added.
+ * Very much like [ThreadLocal] except that the [clearForAllThreads] method has been added.
  */
 class ClearableThreadLocal<T>(
     /** Calculates and returns a new default value */
     val defaultValue: () -> T,
 
-    /** When [clear] is called, this is invoked for all cleared values */
+    /** When [clearForAllThreads] is called, this is invoked for all cleared values */
     private val teardown: (T) -> Unit = {}
 ) {
     fun set(o: T) {
