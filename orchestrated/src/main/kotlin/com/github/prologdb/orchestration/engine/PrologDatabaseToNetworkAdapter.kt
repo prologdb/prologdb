@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 internal val log = LoggerFactory.getLogger("prologdb.engine")
 
-class PrologDatabaseEngine(
+class PrologDatabaseToNetworkAdapter(
     val database: PrologDatabase
 ) : DatabaseEngine<Session> {
     private val globalDirectives: Map<ClauseIndicator, (Session, Array<out Term>) -> LazySequence<Unification>> = mapOf(
@@ -62,11 +62,7 @@ class PrologDatabaseEngine(
                 return@to lazySequenceOfError<Unification>(PrologRuntimeException("Argument 1 to create_knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))
             }
             val name = (args[0] as? Atom)?.name ?: (args[0] as PrologString).toKotlinString()
-
-            // TODO: check permission
-
-
-
+            database.createKnowledgeBase(name)
             LazySequence.of(Unification.TRUE)
         },
         ClauseIndicator.of("explain", 1) to { session, args ->

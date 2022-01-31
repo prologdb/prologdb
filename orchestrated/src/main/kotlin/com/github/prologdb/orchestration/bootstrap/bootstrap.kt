@@ -7,7 +7,7 @@ import com.github.prologdb.net.negotiation.SemanticVersion
 import com.github.prologdb.net.session.SessionInitializer
 import com.github.prologdb.net.session.handle.buildProtocolVersion1SessionHandleFactory
 import com.github.prologdb.orchestration.config.ServerConf
-import com.github.prologdb.orchestration.engine.PrologDatabaseEngine
+import com.github.prologdb.orchestration.engine.PrologDatabaseToNetworkAdapter
 import com.github.prologdb.orchestration.introspect.SERVER_VERSION
 import com.github.prologdb.storage.fact.DefaultFactStoreLoader
 import com.github.prologdb.storage.fact.FactStoreLoader
@@ -22,7 +22,7 @@ fun runServer(config: ServerConf): ServerHandle {
     log.trace("Starting server with config {}", config)
 
     log.info("Starting a PrologDBEngine in ${config.dataDirectory}")
-    val engine = PrologDatabaseEngine(PrologDatabase(
+    val engine = PrologDatabaseToNetworkAdapter(PrologDatabase(
         config.dataDirectory!!,
         FactStoreLoader,
         NoOptimizationExecutionPlanner()
@@ -39,7 +39,8 @@ fun runServer(config: ServerConf): ServerHandle {
                 PROTOCOL_VERSION1_SEMVER to buildProtocolVersion1SessionHandleFactory(parser = engine)
             )
         ),
-        config.network.port
+        config.network.port,
+        { 2 }
     )
     log.info("Network interface started.")
 
@@ -57,7 +58,7 @@ private val PROTOCOL_VERSION1_SEMVER = SemanticVersion.newBuilder()
  */
 class ServerHandle(
     private val networkIFace: ServerInterface,
-    private val engine: PrologDatabaseEngine
+    private val engine: PrologDatabaseToNetworkAdapter
 ) {
     /**
      * Shuts the server down for the given reason. Blocks
