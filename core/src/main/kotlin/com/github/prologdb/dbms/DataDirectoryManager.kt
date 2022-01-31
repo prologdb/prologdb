@@ -35,6 +35,8 @@ class DataDirectoryManager private constructor(
     }
 
     private val catalogDirectory = dataDirectory.resolve(CATALOG_SUBDIR)
+    private val catalogMapper = jacksonObjectMapper()
+    private val catalogWriter = catalogMapper.writerWithDefaultPrettyPrinter()
 
     @Volatile
     var systemCatalog: SystemCatalog = loadSystemCatalog()
@@ -51,9 +53,6 @@ class DataDirectoryManager private constructor(
         }
     }
 
-    private val catalogMapper = jacksonObjectMapper()
-    private val catalogWriter = catalogMapper.writerWithDefaultPrettyPrinter()
-
     /**
      * @param revision If not null, attempts to load this revision of the catalog
      * @throws SystemCatalogNotFoundException if the requested revision is not available
@@ -67,7 +66,8 @@ class DataDirectoryManager private constructor(
         }
 
         val actualRevision: Long = revision
-            ?: Files.walk(catalogDirectory, 0)
+            ?: Files.walk(catalogDirectory, 1)
+                .filter { Files.isRegularFile(it) && !Files.isSameFile(catalogDirectory, it) }
                 .collect(toList())
                 .mapNotNull { file ->
                     CATALOG_REVISION_FILENAME_PATTERN.matchEntire(file.fileName.toString())
@@ -78,7 +78,7 @@ class DataDirectoryManager private constructor(
                 .max()
             ?: return SystemCatalog.INITIAL
 
-        val file = dataDirectory.resolve(CATALOG_SUBDIR).resolve("system-$actualRevision.json")
+        val file = catalogDirectory.resolve("system-$actualRevision.json")
         val fileContent = try {
             file.toFile().readText(Charsets.UTF_8)
         } catch (ex: FileNotFoundException) {
@@ -185,7 +185,7 @@ class DataDirectoryManager private constructor(
         }
 
         private const val CATALOG_SUBDIR = "catalog"
-        private val CATALOG_REVISION_FILENAME_PATTERN = Regex("catalog-(\\d+)\\.json")
+        private val CATALOG_REVISION_FILENAME_PATTERN = Regex("system-(\\d+)\\.json")
 
     }
 }
