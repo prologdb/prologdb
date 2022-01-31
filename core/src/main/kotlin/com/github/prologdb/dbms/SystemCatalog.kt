@@ -20,6 +20,7 @@ data class SystemCatalog(
     val revision: Long,
     val knowledgeBases: Set<KnowledgeBase>
 ) {
+    @get:JsonIgnore
     val allPredicates: Map<UUID, Predicate> by lazy {
         knowledgeBases
             .flatMap { it.modules }
@@ -51,10 +52,12 @@ data class SystemCatalog(
         val name: String,
         val modules: Set<Module>
     ) {
+        @get:JsonIgnore
         val modulesByName: Map<String, Module> by lazy {
             modules.associateBy { it.name }
         }
 
+        @get:JsonIgnore
         val allPredicatesByFqi: Map<FullyQualifiedClauseIndicator, Predicate> by lazy {
             modules
                 .flatMap { it.predicates }

@@ -1,5 +1,7 @@
 package com.github.prologdb.dbms
 
+import com.fasterxml.jackson.core.PrettyPrinter
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.prologdb.util.concurrency.locks.PIDLockFile
@@ -26,12 +28,14 @@ private val log = LoggerFactory.getLogger("prologdb.dbmanager")
 class DataDirectoryManager private constructor(
     private val dataDirectory: Path
 ) {
+
     init {
         require(dataDirectory.isAbsolute)
         dataDirectory.setOwnerReadWriteEverybodyElseNoAccess()
     }
 
     private val catalogDirectory = dataDirectory.resolve(CATALOG_SUBDIR)
+
     @Volatile
     var systemCatalog: SystemCatalog = loadSystemCatalog()
         private set
@@ -40,6 +44,7 @@ class DataDirectoryManager private constructor(
     private var closed: Boolean = false
 
     private val lock = PIDLockFile(dataDirectory.resolve("lock.pid").toFile())
+
     init {
         if (!lock.tryLock()) {
             throw IOException("Failed to lock data directory $dataDirectory")
@@ -47,6 +52,7 @@ class DataDirectoryManager private constructor(
     }
 
     private val catalogMapper = jacksonObjectMapper()
+    private val catalogWriter = catalogMapper.writerWithDefaultPrettyPrinter()
 
     /**
      * @param revision If not null, attempts to load this revision of the catalog
@@ -75,8 +81,7 @@ class DataDirectoryManager private constructor(
         val file = dataDirectory.resolve(CATALOG_SUBDIR).resolve("system-$actualRevision.json")
         val fileContent = try {
             file.toFile().readText(Charsets.UTF_8)
-        }
-        catch (ex: FileNotFoundException) {
+        } catch (ex: FileNotFoundException) {
             throw SystemCatalogNotFoundException(actualRevision, file, ex)
         }
 
@@ -91,7 +96,11 @@ class DataDirectoryManager private constructor(
      * to not delete any revisions.
      * @return the given catalog, with [SystemCatalog.revision] set to the given [asRevision] value.
      */
-    fun saveSystemCatalog(catalog: SystemCatalog, asRevision: Long = catalog.nextRevisionNumber(), keepOldRevisions: Long? = 5): SystemCatalog {
+    fun saveSystemCatalog(
+        catalog: SystemCatalog,
+        asRevision: Long = catalog.nextRevisionNumber(),
+        keepOldRevisions: Long? = 5
+    ): SystemCatalog {
         requireOpen()
 
         if (!Files.exists(catalogDirectory)) {
@@ -99,12 +108,11 @@ class DataDirectoryManager private constructor(
             catalogDirectory.setOwnerReadWriteEverybodyElseNoAccess()
         }
 
-        val serialized = catalogMapper.writeValueAsString(catalog).toByteArray(Charsets.UTF_8)
-        val file = catalogDirectory.resolve("system-$asRevision")
+        val serialized = catalogWriter.writeValueAsString(catalog).toByteArray(Charsets.UTF_8)
+        val file = catalogDirectory.resolve("system-$asRevision.json")
         try {
             Files.write(file, serialized, StandardOpenOption.CREATE_NEW)
-        }
-        catch (ex: FileAlreadyExistsException) {
+        } catch (ex: FileAlreadyExistsException) {
             throw SystemCatalogOutdatedException("A catalog with revision $asRevision is already saved on disc.", ex)
         }
         file.setOwnerReadWriteEverybodyElseNoAccess()
@@ -121,8 +129,7 @@ class DataDirectoryManager private constructor(
                         revisionNumber != null && revisionNumber < asRevision - keepOldRevisions
                     }
                     .forEach { Files.deleteIfExists(it) }
-            }
-            catch(ex: Exception) {
+            } catch (ex: Exception) {
                 log.warn("Failed to delete old system catalog revisions", ex)
             }
         }
@@ -156,6 +163,7 @@ class DataDirectoryManager private constructor(
     }
 
     inner class PredicateScope(val uuid: UUID, val directory: Path) {
+
         val catalogEntry: SystemCatalog.Predicate = systemCatalog.allPredicates.getValue(uuid)
     }
 
@@ -166,6 +174,7 @@ class DataDirectoryManager private constructor(
     }
 
     companion object {
+
         /**
          * Opens the given data directory. If the directory
          * does not yet exist, creates it.
@@ -184,6 +193,7 @@ class DataDirectoryManager private constructor(
 class SystemCatalogNotFoundException(revision: Long, atPath: Path, cause: Throwable? = null) : RuntimeException(
     "Did not find system catalog with revision $revision at $atPath"
 ) {
+
     init {
         require(atPath.isAbsolute)
     }
