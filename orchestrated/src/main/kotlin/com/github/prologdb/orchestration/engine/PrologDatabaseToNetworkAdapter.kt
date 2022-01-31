@@ -45,7 +45,7 @@ class PrologDatabaseToNetworkAdapter(
             }
             val name = (args[0] as? Atom)?.name ?: (args[0] as PrologString).toKotlinString()
 
-            if (database.dataDirectory.systemCatalog.knowledgeBases.none { it.name == name }) {
+            if (session.systemCatalog.knowledgeBases.none { it.name == name }) {
                 return@to lazySequenceOfError(PrologRuntimeException("Knowledge base $name does not exist."))
             }
 
@@ -89,11 +89,16 @@ class PrologDatabaseToNetworkAdapter(
     }
 
     override fun startQuery(session: Session, query: Query, totalLimit: Long?): LazySequence<Unification> {
-        val psc = session.runtimeEnvironment.newProofSearchContext(ReadWriteAuthorization)
-            .deriveForModuleContext(session.moduleCatalog.name)
+        try {
+            val psc = session.runtimeEnvironment.newProofSearchContext(ReadWriteAuthorization)
+                .deriveForModuleContext(session.moduleCatalog.name)
 
-        return buildLazySequence(psc.principal) {
-            psc.fulfillAttach(this, query, VariableBucket())
+            return buildLazySequence(psc.principal) {
+                psc.fulfillAttach(this, query, VariableBucket())
+            }
+        }
+        catch (ex: PrologRuntimeException) {
+            return lazySequenceOfError(ex)
         }
     }
 
@@ -102,7 +107,12 @@ class PrologDatabaseToNetworkAdapter(
         val directive = globalDirectives[indicator]
             ?: return lazySequenceOfError(PrologRuntimeException("Directive $indicator is not implemented."))
 
-        return directive.invoke(session, command.arguments)
+        return try {
+            directive.invoke(session, command.arguments)
+        }
+        catch (ex: PrologRuntimeException) {
+            lazySequenceOfError(ex)
+        }
     }
 
     private val parser = PrologParser()
