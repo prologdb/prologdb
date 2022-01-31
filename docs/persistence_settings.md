@@ -6,9 +6,16 @@
 
 %-- CREATE DATABASE
 ?- assert(knowledge_base(fooBase)).
+/*
+outside of transaction, atomic via filesystem
+*/
 
 %-- DROP DATABASE
 ?- retract(knowledge_base(fooBase)).
+
+/*
+suspended until end of transaction by setting removedBy=txid 
+*/
 
 %-- ALTER DATABASE ... RENAME TO
 :- rename_knowledge_base(fooBase, fooBase2, [retract_alias]). 
@@ -38,7 +45,7 @@
 %-- ALTER TABLE ... ADD UNIQUE CONSTRAINT
 ?- assert(constraint(constraint_name, (foo:persistent(Term), once(foo:persistent(Term))))).
 
-%-- ALTER TALBE ... ADD CONSTRAINT FOREIGN KEY 1:n
+%-- ALTER TALBE ... ADD CONSTRAINT FOREIGN KEY m:n / 1:n
 ?- assert(constraint(constraint_name, (foo:persistent(Term), other(_, Term)))).
 
 %-- ALTER TABLE ... ADD CONSTRAINT FOREIGN KEY m:1 / 1:1
