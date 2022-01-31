@@ -2,10 +2,7 @@ package com.github.prologdb.storage.fact
 
 import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.storage.StorageException
-import com.github.prologdb.util.metadata.load
-import com.github.prologdb.util.metadata.set
-
-private val META_KEY = "fact_store_impl"
+import com.github.prologdb.storage.fact.heapfile.HeapFileFactStore
 
 /**
  * The default implementation to [FactStoreLoader].
@@ -42,31 +39,27 @@ open class DefaultFactStoreLoader : FactStoreLoader {
         }
     }
 
-    override fun create(directoryManager: DataDirectoryManager.ClauseStoreScope, requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStore {
-        val indicator = directoryManager.indicator
-        var implClassName = directoryManager.metadata.load<String>(META_KEY)
+    init {
+        // TODO: replace with ServiceLoader
+        registerSpecializedLoader(HeapFileFactStore.Loader)
+    }
 
-        if (implClassName != null) {
-            throw StorageException("A fact store for $indicator already exists.")
+    override fun create(directoryManager: DataDirectoryManager.PredicateScope, requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStore {
+        if (directoryManager.catalogEntry?.factStoreClassName != null) {
+            throw StorageException("A fact store for predicate ${directoryManager.uuid} already exists.")
         }
 
         val loader = selectImplementation(requiredFeatures, desiredFeatures)
-        implClassName = loader.type.qualifiedName ?: throw StorageException("Qualified class name of fact store implementation ${loader.type} cannot be determined.")
-
-        val store = loader.createOrLoad(directoryManager)
-        directoryManager.metadata[META_KEY] = implClassName
-
-        return store
+        return loader.createOrLoad(directoryManager)
     }
 
-    override fun load(directoryManager: DataDirectoryManager.ClauseStoreScope): FactStore? {
-        val indicator = directoryManager.indicator
-        val implClassName = directoryManager.metadata.load<String>(META_KEY) ?: return null
+    override fun load(directoryManager: DataDirectoryManager.PredicateScope): FactStore? {
+        val implClassName = directoryManager.catalogEntry.factStoreClassName ?: return null
         val loader = try {
             getLoader(implClassName)
         }
         catch (ex: Throwable) {
-            throw StorageException("Failed to obtain loader for fact store of $indicator", ex)
+            throw StorageException("Failed to obtain loader for fact store of predicate ${directoryManager.uuid}", ex)
         }
 
         return loader.createOrLoad(directoryManager)

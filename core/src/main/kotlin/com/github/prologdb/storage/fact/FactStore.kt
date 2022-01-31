@@ -2,38 +2,27 @@ package com.github.prologdb.storage.fact
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.Principal
-import com.github.prologdb.runtime.ClauseIndicator
-import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.Term
 import java.util.concurrent.Future
 
 /**
- * An identifier for individual facts stored in a [FactStore].
- * One such indentifier is only meaningful to the [FactStore]
- * that defined it.
- */
-typealias PersistenceID = Long
-
-/**
- * Stores all predicates that match a given [ClauseIndicator].
+ * Stores all facts for a [SystemCatalog.Predicate].
  * Implementations MUST be thread-safe.
  */
 interface FactStore {
-    /** Indicates the predicate for which facts are stored in this store. */
-    val indicator: ClauseIndicator
-
     /**
      * Stores the given predicate in the storage and returns the associated
      * ID.
      * @throws OutOfStorageSpaceException
      */
-    fun store(asPrincipal: Principal, item: CompoundTerm): Future<PersistenceID>
+    fun store(asPrincipal: Principal, arguments: Array<out Term>): Future<PersistenceID>
 
     /**
      * @return The fact that was [store]d with the given
      * [PersistenceID]; null if no such fact was ever stored or when
      * it was [delete]d
      */
-    fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<CompoundTerm?>
+    fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Array<out Term>?>
 
     /**
      * Removes the fact stored with the given ID from
@@ -48,7 +37,7 @@ interface FactStore {
     /**
      * @return A lazy sequence of all the facts stored in this store.
      */
-    fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, CompoundTerm>>
+    fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, Array<out Term>>>
 
     /**
      * Does these things in sequence:
@@ -60,13 +49,3 @@ interface FactStore {
      */
     fun close()
 }
-
-/**
- * Thrown for all persistence related errors / exceptions, including IO
- */
-open class PrologPersistenceException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
-
-/**
- * Thrown when data cannot be stored because storage space is depleated.
- */
-class OutOfStorageSpaceException(message: String, cause: Throwable? = null) : PrologPersistenceException(message, cause)

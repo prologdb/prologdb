@@ -1,8 +1,8 @@
 package com.github.prologdb.execplan
 
-import com.github.prologdb.runtime.knowledge.library.OperatorDefinition
-import com.github.prologdb.runtime.knowledge.library.OperatorRegistry
-import com.github.prologdb.runtime.knowledge.library.OperatorType
+import com.github.prologdb.runtime.util.OperatorDefinition
+import com.github.prologdb.runtime.util.OperatorRegistry
+import com.github.prologdb.runtime.util.OperatorType
 
 /**
  * Defines the operators that apply to the execution plan language / prolog-like language.

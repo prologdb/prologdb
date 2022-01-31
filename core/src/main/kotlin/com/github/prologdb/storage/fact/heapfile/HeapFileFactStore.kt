@@ -8,8 +8,7 @@ import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
 import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.io.util.Pool
-import com.github.prologdb.runtime.ClauseIndicator
-import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.PersistentStorage
 import com.github.prologdb.storage.StorageStrategy
@@ -18,11 +17,10 @@ import com.github.prologdb.storage.fact.PersistenceID
 import com.github.prologdb.storage.fact.SpecializedFactStoreLoader
 import com.github.prologdb.storage.heapfile.HeapFile
 import com.github.prologdb.storage.rootDeviceProperties
-import com.github.prologdb.util.metadata.load
 import java.io.DataOutput
 import java.io.DataOutputStream
 import java.nio.ByteBuffer
-import java.nio.file.Paths
+import java.nio.file.Files
 import java.util.concurrent.Future
 
 /**
@@ -30,7 +28,7 @@ import java.util.concurrent.Future
  */
 @PersistentStorage
 class HeapFileFactStore(
-    override val indicator: ClauseIndicator,
+    private val arity: Int,
     private val binaryReader: BinaryPrologReader,
     private val binaryWriter: BinaryPrologWriter,
     private val heapFile: HeapFile
@@ -53,9 +51,9 @@ class HeapFileFactStore(
         }
     )
 
-    override fun store(asPrincipal: Principal, item: CompoundTerm): Future<PersistenceID> {
-        if (item.arity != indicator.arity || item.functor != indicator.functor) {
-            throw IllegalArgumentException("This fact store is intended for instances of $indicator, got ${item.functor}/${item.arity}")
+    override fun store(asPrincipal: Principal, arguments: Array<out Term>): Future<PersistenceID> {
+        if (arguments.size != arity) {
+            throw IllegalArgumentException("This store requires arity=$arity, got ${arguments.size} arguments.")
         }
 
         return launchWorkableFuture(asPrincipal) {
@@ -65,14 +63,14 @@ class HeapFileFactStore(
             }
             val (buffer, dataOut) = bufferHolder
 
-            for (argument in item.arguments) binaryWriter.writeTermTo(argument, dataOut)
+            for (argument in arguments) binaryWriter.writeTermTo(argument, dataOut)
             val byteBuffer = buffer.bufferOfData
             byteBuffer.position(0)
             return@launchWorkableFuture await(heapFile.addRecord(asPrincipal, byteBuffer))
         }
     }
 
-    override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<CompoundTerm?> {
+    override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Array<out Term>?> {
         return launchWorkableFuture(asPrincipal) {
             return@launchWorkableFuture try {
                 await(heapFile.useRecord(asPrincipal, id, this@HeapFileFactStore::readPredicateFrom))
@@ -90,37 +88,30 @@ class HeapFileFactStore(
         }
     }
 
-    override fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, CompoundTerm>> {
+    override fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, Array<out Term>>> {
         return heapFile.allRecords(asPrincipal, this::readPredicateFrom)
     }
 
-    private fun readPredicateFrom(data: ByteBuffer): CompoundTerm {
-        val arguments = Array(indicator.arity) { binaryReader.readTermFrom(data) }
-        return CompoundTerm(indicator.functor, arguments)
+    private fun readPredicateFrom(data: ByteBuffer): Array<out Term> {
+        return Array(arity) { binaryReader.readTermFrom(data) }
     }
 
     object Loader : SpecializedFactStoreLoader<HeapFileFactStore> {
         override val type = HeapFileFactStore::class
 
-        override fun createOrLoad(directoryManager: DataDirectoryManager.ClauseStoreScope): HeapFileFactStore {
-            val pathAsString = directoryManager.metadata.load<String>("${type.qualifiedName}.heap_file_name")
+        override fun createOrLoad(directoryManager: DataDirectoryManager.PredicateScope): HeapFileFactStore {
+            val path = directoryManager.directory.resolve("facts.heap")
 
-            val path = if (pathAsString != null) Paths.get(pathAsString) else {
-                directoryManager.createStorageFile { path ->
-                    directoryManager.metadata.save("${type.qualifiedName}.heap_file_name", path.toAbsolutePath().normalize().toString())
-
-                    val deviceProperties = path.rootDeviceProperties
-                    when (deviceProperties?.physicalStorageStrategy) {
-                        StorageStrategy.SOLID_STATE -> HeapFile.initializeForContiguousDevice(path)
-                        else ->                        HeapFile.initializeForBlockDevice(path)
-                    }
-
-                    path
+            if (Files.notExists(path)) {
+                val deviceProperties = path.rootDeviceProperties
+                when (deviceProperties?.physicalStorageStrategy) {
+                    StorageStrategy.SOLID_STATE -> HeapFile.initializeForContiguousDevice(path)
+                    else ->                        HeapFile.initializeForBlockDevice(path)
                 }
             }
 
             return HeapFileFactStore(
-                directoryManager.indicator,
+                directoryManager.catalogEntry.arity,
                 BinaryPrologReader.getDefaultInstance(),
                 BinaryPrologWriter.getDefaultInstance(),
                 HeapFile.forExistingFile(path)

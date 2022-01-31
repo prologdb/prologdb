@@ -6,6 +6,9 @@ import com.github.prologdb.dbms.DBProofSearchContext
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 
+/**
+ * Concatenates the output of multiple steps. This is the quivalent of a prolog `;` or SQL UNION
+ */
 class UnionFunctor<Input, Output>(
     private val steps: Array<PlanFunctor<Input, Output>>
 ) : PlanFunctor<Input, Output> {
@@ -16,13 +19,19 @@ class UnionFunctor<Input, Output>(
     }
 
     override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Input>>): LazySequence<Pair<VariableBucket, Output>> {
+        if (steps.size == 1) {
+            return steps.single().invoke(ctxt, inputs)
+        }
+
         return buildLazySequence(ctxt.principal) {
-            for (step in steps) {
-                yieldAll(step.invoke(ctxt, inputs))
+            for (stepIndex in 0 until steps.lastIndex) {
+                yieldAll(steps[stepIndex].invoke(ctxt, inputs))
             }
+
+            return@buildLazySequence yieldAllFinal(steps.last().invoke(ctxt, inputs))
         }
     }
 
     override val explanation: CompoundTerm
-        get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+        get() = CompoundTerm(";", steps.map { it.explanation }.toTypedArray())
 }

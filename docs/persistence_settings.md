@@ -18,9 +18,9 @@ suspended until end of transaction by setting removedBy=txid
 */
 
 %-- ALTER DATABASE ... RENAME TO
-:- rename_knowledge_base(fooBase, fooBase2, [retract_alias]). 
+:- rename_knowledge_base(fooBase, fooBase2). 
 
-:- use_knowledge_base(meta(fooBase)).
+:- knowledge_base(meta(fooBase)).
 
 :- module(foo). %-- to avoid the module prefixes
 

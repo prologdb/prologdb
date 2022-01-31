@@ -30,9 +30,10 @@ class UnifyFunctor(
                     resolvedBucket.retainAll(rhsVariables)
                     try {
                         resolvedBucket.incorporate(variableCarry)
-                        yield(Pair(resolvedBucket, persistenceID))
+                        Pair(resolvedBucket, persistenceID)
                     } catch (ex: VariableDiscrepancyException) {
                         // mismatch, do not yield (equals to prolog false)
+                        null
                     }
                 }
             }

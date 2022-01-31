@@ -1,15 +1,21 @@
 package com.github.prologdb.orchestration
 
-import com.github.prologdb.orchestration.engine.ServerKnowledgeBase
-import com.github.prologdb.orchestration.engine.ServerModule
+import com.github.prologdb.dbms.SystemCatalog
 
 /**
  * The mutable context in which a connection to the server
  * can be.
  */
-class Session {
+class Session(@Volatile var systemCatalog: SystemCatalog) {
     /**
-     * The currently selected [ServerModule] and it's parent [ServerKnowledgeBase].
+     * the currently selected knowledge base
      */
-    val module: Pair<ServerModule, ServerKnowledgeBase>? = null
+    @Volatile
+    var knowledgeBase: String? = null
+
+    /**
+     * the currently selected module
+     */
+    @Volatile
+    var module: String? = null
 }

@@ -100,7 +100,7 @@ message QueryInitialization {
          */
         QUERY = 0;
 
-        /* As a directive, e.g. :-select_knowledge_base(my_kb).
+        /* As a directive, e.g. :- knowledge_base(my_kb).
          */
         DIRECTIVE = 1;
 

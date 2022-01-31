@@ -3,9 +3,11 @@ package com.github.prologdb.dbms
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.prologdb.util.concurrency.locks.PIDLockFile
+import com.github.prologdb.util.filesystem.setOwnerReadWriteEverybodyElseNoAccess
 import org.slf4j.LoggerFactory
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -26,8 +28,16 @@ class DataDirectoryManager private constructor(
 ) {
     init {
         require(dataDirectory.isAbsolute)
-        Files.createDirectories(dataDirectory, DIRECTORY_PERMISSIONS_OWNER_ONLY)
+        dataDirectory.setOwnerReadWriteEverybodyElseNoAccess()
     }
+
+    private val catalogDirectory = dataDirectory.resolve(CATALOG_SUBDIR)
+    @Volatile
+    var systemCatalog: SystemCatalog = loadSystemCatalog()
+        private set
+
+    @Volatile
+    private var closed: Boolean = false
 
     private val lock = PIDLockFile(dataDirectory.resolve("lock.pid").toFile())
     init {
@@ -43,8 +53,15 @@ class DataDirectoryManager private constructor(
      * @throws SystemCatalogNotFoundException if the requested revision is not available
      */
     fun loadSystemCatalog(revision: Long? = null): SystemCatalog {
+        requireOpen()
+
+        if (!Files.exists(catalogDirectory)) {
+            Files.createDirectories(catalogDirectory)
+            catalogDirectory.setOwnerReadWriteEverybodyElseNoAccess()
+        }
+
         val actualRevision: Long = revision
-            ?: Files.walk(dataDirectory.resolve(CATALOG_SUBDIR), 0)
+            ?: Files.walk(catalogDirectory, 0)
                 .collect(toList())
                 .mapNotNull { file ->
                     CATALOG_REVISION_FILENAME_PATTERN.matchEntire(file.fileName.toString())
@@ -74,20 +91,27 @@ class DataDirectoryManager private constructor(
      * to not delete any revisions.
      * @return the given catalog, with [SystemCatalog.revision] set to the given [asRevision] value.
      */
-    fun saveSystemCatalog(catalog: SystemCatalog, asRevision: Long = catalog.revision + 1, keepOldRevisions: Long? = 5): SystemCatalog {
-        val catalogDir = dataDirectory.resolve(CATALOG_SUBDIR)
+    fun saveSystemCatalog(catalog: SystemCatalog, asRevision: Long = catalog.nextRevisionNumber(), keepOldRevisions: Long? = 5): SystemCatalog {
+        requireOpen()
+
+        if (!Files.exists(catalogDirectory)) {
+            Files.createDirectories(catalogDirectory)
+            catalogDirectory.setOwnerReadWriteEverybodyElseNoAccess()
+        }
+
         val serialized = catalogMapper.writeValueAsString(catalog).toByteArray(Charsets.UTF_8)
-        val file = catalogDir.resolve("system-$asRevision")
+        val file = catalogDirectory.resolve("system-$asRevision")
         try {
             Files.write(file, serialized, StandardOpenOption.CREATE_NEW)
         }
         catch (ex: FileAlreadyExistsException) {
             throw SystemCatalogOutdatedException("A catalog with revision $asRevision is already saved on disc.", ex)
         }
+        file.setOwnerReadWriteEverybodyElseNoAccess()
 
         if (keepOldRevisions != null) {
             try {
-                Files.walk(catalogDir, 0)
+                Files.walk(catalogDirectory, 0)
                     .filter { file ->
                         val revisionNumber = CATALOG_REVISION_FILENAME_PATTERN.matchEntire(file.fileName.toString())
                             ?.groupValues
@@ -106,15 +130,39 @@ class DataDirectoryManager private constructor(
         return catalog.copy(revision = asRevision)
     }
 
+    private val systemCatalogModificationMutex = Any()
+    fun modifySystemCatalog(action: (SystemCatalog) -> SystemCatalog): SystemCatalog {
+        synchronized(systemCatalogModificationMutex) {
+            val newCatalog = action(systemCatalog)
+            saveSystemCatalog(newCatalog)
+            systemCatalog = newCatalog
+            return newCatalog
+        }
+    }
+
     fun scopedForPredicate(uuid: UUID): PredicateScope {
+        requireOpen()
+
         val predicateDirectory = dataDirectory.resolve("predicates").resolve(uuid.toString())
-        Files.createDirectories(predicateDirectory, DIRECTORY_PERMISSIONS_OWNER_ONLY)
+        Files.createDirectories(predicateDirectory)
+        predicateDirectory.setOwnerReadWriteEverybodyElseNoAccess()
 
         return PredicateScope(uuid, predicateDirectory)
     }
 
-    inner class PredicateScope(val predicateUuid: UUID, val directory: Path) {
+    fun close() {
+        closed = true
+        lock.release()
+    }
 
+    inner class PredicateScope(val uuid: UUID, val directory: Path) {
+        val catalogEntry: SystemCatalog.Predicate = systemCatalog.allPredicates.getValue(uuid)
+    }
+
+    private fun requireOpen() {
+        if (closed) {
+            throw IllegalStateException("This manager instance is already closed.")
+        }
     }
 
     companion object {
@@ -127,17 +175,9 @@ class DataDirectoryManager private constructor(
             return DataDirectoryManager(dataDirectory)
         }
 
-        private val CATALOG_SUBDIR = "catalog"
+        private const val CATALOG_SUBDIR = "catalog"
         private val CATALOG_REVISION_FILENAME_PATTERN = Regex("catalog-(\\d+)\\.json")
-        private val DIRECTORY_PERMISSIONS_OWNER_ONLY = PosixFilePermissions.asFileAttribute(setOf(
-            PosixFilePermission.OWNER_READ,
-            PosixFilePermission.OWNER_WRITE,
-            PosixFilePermission.OWNER_EXECUTE
-        ))
-        private val FILE_PERMISSIONS_OWNER_ONLY = PosixFilePermissions.asFileAttribute(setOf(
-            PosixFilePermission.OWNER_READ,
-            PosixFilePermission.OWNER_WRITE
-        ))
+
     }
 }
 

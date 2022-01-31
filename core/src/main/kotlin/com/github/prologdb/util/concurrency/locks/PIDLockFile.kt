@@ -11,7 +11,7 @@ import kotlin.concurrent.thread
 
 /**
  * Implements a PID file that is used to lock access of multiple
- * processes to the same area on a drive.
+ * processes to the same directory in a filesystem.
  *
  * If not released manually, the lock is released when the JVM
  * exits (see [Runtime.addShutdownHook]).

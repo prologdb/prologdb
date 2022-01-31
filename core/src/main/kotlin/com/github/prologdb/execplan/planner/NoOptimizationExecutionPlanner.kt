@@ -1,5 +1,7 @@
 package com.github.prologdb.execplan.planner
 
+import com.github.prologdb.dbms.DBProofSearchContext
+import com.github.prologdb.dbms.SystemCatalog
 import com.github.prologdb.execplan.*
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.PrologStackTraceElement
@@ -15,27 +17,27 @@ import com.github.prologdb.runtime.query.Query
  */
 class NoOptimizationExecutionPlanner : ExecutionPlanner {
     @Suppress("UNCHECKED_CAST")
-    override fun planExecution(query: Query, db: PlanningInformation, randomVariableScope: RandomVariableScope): PlanFunctor<Unit, Any> {
+    override fun planExecution(query: Query, ctxt: DBProofSearchContext, randomVariableScope: RandomVariableScope): PlanFunctor<Unit, Any> {
         return when(query) {
             is OrQuery -> UnionFunctor(
                 query.goals
-                    .map { planExecution(it, db, randomVariableScope) }
+                    .map { planExecution(it, ctxt, randomVariableScope) }
                     .toTypedArray()
             )
             is AndQuery -> {
                 when(query.goals.size) {
                     0 -> NoopFunctor() as PlanFunctor<Unit, Any>
-                    1 -> planExecution(query.goals[0], db, randomVariableScope)
+                    1 -> planExecution(query.goals[0], ctxt, randomVariableScope)
                     else -> {
                         var pivot = FunctorPipe(
-                            planExecution(query.goals[0], db, randomVariableScope),
-                            planExecution(query.goals[1], db, randomVariableScope) as PlanFunctor<Any, Any>
+                            planExecution(query.goals[0], ctxt, randomVariableScope),
+                            planExecution(query.goals[1], ctxt, randomVariableScope) as PlanFunctor<Any, Any>
                         )
 
                         for (i in 2..query.goals.lastIndex) {
                             pivot = FunctorPipe(
                                 pivot,
-                                planExecution(query.goals[i], db, randomVariableScope) as PlanFunctor<Any, Any>
+                                planExecution(query.goals[i], ctxt, randomVariableScope) as PlanFunctor<Any, Any>
                             )
                         }
 
@@ -44,18 +46,20 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
                 }
             }
             is PredicateInvocationQuery -> {
-                val indicator = ClauseIndicator.of(query.goal)
-                val stackTraceElementProvider = {
-                    PrologStackTraceElement(query.goal, query.sourceInformation)
-                }
+                val (fqi, _, trueInvocation) = ctxt.resolveHead(query.goal)
 
-                if (indicator in db.staticBuiltins) {
-                    TODO()
-                } else {
+                val predicateCatalog = ctxt.knowledgeBaseCatalog.allPredicatesByFqi[fqi]
+                if (predicateCatalog != null) {
+                    val stackTraceElementProvider = {
+                        PrologStackTraceElement(query.goal, query.sourceInformation)
+                    }
+
                     FunctorPipe(
-                        FactScanFunctor(indicator, stackTraceElementProvider),
-                        UnifyFunctor(query.goal)
+                        FactScanFunctor(predicateCatalog, stackTraceElementProvider),
+                        UnifyFunctor(trueInvocation)
                     ) as PlanFunctor<Unit, Any>
+                } else {
+                    InvokeFunctor(fqi.moduleName, trueInvocation) as PlanFunctor<Unit, Any>
                 }
             }
             else -> throw PrologQueryException("Unsupported query type ${query::class.simpleName}")

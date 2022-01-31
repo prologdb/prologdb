@@ -5,6 +5,7 @@ import com.github.prologdb.async.Principal
 import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.AcceleratedStorage
 import com.github.prologdb.storage.VolatileStorage
 import java.util.concurrent.CompletableFuture
@@ -15,10 +16,10 @@ import java.util.concurrent.Future
  */
 @VolatileStorage
 @AcceleratedStorage
-class MemoryFactStore(override val indicator: ClauseIndicator) : FactStore {
+class MemoryFactStore(val arity: Int) : FactStore {
 
     /** Stores facts. Gets resized throughout the lifetime */
-    private var store = Array<CompoundTerm?>(100) { null }
+    private var store = Array<Array<out Term>?>(100) { null }
 
     /** To be [synchronized] on when mutating [store] */
     private val storeMutationMutex = Any()
@@ -29,25 +30,25 @@ class MemoryFactStore(override val indicator: ClauseIndicator) : FactStore {
      */
     private val upscalingFactor = 1.5
 
-    override fun store(asPrincipal: Principal, item: CompoundTerm): Future<PersistenceID> {
-        if (item.arity != indicator.arity || item.functor != indicator.functor) {
-            throw IllegalArgumentException("This store holds only predicates of type ${indicator.functor}/${indicator.arity}")
+    override fun store(asPrincipal: Principal, arguments: Array<out Term>): Future<PersistenceID> {
+        if (arguments.size != arity) {
+            throw IllegalArgumentException("This store holds only predicates of arity $arity, got ${arguments.size} arguments")
         }
 
         synchronized(storeMutationMutex) {
             for (index in store.indices) {
                 if (store[index] == null) {
-                    store[index] = item
+                    store[index] = arguments
                     return CompletableFuture<PersistenceID>().apply { complete(index.toLong()) }
                 }
             }
 
             // store is too small, enlarge
-            val newStore = Array<CompoundTerm?>(Math.floor(store.size.toDouble() * upscalingFactor).toInt(), {
+            val newStore = Array(Math.floor(store.size.toDouble() * upscalingFactor).toInt(), {
                 i -> if (i <= store.lastIndex) store[i] else null
             })
 
-            newStore[store.size] = item
+            newStore[store.size] = arguments
             val id = store.size.toLong()
             store = newStore
 
@@ -55,13 +56,13 @@ class MemoryFactStore(override val indicator: ClauseIndicator) : FactStore {
         }
     }
 
-    override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<CompoundTerm?> {
+    override fun retrieve(asPrincipal: Principal, id: PersistenceID): Future<Array<out Term>?> {
         val idAsInt = id.toInt()
         if (idAsInt.toLong() != id) {
             throw IllegalArgumentException()
         }
 
-        val future = CompletableFuture<CompoundTerm?>()
+        val future = CompletableFuture<Array<out Term>?>()
 
         val _store = store
         if (idAsInt > _store.lastIndex) {
@@ -90,7 +91,7 @@ class MemoryFactStore(override val indicator: ClauseIndicator) : FactStore {
         }
     }
 
-    override fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, CompoundTerm>> {
+    override fun all(asPrincipal: Principal): LazySequence<Pair<PersistenceID, Array<out Term>>> {
         val _store = store
         return buildLazySequence(asPrincipal) {
             yieldAllFinal(

@@ -20,5 +20,5 @@ interface SpecializedFactStoreLoader<T : FactStore> {
      * persistence.
      * @throws StorageException
      */
-    fun createOrLoad(directoryManager: DataDirectoryManager.ClauseStoreScope): T
+    fun createOrLoad(directoryManager: DataDirectoryManager.PredicateScope): T
 }

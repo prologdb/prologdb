@@ -20,7 +20,7 @@ class HeapFileFactStoreTest : FreeSpec({
     )
 
     val store = HeapFileFactStore(
-        ClauseIndicator.of("foo", 3),
+        3,
         BinaryPrologReader.getDefaultInstance(),
         BinaryPrologWriter.getDefaultInstance(),
         HeapFile.forExistingFile(tmpFile.toPath())
@@ -29,25 +29,25 @@ class HeapFileFactStoreTest : FreeSpec({
     val abc = arrayOf(Atom("a"), Atom("b"), Atom("c"))
 
     "write succeeds" {
-        store.store(IrrelevantPrincipal, CompoundTerm("foo", abc))
+        store.store(IrrelevantPrincipal, abc)
             .get()
     }
 
     "write of fact with wrong functor fails" {
         shouldThrow<IllegalArgumentException> {
-            store.store(IrrelevantPrincipal, CompoundTerm("bar", abc))
+            store.store(IrrelevantPrincipal, abc)
                 .get()
         }
     }
 
     "write of fact with wrong arity fails" {
         shouldThrow<IllegalArgumentException> {
-            store.store(IrrelevantPrincipal, CompoundTerm("foo", arrayOf(Atom("a"))))
+            store.store(IrrelevantPrincipal, arrayOf(Atom("a")))
         }
     }
 
     "write and read back" {
-        val original = CompoundTerm("foo", abc)
+        val original = abc
         val pid = store.store(IrrelevantPrincipal, original)
             .get()
 
