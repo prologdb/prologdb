@@ -6,9 +6,12 @@ import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.storage.fact.DefaultFactStoreLoader
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.FactStoreLoader
+import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+
+private val log = LoggerFactory.getLogger("prologdb.master")
 
 class PrologDatabase(
     dataDirectory: Path,
@@ -21,6 +24,10 @@ class PrologDatabase(
     private val factStoreLoadingMutex = Any()
 
     private val runtimeEnvironmentByCatalogRevision: MutableMap<Long, MutableMap<String, DatabaseRuntimeEnvironment>> = ConcurrentHashMap()
+
+    init {
+        log.info("Starting in $dataDirectory with system catalog revision ${this.dataDirectory.systemCatalog.revision}")
+    }
 
     fun createKnowledgeBase(name: String) {
         dataDirectory.modifySystemCatalog { catalog ->

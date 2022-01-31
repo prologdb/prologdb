@@ -21,13 +21,12 @@ private val log = LoggerFactory.getLogger("prologdb.bootstrap")
 fun runServer(config: ServerConf): ServerHandle {
     log.trace("Starting server with config {}", config)
 
-    log.info("Starting a PrologDBEngine in ${config.dataDirectory}")
     val engine = PrologDatabaseToNetworkAdapter(PrologDatabase(
         config.dataDirectory!!,
         FactStoreLoader,
         NoOptimizationExecutionPlanner()
     ))
-    log.info("PrologDBEngine started")
+    log.info("database loaded")
 
     log.info("Starting network interface on port ${config.network.port}")
     val networkIFace = ServerInterface(
@@ -42,7 +41,7 @@ fun runServer(config: ServerConf): ServerHandle {
         config.network.port,
         { 2 }
     )
-    log.info("Network interface started.")
+    log.info("Network interface started, now accepting connections.")
 
     return ServerHandle(networkIFace, engine)
 }
