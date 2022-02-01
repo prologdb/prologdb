@@ -4,6 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.*
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.util.prettyPrint
+import com.github.prologdb.net.util.prettyPrintStackTrace
 import com.github.prologdb.net.util.sortForSubstitution
 import com.github.prologdb.net.util.unsingedIntHexString
 import com.github.prologdb.runtime.PrologRuntimeException
@@ -284,13 +285,13 @@ class ServerInterface(
         }
 
         override fun onError(queryId: Int, ex: Throwable) {
-            log.error("Query $queryId errored", ex)
+            log.warn("Query $queryId errored", ex)
 
             currentSessionHandle!!.queueMessage(QueryRelatedError(
                 queryId,
                 QueryRelatedError.Kind.ERROR_GENERIC,
                 ex.message,
-                if (ex is PrologRuntimeException) mapOf("prologStackTrace" to ex.prettyPrint()) else emptyMap()
+                if (ex is PrologRuntimeException) mapOf("prologStackTrace" to ex.prettyPrintStackTrace()) else emptyMap()
             ))
             currentSessionHandle!!.queueMessage(QueryClosedMessage(queryId, QueryClosedMessage.CloseReason.FAILED))
         }
