@@ -7,10 +7,8 @@ import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.runtime.Clause
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
-import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.RandomVariableScope
-import com.github.prologdb.runtime.module.ASTModule
 import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
@@ -37,7 +35,7 @@ class DBProofSearchContextImpl(
     private val database: PrologDatabase,
     override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
     override val moduleName: String,
-    private val runtimeEnvironment: DatabaseRuntimeEnvironment,
+    private val runtimeEnvironment: PhysicalDatabaseRuntimeEnvironment,
     private val lookupTable: Map<ClauseIndicator, Pair<ModuleReference, PrologCallable>>,
     override val principal: Principal,
     override val authorization: Authorization,

@@ -18,14 +18,26 @@ import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.proofsearch.ProofSearchContext
 import java.util.UUID
 
-class DatabaseRuntimeEnvironment private constructor(
-    val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
-    val database: PrologDatabase,
+interface DatabaseRuntimeEnvironment {
+    val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase
+    val database: PrologDatabase
+    val loadedModules: Map<String, Module>
+    fun deriveProofSearchContextForModule(
+        deriveFrom: ProofSearchContext,
+        moduleName: String
+    ): DBProofSearchContext
+
+    fun newProofSearchContext(authorization: Authorization): DBProofSearchContext
+}
+
+class PhysicalDatabaseRuntimeEnvironment private constructor(
+    override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
+    override val database: PrologDatabase,
     moduleLoader: ModuleLoader
 ) : DefaultPrologRuntimeEnvironment(
     moduleLoader.rootModule,
     moduleLoader
-) {
+), DatabaseRuntimeEnvironment {
    constructor(
        knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
        database: PrologDatabase

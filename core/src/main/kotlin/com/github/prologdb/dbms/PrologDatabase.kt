@@ -23,7 +23,7 @@ class PrologDatabase(
     private val factStores: MutableMap<UUID, FactStore> = ConcurrentHashMap()
     private val factStoreLoadingMutex = Any()
 
-    private val runtimeEnvironmentByCatalogRevision: MutableMap<Long, MutableMap<String, DatabaseRuntimeEnvironment>> = ConcurrentHashMap()
+    private val runtimeEnvironmentByCatalogRevision: MutableMap<Long, MutableMap<String, PhysicalDatabaseRuntimeEnvironment>> = ConcurrentHashMap()
 
     init {
         log.info("Starting in $dataDirectory with system catalog revision ${this.dataDirectory.systemCatalog.revision}")
@@ -49,7 +49,7 @@ class PrologDatabase(
         return runtimeEnvironmentByCatalogRevision
             .computeIfAbsent(systemCatalog.revision) { ConcurrentHashMap() }
             .computeIfAbsent(knowledgeBaseCatalog.name) {
-                DatabaseRuntimeEnvironment(knowledgeBaseCatalog, this)
+                PhysicalDatabaseRuntimeEnvironment(knowledgeBaseCatalog, this)
             }
     }
 

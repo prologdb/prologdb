@@ -2,12 +2,9 @@ package com.github.prologdb.orchestration.engine
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.buildLazySequence
-import com.github.prologdb.dbms.DBProofSearchContext
-import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.dbms.DatabaseRuntimeEnvironment
 import com.github.prologdb.dbms.PrologDatabase
 import com.github.prologdb.dbms.SystemCatalog
-import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.net.session.DatabaseEngine
 import com.github.prologdb.net.session.handle.STOP_AT_EOF_OR_FULL_STOP
 import com.github.prologdb.orchestration.Session
@@ -19,21 +16,18 @@ import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.ClauseIndicator
-import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.RandomVariableScope
-import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
-import com.github.prologdb.storage.fact.FactStoreLoader
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
-internal val log = LoggerFactory.getLogger("prologdb.engine")
+internal val log = LoggerFactory.getLogger("prologdb.network-adapter")
 
 class PrologDatabaseToNetworkAdapter(
     val database: PrologDatabase
