@@ -35,15 +35,19 @@ data class SystemCatalog(
     fun withModifiedPredicate(uuid: UUID, modifier: (Predicate) -> Predicate): SystemCatalog {
         return copy(
             knowledgeBases = knowledgeBases
-                .map { kb -> KnowledgeBase(kb.name, kb.modules.map { module ->
-                    Module(
-                        module.name,
-                        module.predicates.map { predicate ->
-                            if (predicate.uuid == uuid) modifier(predicate) else predicate
-                        }.toSet(),
-                        module.prologSource
-                    )
-                }.toSet())}
+                .map { kb -> KnowledgeBase(
+                    name = kb.name,
+                    defaultModule = kb.defaultModule,
+                    modules = kb.modules.map { module ->
+                        Module(
+                            module.name,
+                            module.predicates.map { predicate ->
+                                if (predicate.uuid == uuid) modifier(predicate) else predicate
+                            }.toSet(),
+                            module.prologSource
+                        )
+                    }.toSet()
+                )}
                 .toSet()
         )
     }
@@ -122,6 +126,18 @@ data class SystemCatalog(
     }
 
     companion object {
-        val INITIAL: SystemCatalog = SystemCatalog(0, emptySet())
+        const val META_KNOWLEDGE_BASE_NAME = "\$meta"
+        const val META_SCHEMA_MODULE_NAME = "schema"
+        val INITIAL: SystemCatalog = SystemCatalog(0, setOf(
+            KnowledgeBase(
+                name = META_KNOWLEDGE_BASE_NAME,
+                defaultModule = META_SCHEMA_MODULE_NAME,
+                modules = setOf(Module(
+                    name = "schema",
+                    predicates = emptySet(),
+                    prologSource = ""
+                ))
+            )
+        ))
     }
 }

@@ -23,6 +23,7 @@ import com.github.prologdb.runtime.util.OperatorRegistry
 import com.github.prologdb.storage.fact.FactStore
 
 interface DBProofSearchContext : ProofSearchContext {
+    val database: PrologDatabase
     val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase
     val moduleName: String
 
@@ -32,7 +33,7 @@ interface DBProofSearchContext : ProofSearchContext {
 }
 
 class DBProofSearchContextImpl(
-    private val database: PrologDatabase,
+    override val database: PrologDatabase,
     override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
     override val moduleName: String,
     private val runtimeEnvironment: PhysicalDatabaseRuntimeEnvironment,

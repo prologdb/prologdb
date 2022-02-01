@@ -76,7 +76,7 @@ class DataDirectoryManager private constructor(
                         ?.toLongOrNull()
                 }
                 .max()
-            ?: return SystemCatalog.INITIAL
+            ?: return saveSystemCatalog(SystemCatalog.INITIAL)
 
         val file = catalogDirectory.resolve("system-$actualRevision.json")
         val fileContent = try {

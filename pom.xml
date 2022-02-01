@@ -73,6 +73,11 @@
             </dependency>
             <dependency>
                 <groupId>com.github.prologdb</groupId>
+                <artifactId>runtime-stdlib</artifactId>
+                <version>${prolog.runtime.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.prologdb</groupId>
                 <artifactId>prologdb-io</artifactId>
                 <version>${project.version}</version>
             </dependency>
