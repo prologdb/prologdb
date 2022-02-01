@@ -47,19 +47,20 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
             }
             is PredicateInvocationQuery -> {
                 val (fqi, _, trueInvocation) = ctxt.resolveHead(query.goal)
+                val stackTraceElementProvider = {
+                    PrologStackTraceElement(query.goal, query.sourceInformation)
+                }
 
                 val predicateCatalog = ctxt.knowledgeBaseCatalog.allPredicatesByFqi[fqi]
                 if (predicateCatalog != null) {
-                    val stackTraceElementProvider = {
-                        PrologStackTraceElement(query.goal, query.sourceInformation)
-                    }
+
 
                     FunctorPipe(
                         FactScanFunctor(predicateCatalog, stackTraceElementProvider),
                         UnifyFunctor(trueInvocation)
                     ) as PlanFunctor<Unit, Any>
                 } else {
-                    InvokeFunctor(fqi.moduleName, trueInvocation) as PlanFunctor<Unit, Any>
+                    InvokeFunctor(fqi.moduleName, trueInvocation, stackTraceElementProvider) as PlanFunctor<Unit, Any>
                 }
             }
             else -> throw PrologQueryException("Unsupported query type ${query::class.simpleName}")
