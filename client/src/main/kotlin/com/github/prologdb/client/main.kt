@@ -1,5 +1,6 @@
 package com.github.prologdb.client
 
+import com.github.prologdb.net.async.format
 import com.github.prologdb.net.negotiation.SemanticVersion
 import com.tmarsteel.jcli.Environment
 import com.tmarsteel.jcli.Input
@@ -14,7 +15,7 @@ fun main(args: Array<String>) {
 
     val connection = Connection(hostname, port)
 
-    println("Connection established to ${connection.serverVendor} server version ${connection.serverVersion.toFormattedString()}")
+    println("Connection established to ${connection.serverVendor} server version ${connection.serverVersion.format()}")
 
     Runtime.getRuntime().addShutdownHook(thread(start = false) {
         println("\nClosing connection")
@@ -23,26 +24,4 @@ fun main(args: Array<String>) {
 
     val frontend = CLIFrontend(connection)
     frontend.run()
-}
-
-fun SemanticVersion.toFormattedString(): String {
-    val sb = StringBuilder()
-    sb.append(major)
-    sb.append('.')
-    sb.append(minor)
-    sb.append('.')
-    sb.append(patch)
-    sb.append('.')
-
-    for (preReleaseLabel in preReleaseLabelsList) {
-        sb.append('-')
-        sb.append(preReleaseLabel)
-    }
-
-    if (buildNumber != 0L) {
-        sb.append('+')
-        sb.append(buildNumber)
-    }
-
-    return sb.toString()
 }

@@ -1,12 +1,12 @@
 package com.github.prologdb.orchestration.bootstrap
 
+import com.github.prologdb.net.async.format
 import com.github.prologdb.orchestration.config.ObjectPathException
 import com.github.prologdb.orchestration.config.OverrideException
 import com.github.prologdb.orchestration.config.validation.ValidationException
 import com.github.prologdb.orchestration.config.validation.logViolationsError
 import com.github.prologdb.orchestration.config.validation.refuseInvalid
 import com.github.prologdb.orchestration.introspect.SERVER_VERSION
-import com.github.prologdb.orchestration.introspect.toFormatted
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import kotlin.concurrent.thread
@@ -27,7 +27,7 @@ private fun printUsage() {
 }
 
 fun main(args: Array<String>) {
-    log.info("PrologDB Server Version ${SERVER_VERSION.toFormatted()}")
+    log.info("PrologDB Server Version ${SERVER_VERSION.format()}")
 
     val input = try {
         refuseInvalid(parseCLI(args))
