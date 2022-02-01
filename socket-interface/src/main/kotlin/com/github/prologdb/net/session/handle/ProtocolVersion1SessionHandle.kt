@@ -225,13 +225,24 @@ private class ProtocolVersion1PrologWriter(
     }
 }
 
-private val SOURCE_UNIT_INSTRUCTION = SourceUnit("instruction")
+private val SOURCE_UNIT_QUERY = SourceUnit("query")
+private val SOURCE_UNIT_DIRECTIVE = SourceUnit("directive")
 
 private fun QueryInitialization.toIndependent(sessionState: Any?, prologReader: ProtocolVersion1PrologReader): InitializeQueryCommand {
     val cmd = InitializeQueryCommand(
         queryId,
-        prologReader.toRuntimeQuery(sessionState, instruction, SOURCE_UNIT_INSTRUCTION),
-        if (instantiationsCount == 0) null else instantiationsMap.toBucket(sessionState, prologReader),
+        prologReader.toRuntimeQuery(
+            sessionState,
+            instruction,
+            when(kind!!) {
+                QueryInitialization.Kind.QUERY -> SOURCE_UNIT_QUERY
+                QueryInitialization.Kind.DIRECTIVE -> SOURCE_UNIT_DIRECTIVE
+            }
+        ),
+        when(instantiationsCount) {
+            0 -> null
+            else -> instantiationsMap.toBucket(sessionState, prologReader)
+        },
         kind.toIndependent(),
         if (hasLimit()) limit else null
     )
