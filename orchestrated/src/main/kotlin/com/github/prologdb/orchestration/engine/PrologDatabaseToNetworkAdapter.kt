@@ -23,9 +23,6 @@ import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import org.slf4j.LoggerFactory
-import java.nio.file.Files
-import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
 
 internal val log = LoggerFactory.getLogger("prologdb.network-adapter")
 
@@ -39,24 +36,11 @@ class PrologDatabaseToNetworkAdapter(
             }
             val name = (args[0] as? Atom)?.name ?: (args[0] as PrologString).toKotlinString()
 
-            if (session.systemCatalog.knowledgeBases.none { it.name == name }) {
-                return@to lazySequenceOfError(PrologRuntimeException("Knowledge base $name does not exist."))
-            }
+            val knowledgeBaseCatalog = session.systemCatalog.knowledgeBases.firstOrNull { it.name == name }
+                ?: return@to lazySequenceOfError(PrologRuntimeException("Knowledge base $name does not exist."))
 
             session.knowledgeBase = name
-            LazySequence.of(Unification.TRUE)
-        },
-        ClauseIndicator.of("current_knowledge_base", 1) to { session, args ->
-            val name = session.knowledgeBase?.let { PrologString(it) }
-
-            LazySequence.ofNullable(name?.unify(args[0], RandomVariableScope()))
-        },
-        ClauseIndicator.of("create_knowledge_base", 1) to { session, args ->
-            if (args[0] !is PrologString && args[0] !is Atom) {
-                return@to lazySequenceOfError<Unification>(PrologRuntimeException("Argument 1 to create_knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))
-            }
-            val name = (args[0] as? Atom)?.name ?: (args[0] as PrologString).toKotlinString()
-            database.createKnowledgeBase(name)
+            session.module = knowledgeBaseCatalog.defaultModule
             LazySequence.of(Unification.TRUE)
         },
         ClauseIndicator.of("explain", 1) to { session, args ->

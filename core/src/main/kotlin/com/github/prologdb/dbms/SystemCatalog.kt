@@ -50,7 +50,8 @@ data class SystemCatalog(
 
     class KnowledgeBase(
         val name: String,
-        val modules: Set<Module>
+        val modules: Set<Module>,
+        val defaultModule: String?
     ) {
         @get:JsonIgnore
         val modulesByName: Map<String, Module> by lazy {

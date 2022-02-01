@@ -37,7 +37,8 @@ class PrologDatabase(
 
             return@modifySystemCatalog catalog.copy(knowledgeBases = catalog.knowledgeBases + SystemCatalog.KnowledgeBase(
                 name,
-                emptySet()
+                emptySet(),
+                null
             ))
         }
     }

@@ -64,12 +64,13 @@ class PhysicalDatabaseRuntimeEnvironment private constructor(
     }
 
     override fun newProofSearchContext(authorization: Authorization): DBProofSearchContext {
+        val moduleName = knowledgeBaseCatalog.defaultModule ?: rootModule.name
         return DBProofSearchContextImpl(
             database,
             knowledgeBaseCatalog,
-            rootModule.name,
+            moduleName,
             this,
-            moduleLookupTables.getValue(rootModule.name),
+            moduleLookupTables.getValue(moduleName),
             UUID.randomUUID(),
             authorization,
             RandomVariableScope()
