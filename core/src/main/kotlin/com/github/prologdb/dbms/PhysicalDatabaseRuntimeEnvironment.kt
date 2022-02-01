@@ -1,6 +1,7 @@
 package com.github.prologdb.dbms
 
 import com.github.prologdb.dbms.builtin.meta.BuiltinCreateKnowledgeBase1
+import com.github.prologdb.dbms.builtin.meta.BuiltinDropKnowledgeBase1
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.lexer.LineEndingNormalizer
 import com.github.prologdb.parser.parser.DefaultModuleSourceFileVisitor
@@ -158,7 +159,8 @@ class PhysicalDatabaseRuntimeEnvironment private constructor(
 
         private val nativeImplementationsByModuleRef: Map<String, Map<ClauseIndicator, NativeCodeRule>> = mapOf(
             "${DATABASE_MODULE_PATH_ALIAS}(${SystemCatalog.META_SCHEMA_MODULE_NAME})" to listOf(
-                BuiltinCreateKnowledgeBase1
+                BuiltinCreateKnowledgeBase1,
+                BuiltinDropKnowledgeBase1
             )
         ).mapValues { (_, nativeCodes) ->
             nativeCodes.associateBy(ClauseIndicator.Companion::of)

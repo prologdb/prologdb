@@ -54,15 +54,16 @@ open class DefaultFactStoreLoader : FactStoreLoader {
     }
 
     override fun load(directoryManager: DataDirectoryManager.PredicateScope): FactStore? {
-        val implClassName = directoryManager.catalogEntry.factStoreClassName ?: return null
-        val loader = try {
-            getLoader(implClassName)
-        }
-        catch (ex: Throwable) {
-            throw StorageException("Failed to obtain loader for fact store of predicate ${directoryManager.uuid}", ex)
-        }
+        return getLoader(directoryManager)?.createOrLoad(directoryManager)
+    }
 
-        return loader.createOrLoad(directoryManager)
+    override fun destroy(directoryManager: DataDirectoryManager.PredicateScope) {
+        getLoader(directoryManager)?.destroy(directoryManager)
+    }
+
+    protected fun getLoader(directoryManager: DataDirectoryManager.PredicateScope): SpecializedFactStoreLoader<*>? {
+        val implClassName = directoryManager.catalogEntry.factStoreClassName ?: return null
+        return getLoader(implClassName)
     }
 
     /**

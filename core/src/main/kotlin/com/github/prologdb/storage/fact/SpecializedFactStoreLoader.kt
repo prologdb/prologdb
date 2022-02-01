@@ -21,4 +21,10 @@ interface SpecializedFactStoreLoader<T : FactStore> {
      * @throws StorageException
      */
     fun createOrLoad(directoryManager: DataDirectoryManager.PredicateScope): T
+
+    /**
+     * Assures that any files associated with the fact store for given predicate
+     * are removed from the filesystem and the disk space occupied is made available.
+     */
+    fun destroy(directoryManager: DataDirectoryManager.PredicateScope)
 }

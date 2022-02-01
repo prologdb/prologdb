@@ -45,8 +45,8 @@ class DataDirectoryManager private constructor(
     @Volatile
     private var closed: Boolean = false
 
+    private val systemCatalogModificationMutex = Any()
     private val lock = PIDLockFile(dataDirectory.resolve("lock.pid").toFile())
-
     init {
         if (!lock.tryLock()) {
             throw IOException("Failed to lock data directory $dataDirectory")
@@ -101,6 +101,7 @@ class DataDirectoryManager private constructor(
         asRevision: Long = catalog.nextRevisionNumber(),
         keepOldRevisions: Long? = 5
     ): SystemCatalog {
+        require(catalog.revision < asRevision)
         requireOpen()
 
         if (!Files.exists(catalogDirectory)) {
@@ -108,14 +109,22 @@ class DataDirectoryManager private constructor(
             catalogDirectory.setOwnerReadWriteEverybodyElseNoAccess()
         }
 
-        val serialized = catalogWriter.writeValueAsString(catalog).toByteArray(Charsets.UTF_8)
-        val file = catalogDirectory.resolve("system-$asRevision.json")
-        try {
-            Files.write(file, serialized, StandardOpenOption.CREATE_NEW)
-        } catch (ex: FileAlreadyExistsException) {
-            throw SystemCatalogOutdatedException("A catalog with revision $asRevision is already saved on disc.", ex)
+        val newCatalog: SystemCatalog
+        synchronized(systemCatalogModificationMutex) {
+            if (systemCatalog.revision > catalog.revision) {
+                throw SystemCatalogOutdatedException("The catalog has changed. Attempting to go from revision ${catalog.revision} to $asRevision, but the catalog has moved on to revision ${systemCatalog.revision}")
+            }
+
+            val serialized = catalogWriter.writeValueAsString(catalog).toByteArray(Charsets.UTF_8)
+            val file = catalogDirectory.resolve("system-$asRevision.json")
+            try {
+                Files.write(file, serialized, StandardOpenOption.CREATE_NEW)
+            } catch (ex: FileAlreadyExistsException) {
+                throw SystemCatalogOutdatedException("A catalog with revision $asRevision is already saved on disc.", ex)
+            }
+            file.setOwnerReadWriteEverybodyElseNoAccess()
+            newCatalog = catalog.copy(revision = asRevision)
         }
-        file.setOwnerReadWriteEverybodyElseNoAccess()
 
         if (keepOldRevisions != null) {
             try {
@@ -134,10 +143,9 @@ class DataDirectoryManager private constructor(
             }
         }
 
-        return catalog.copy(revision = asRevision)
+        return newCatalog
     }
 
-    private val systemCatalogModificationMutex = Any()
     fun modifySystemCatalog(action: (SystemCatalog) -> SystemCatalog): SystemCatalog {
         synchronized(systemCatalogModificationMutex) {
             val newCatalog = action(systemCatalog)
@@ -162,7 +170,7 @@ class DataDirectoryManager private constructor(
         lock.release()
     }
 
-    inner class PredicateScope(val uuid: UUID, val directory: Path) {
+    inner class PredicateScope internal constructor(val uuid: UUID, val directory: Path) {
 
         val catalogEntry: SystemCatalog.Predicate = systemCatalog.allPredicates.getValue(uuid)
     }

@@ -43,9 +43,28 @@ class PrologDatabase(
         }
     }
 
+    fun dropKnowledgeBase(name: String) {
+        if (name == SystemCatalog.META_KNOWLEDGE_BASE_NAME) {
+            throw PrologRuntimeException("Cannot delete the meta knowledge base.")
+        }
+        // TODO: instead, mark as deleted with TXID
+
+        lateinit var knowledgeBaseCatalog: SystemCatalog.KnowledgeBase
+        dataDirectory.modifySystemCatalog { catalog ->
+             knowledgeBaseCatalog = catalog.knowledgeBases.firstOrNull { it.name == name }
+                ?: throw KnowledgeBaseNotFoundException(name)
+
+            return@modifySystemCatalog catalog.copy(knowledgeBases = catalog.knowledgeBases - knowledgeBaseCatalog)
+        }
+
+        knowledgeBaseCatalog.allPredicatesByFqi.values.forEach {
+            factStoreLoader.destroy(dataDirectory.scopedForPredicate(it.uuid))
+        }
+    }
+
     fun getRuntimeEnvironment(systemCatalog: SystemCatalog, knowledgeBaseName: String): DatabaseRuntimeEnvironment {
         val knowledgeBaseCatalog = systemCatalog.knowledgeBases.firstOrNull { it.name == knowledgeBaseName }
-            ?: throw PrologRuntimeException("Knowledge base $knowledgeBaseName does not exist.")
+            ?: throw KnowledgeBaseNotFoundException(knowledgeBaseName)
 
         return runtimeEnvironmentByCatalogRevision
             .computeIfAbsent(systemCatalog.revision) { ConcurrentHashMap() }

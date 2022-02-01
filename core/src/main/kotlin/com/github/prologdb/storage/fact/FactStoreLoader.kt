@@ -43,4 +43,10 @@ interface FactStoreLoader {
      * @return the loaded store or `null` if a store for the given database and predicate does not exist yet.
      */
     fun load(directoryManager: DataDirectoryManager.PredicateScope) : FactStore?
+
+    /**
+     * Assures any physical files associated with the fact store for the given predicate
+     * are removed from the filesystem and the disk space occupied has been made available.
+     */
+    fun destroy(directoryManager: DataDirectoryManager.PredicateScope)
 }

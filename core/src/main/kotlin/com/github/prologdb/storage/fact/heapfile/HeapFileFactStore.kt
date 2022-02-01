@@ -21,6 +21,7 @@ import java.io.DataOutput
 import java.io.DataOutputStream
 import java.nio.ByteBuffer
 import java.nio.file.Files
+import java.nio.file.Path
 import java.util.concurrent.Future
 
 /**
@@ -100,8 +101,7 @@ class HeapFileFactStore(
         override val type = HeapFileFactStore::class
 
         override fun createOrLoad(directoryManager: DataDirectoryManager.PredicateScope): HeapFileFactStore {
-            val path = directoryManager.directory.resolve("facts.heap")
-
+            val path = directoryManager.heapFilePath
             if (Files.notExists(path)) {
                 val deviceProperties = path.rootDeviceProperties
                 when (deviceProperties?.physicalStorageStrategy) {
@@ -117,6 +117,13 @@ class HeapFileFactStore(
                 HeapFile.forExistingFile(path)
             )
         }
+
+        override fun destroy(directoryManager: DataDirectoryManager.PredicateScope) {
+            Files.deleteIfExists(directoryManager.heapFilePath)
+        }
+
+        private val DataDirectoryManager.PredicateScope.heapFilePath: Path
+            get() = directory.resolve("facts.heap")
     }
 
     override fun close() {
