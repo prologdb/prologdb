@@ -18,7 +18,9 @@ import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
+import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.query.Query
+import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
 import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -29,7 +31,7 @@ internal val log = LoggerFactory.getLogger("prologdb.network-adapter")
 class PrologDatabaseToNetworkAdapter(
     val database: PrologDatabase
 ) : DatabaseEngine<Session> {
-    private val globalDirectives: Map<ClauseIndicator, (Session, Array<out Term>) -> LazySequence<Unification>> = mapOf(
+    private val globalDirectives: Map<ClauseIndicator, (Session, TypedPredicateArguments) -> LazySequence<Unification>> = mapOf(
         ClauseIndicator.of("knowledge_base", 1) to { session, args ->
             if (args[0] !is PrologString && args[0] !is Atom) {
                 return@to lazySequenceOfError(PrologRuntimeException("Argument 1 to knowledge_base/1 must be a string or atom, got ${args[0].prologTypeName}"))
@@ -57,6 +59,18 @@ class PrologDatabaseToNetworkAdapter(
             val solutionVars = VariableBucket()
             solutionVars.instantiate(Variable("Plan"), plan.explanation)
             LazySequence.of(Unification(solutionVars))
+        },
+        ClauseIndicator.of("rename_knowledge_base", 2) to { session, args ->
+            if (session.knowledgeBaseCatalog.name != SystemCatalog.META_KNOWLEDGE_BASE_NAME) {
+                throw PrologRuntimeException("Directive ${args.indicator} can only be invoked from the ${SystemCatalog.META_KNOWLEDGE_BASE_NAME} knowledge base.")
+            }
+
+            val oldName = args.getTyped<Atom>(0).name
+            val newName = args.getTyped<Atom>(1).name
+
+            database.renameKnowledgeBase(oldName, newName)
+
+            LazySequence.of(Unification.TRUE)
         }
     )
 
@@ -86,7 +100,7 @@ class PrologDatabaseToNetworkAdapter(
             ?: return lazySequenceOfError(PrologRuntimeException("Directive $indicator is not implemented."))
 
         return try {
-            directive.invoke(session, command.arguments)
+            directive.invoke(session, TypedPredicateArguments(indicator, command.arguments))
         }
         catch (ex: PrologRuntimeException) {
             lazySequenceOfError(ex)

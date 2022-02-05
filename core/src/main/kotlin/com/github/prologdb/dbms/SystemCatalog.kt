@@ -52,7 +52,7 @@ data class SystemCatalog(
         )
     }
 
-    class KnowledgeBase(
+    data class KnowledgeBase(
         val name: String,
         val modules: Set<Module>,
         val defaultModule: String?

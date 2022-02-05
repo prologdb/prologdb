@@ -31,10 +31,10 @@ suspended until end of transaction by setting removedBy=txid
 ?- foo:source("This is the new prolog source").
 
 %-- CREATE TABLE
-?- assert(dynamic(foo:persistent/1)).
+?- assert(foo:dynamic(persistent/1)).
 
 %-- DROP TABLE
-?- retract(dynamic(foo:persistent/1)).
+?- retract(foo:dynamic(persistent/1)).
 
 %-- ALTER TABLE ... RENAME TO
 :- rename_predicate(foo:persistent/1, persistent2).

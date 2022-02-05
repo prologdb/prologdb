@@ -43,6 +43,21 @@ class PrologDatabase(
         }
     }
 
+    fun renameKnowledgeBase(oldName: String, newName: String) {
+        dataDirectory.modifySystemCatalog { catalog ->
+            val knowledgeBaseCatalog = catalog.knowledgeBases.firstOrNull { it.name == oldName }
+                ?: throw KnowledgeBaseNotFoundException(oldName)
+
+            if (catalog.knowledgeBases.any { it.name == newName }) {
+                throw PrologRuntimeException("A knowledge base with the name $newName already exists.")
+            }
+
+            return@modifySystemCatalog catalog.copy(knowledgeBases = (catalog.knowledgeBases - knowledgeBaseCatalog) + knowledgeBaseCatalog.copy(
+                name = newName
+            ))
+        }
+    }
+
     fun dropKnowledgeBase(name: String) {
         if (name == SystemCatalog.META_KNOWLEDGE_BASE_NAME) {
             throw PrologRuntimeException("Cannot delete the meta knowledge base.")
