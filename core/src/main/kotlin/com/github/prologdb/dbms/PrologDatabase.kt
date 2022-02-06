@@ -2,7 +2,12 @@ package com.github.prologdb.dbms
 
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.execplan.planner.NoOptimizationExecutionPlanner
+import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.module.ModuleScopeProofSearchContext
+import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.fact.DefaultFactStoreLoader
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.FactStoreLoader
@@ -77,15 +82,32 @@ class PrologDatabase(
         }
     }
 
-    fun getRuntimeEnvironment(systemCatalog: SystemCatalog, knowledgeBaseName: String): DatabaseRuntimeEnvironment {
-        val knowledgeBaseCatalog = systemCatalog.knowledgeBases.firstOrNull { it.name == knowledgeBaseName }
-            ?: throw KnowledgeBaseNotFoundException(knowledgeBaseName)
+    fun getRuntimeEnvironment(systemCatalog: SystemCatalog, knowledgeBaseSpecifier: Term): PrologRuntimeEnvironment {
+        if (knowledgeBaseSpecifier is Atom) {
+            val knowledgeBaseName = knowledgeBaseSpecifier.name
 
-        return runtimeEnvironmentByCatalogRevision
-            .computeIfAbsent(systemCatalog.revision) { ConcurrentHashMap() }
-            .computeIfAbsent(knowledgeBaseCatalog.name) {
-                PhysicalDatabaseRuntimeEnvironment(knowledgeBaseCatalog, this)
+            val knowledgeBaseCatalog = systemCatalog.knowledgeBases.firstOrNull { it.name == knowledgeBaseName }
+                ?: throw KnowledgeBaseNotFoundException(knowledgeBaseName)
+
+            return runtimeEnvironmentByCatalogRevision
+                .computeIfAbsent(systemCatalog.revision) { ConcurrentHashMap() }
+                .computeIfAbsent(knowledgeBaseCatalog.name) {
+                    PhysicalDatabaseRuntimeEnvironment(knowledgeBaseCatalog, this)
+                }
+        }
+
+        if (knowledgeBaseSpecifier is CompoundTerm && knowledgeBaseSpecifier.functor == "meta" && knowledgeBaseSpecifier.arity == 1) {
+            val nameTerm = knowledgeBaseSpecifier.arguments[0]
+            if (nameTerm is Atom) {
+                val knowledgeBaseName = nameTerm.name
+                val knowledgeBaseCatalog = systemCatalog.knowledgeBases.firstOrNull { it.name == knowledgeBaseName }
+                    ?: throw KnowledgeBaseNotFoundException(knowledgeBaseName)
+
+                return MetaKnowledgeBaseRuntimeEnvironment(knowledgeBaseCatalog)
             }
+        }
+
+        throw KnowledgeBaseNotFoundException(knowledgeBaseSpecifier)
     }
 
     fun getFactStore(predicateUuid: UUID): FactStore {
