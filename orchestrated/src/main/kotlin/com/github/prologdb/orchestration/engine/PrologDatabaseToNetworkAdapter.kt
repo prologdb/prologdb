@@ -3,7 +3,6 @@ package com.github.prologdb.orchestration.engine
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.dbms.GlobalMetaKnowledgeBaseRuntimeEnvironment
-import com.github.prologdb.dbms.PhysicalDatabaseRuntimeEnvironment
 import com.github.prologdb.dbms.PhysicalKnowledgeBaseRuntimeEnvironment
 import com.github.prologdb.dbms.PrologDatabase
 import com.github.prologdb.dbms.SystemCatalog
@@ -21,7 +20,6 @@ import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.RandomVariableScope
-import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
@@ -61,7 +59,7 @@ class PrologDatabaseToNetworkAdapter(
             val query = queryResult.item
                 ?: throw PrologRuntimeException("Failed to parse query: " + queryResult.reportings.first())
 
-            val runtimeEnvironment = session.runtimeEnvironment as? PhysicalDatabaseRuntimeEnvironment
+            val runtimeEnvironment = session.runtimeEnvironment as? PhysicalKnowledgeBaseRuntimeEnvironment
                 ?: throw PrologRuntimeException("In this context, execution plans are not used to execute queries. Cannot show a plan.")
 
             val psc = runtimeEnvironment
@@ -156,7 +154,7 @@ class PrologDatabaseToNetworkAdapter(
         get() {
             val runtimeEnvironment = runtimeEnvironment ?: throw KnowledgeBaseNotSelectedException()
             val moduleName = module ?: throw ModuleNotSelectedException()
-            if (runtimeEnvironment !is PhysicalDatabaseRuntimeEnvironment) {
+            if (runtimeEnvironment !is PhysicalKnowledgeBaseRuntimeEnvironment) {
                 throw PrologRuntimeException("Cannot obtain a module catalog because the current context is not managed through the system catalog.")
             }
 

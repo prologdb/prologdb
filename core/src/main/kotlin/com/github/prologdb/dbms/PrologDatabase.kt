@@ -2,7 +2,6 @@ package com.github.prologdb.dbms
 
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.execplan.planner.NoOptimizationExecutionPlanner
-import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
@@ -27,7 +26,7 @@ class PrologDatabase(
     private val factStores: MutableMap<UUID, FactStore> = ConcurrentHashMap()
     private val factStoreLoadingMutex = Any()
 
-    private val runtimeEnvironmentByCatalogRevision: MutableMap<Long, MutableMap<String, PhysicalKnowledgeBaseRuntimeEnvironment>> = ConcurrentHashMap()
+    private val runtimeEnvironmentByCatalogRevision: MutableMap<Long, MutableMap<String, DefaultPhysicalKnowledgeBaseRuntimeEnvironment>> = ConcurrentHashMap()
 
     private val globalMetaRuntimeEnvironment by lazy { GlobalMetaKnowledgeBaseRuntimeEnvironment(this) }
 
@@ -97,7 +96,7 @@ class PrologDatabase(
             return runtimeEnvironmentByCatalogRevision
                 .computeIfAbsent(systemCatalog.revision) { ConcurrentHashMap() }
                 .computeIfAbsent(knowledgeBaseCatalog.name) {
-                    PhysicalKnowledgeBaseRuntimeEnvironment(knowledgeBaseCatalog, this)
+                    DefaultPhysicalKnowledgeBaseRuntimeEnvironment(knowledgeBaseCatalog, this)
                 }
         }
 

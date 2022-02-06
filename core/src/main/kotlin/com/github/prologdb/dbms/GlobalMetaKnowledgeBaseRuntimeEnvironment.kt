@@ -58,7 +58,7 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
             override val allDeclaredPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
             override val exportedPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
             override val imports: List<ModuleImport> = listOf(
-                ModuleImport.Full(ModuleReference(PhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS, SCHEMA_MODULE_NAME))
+                ModuleImport.Full(ModuleReference(DefaultPhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS, SCHEMA_MODULE_NAME))
             )
             override val localOperators = ISOOpsOperatorRegistry
             override val name = "\$root"
@@ -72,7 +72,7 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
                     classLoader = GlobalMetaKnowledgeBaseRuntimeEnvironment::class.java.classLoader,
                     parser = PARSER,
                     moduleReferenceToClasspathPath = { moduleRef ->
-                        if (moduleRef.pathAlias == PhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS && moduleRef.moduleName == SCHEMA_MODULE_NAME) {
+                        if (moduleRef.pathAlias == DefaultPhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS && moduleRef.moduleName == SCHEMA_MODULE_NAME) {
                             "com/github/prologdb/dbms/meta_schema.pl"
                         } else {
                             throw ModuleNotFoundException(moduleRef)
@@ -94,7 +94,7 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
             }
 
             private val nativeImplementationsByModuleRef: Map<String, Map<ClauseIndicator, NativeCodeRule>> = mapOf(
-                "${PhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS}($SCHEMA_MODULE_NAME)" to listOf(
+                "${DefaultPhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS}($SCHEMA_MODULE_NAME)" to listOf(
                     BuiltinCreateKnowledgeBase1,
                     BuiltinDropKnowledgeBase1,
                     BuiltinKnowledgeBase1,
