@@ -1,4 +1,4 @@
-package com.github.prologdb.dbms.builtin.meta
+package com.github.prologdb.dbms.builtin.meta.global
 
 import com.github.prologdb.dbms.builtin.nativeDatabaseRule
 import com.github.prologdb.runtime.term.Atom

@@ -8,7 +8,7 @@ fun <T : Any> lazySequenceOfError(error: Throwable): LazySequence<T> = object : 
     override val state = LazySequence.State.FAILED
 
     init {
-        error.fillInStackTrace()
+        //error.fillInStackTrace()
     }
 
     override fun close() {

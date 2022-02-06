@@ -4,7 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.async.mapRemaining
-import com.github.prologdb.dbms.DBProofSearchContext
+import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
@@ -26,7 +26,7 @@ class InvokeFunctor(
     ))
     val fullyQualifiedClauseIndicator = FullyQualifiedClauseIndicator(moduleName, ClauseIndicator.of(invocation))
 
-    override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Unit>> {
+    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Unit>> {
         val (_, callable, _) = ctxt.resolveModuleScopedCallable(asColonTwo)
             ?: throw PrologRuntimeException("Predicate $fullyQualifiedClauseIndicator is not defined")
 

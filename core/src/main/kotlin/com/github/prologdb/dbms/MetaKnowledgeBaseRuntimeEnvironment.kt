@@ -11,19 +11,46 @@ import com.github.prologdb.runtime.module.Module
 import com.github.prologdb.runtime.module.ModuleImport
 import com.github.prologdb.runtime.module.ModuleNotFoundException
 import com.github.prologdb.runtime.module.ModuleReference
+import com.github.prologdb.runtime.module.ModuleScopeProofSearchContext
+import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
+import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProofSearchContext
 import com.github.prologdb.runtime.stdlib.NativeCodeRule
 import com.github.prologdb.runtime.stdlib.loader.ClasspathPrologSourceModuleLoader
 import com.github.prologdb.runtime.stdlib.loader.NativeCodeSourceFileVisitorDecorator
 import com.github.prologdb.runtime.stdlib.loader.StandardLibraryModuleLoader
 
 class MetaKnowledgeBaseRuntimeEnvironment(
+    override val database: PrologDatabase,
     val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase
-) : DefaultPrologRuntimeEnvironment(
+) : DatabaseRuntimeEnvironment, DefaultPrologRuntimeEnvironment(
     rootModuleFor(knowledgeBaseCatalog),
     META_MODULE_LOADER
 ) {
+    override val defaultModuleName = null
+
+    override fun newProofSearchContext(authorization: Authorization): DatabaseProofSearchContext {
+        val superContext = super.newProofSearchContext(authorization)
+        if (superContext is ModuleScopeProofSearchContext) {
+            return ProofSearchContext(database, superContext.module.name, superContext)
+        } else {
+            return deriveProofSearchContextForModule(superContext, rootModule.name)
+        }
+    }
+
+    override fun deriveProofSearchContextForModule(
+        deriveFrom: RuntimeProofSearchContext,
+        moduleName: String
+    ): DatabaseProofSearchContext {
+        return if (deriveFrom is ProofSearchContext) {
+            deriveFrom.deriveForModuleContext(moduleName)
+        } else {
+            ProofSearchContext(database, moduleName, super.deriveProofSearchContextForModule(deriveFrom, moduleName))
+        }
+    }
+
     companion object {
+        const val KNOWLEDGE_BASE_SPECIFIER_FUNCTOR = "meta"
         private const val META_MODULE_PATH_ALIAS = "meta"
         private val META_MODULE_NATIVE_IMPLEMENTATIONS: Map<ClauseIndicator, NativeCodeRule> = mapOf()
         private val PARSER = PrologParser()
@@ -60,6 +87,16 @@ class MetaKnowledgeBaseRuntimeEnvironment(
             }
             override val localOperators = ISOOpsOperatorRegistry
             override val name = "\$root"
+        }
+    }
+
+    private class ProofSearchContext(
+        override val database: PrologDatabase,
+        override val moduleName: String,
+        private val delegate: RuntimeProofSearchContext
+    ) : RuntimeProofSearchContext by delegate, DatabaseProofSearchContext {
+        override fun deriveForModuleContext(moduleName: String): DatabaseProofSearchContext {
+            return ProofSearchContext(database, moduleName, delegate)
         }
     }
 }

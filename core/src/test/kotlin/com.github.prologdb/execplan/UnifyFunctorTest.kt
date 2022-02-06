@@ -3,7 +3,7 @@ package com.github.prologdb.execplan
 import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.async.remainingToList
-import com.github.prologdb.dbms.DBProofSearchContext
+import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -25,7 +25,7 @@ class UnifyFunctorTest : FreeSpec({
         }
         val inputsWithVars = inputs.mapRemaining { Pair(VariableBucket(), it) }
         val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
-        val ctxt = mockk<DBProofSearchContext>()
+        val ctxt = mockk<PhysicalDatabaseProofSearchContext>()
         every { ctxt.randomVariableScope } returns RandomVariableScope()
         
         val results = functor.invoke(ctxt, inputsWithVars).remainingToList()
@@ -47,7 +47,7 @@ class UnifyFunctorTest : FreeSpec({
         }
         val inputsWithVars = inputs.mapRemaining { Pair(VariableBucket(), it) }
         val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
-        val ctxt = mockk<DBProofSearchContext>()
+        val ctxt = mockk<PhysicalDatabaseProofSearchContext>()
         every { ctxt.randomVariableScope } returns RandomVariableScope()
 
         val results = functor.invoke(ctxt, inputsWithVars).remainingToList()

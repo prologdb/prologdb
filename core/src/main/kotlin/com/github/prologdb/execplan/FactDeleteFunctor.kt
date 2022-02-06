@@ -2,7 +2,7 @@ package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.flatMapRemaining
-import com.github.prologdb.dbms.DBProofSearchContext
+import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.dbms.SystemCatalog
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -16,7 +16,7 @@ import java.util.concurrent.Future
 class FactDeleteFunctor(
     val predicate: SystemCatalog.Predicate
 ) : PlanFunctor<PersistenceID, Unit> {
-    override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, PersistenceID>>): LazySequence<Pair<VariableBucket, Unit>> {
+    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, PersistenceID>>): LazySequence<Pair<VariableBucket, Unit>> {
         val factStore = ctxt.getFactStore(predicate)
         
         return inputs.flatMapRemaining { (variableCarry, persistenceID) ->
@@ -36,7 +36,7 @@ class FactDeleteFunctorOverload0(
     private val predicate: SystemCatalog.Predicate
 ) : PlanFunctor<Pair<PersistenceID, CompoundTerm>, Unit> {
     
-    override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>>): LazySequence<Pair<VariableBucket, Unit>> {
+    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>>): LazySequence<Pair<VariableBucket, Unit>> {
         val factStore = ctxt.getFactStore(predicate)
         
         return inputs.flatMapRemaining { (variableCarry, pidAndFact) ->
@@ -52,7 +52,7 @@ class FactDeleteFunctorOverload0(
 /**
  * Deletes the fact associated with `persistenceID` from the given `factStore` and all applying indices in `ctxt`.
  */
-private fun delete(ctxt: DBProofSearchContext, predicate: SystemCatalog.Predicate, persistenceID: PersistenceID, factStore: FactStore): Future<Boolean> {
+private fun delete(ctxt: PhysicalDatabaseProofSearchContext, predicate: SystemCatalog.Predicate, persistenceID: PersistenceID, factStore: FactStore): Future<Boolean> {
     return factStore.delete(ctxt.principal, persistenceID)
     // TODO: indices
 }

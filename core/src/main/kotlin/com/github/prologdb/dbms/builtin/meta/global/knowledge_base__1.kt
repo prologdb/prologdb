@@ -1,4 +1,4 @@
-package com.github.prologdb.dbms.builtin.meta
+package com.github.prologdb.dbms.builtin.meta.global
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.mapRemainingNotNull
@@ -8,7 +8,7 @@ import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.Variable
 
 val BuiltinKnowledgeBase1 = nativeDatabaseRule("knowledge_base", 1) { args, ctxt ->
-    val nameArg = args.get(0)
+    val nameArg = args[0]
     if (nameArg !is Variable && nameArg !is Atom) {
         throw ArgumentTypeError(null, 0, nameArg, Variable::class.java, Atom::class.java)
     }

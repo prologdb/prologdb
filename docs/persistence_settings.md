@@ -20,6 +20,15 @@ suspended until end of transaction by setting removedBy=txid
 %-- ALTER DATABASE ... RENAME TO
 :- rename_knowledge_base(fooBase, fooBase2). 
 
+%-- CREATE SCHEMA
+?- assert(module(fooBase, foo)).
+
+%-- DROP SCHEMA
+?- retract(module(fooBase, foo)).
+
+%-- list schemas
+?- module(KnowledgeBase, Module).
+
 :- knowledge_base(meta(fooBase)).
 
 :- module(foo). %-- to avoid the module prefixes

@@ -4,7 +4,6 @@ import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.execplan.planner.NoOptimizationExecutionPlanner
 import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.PrologRuntimeException
-import com.github.prologdb.runtime.module.ModuleScopeProofSearchContext
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Term
@@ -28,7 +27,9 @@ class PrologDatabase(
     private val factStores: MutableMap<UUID, FactStore> = ConcurrentHashMap()
     private val factStoreLoadingMutex = Any()
 
-    private val runtimeEnvironmentByCatalogRevision: MutableMap<Long, MutableMap<String, PhysicalDatabaseRuntimeEnvironment>> = ConcurrentHashMap()
+    private val runtimeEnvironmentByCatalogRevision: MutableMap<Long, MutableMap<String, PhysicalKnowledgeBaseRuntimeEnvironment>> = ConcurrentHashMap()
+
+    private val globalMetaRuntimeEnvironment by lazy { GlobalMetaKnowledgeBaseRuntimeEnvironment(this) }
 
     init {
         log.info("Starting in $dataDirectory with system catalog revision ${this.dataDirectory.systemCatalog.revision}")
@@ -64,7 +65,7 @@ class PrologDatabase(
     }
 
     fun dropKnowledgeBase(name: String) {
-        if (name == SystemCatalog.META_KNOWLEDGE_BASE_NAME) {
+        if (name == GlobalMetaKnowledgeBaseRuntimeEnvironment.KNOWLEDGE_BASE_NAME) {
             throw PrologRuntimeException("Cannot delete the meta knowledge base.")
         }
         // TODO: instead, mark as deleted with TXID
@@ -82,9 +83,13 @@ class PrologDatabase(
         }
     }
 
-    fun getRuntimeEnvironment(systemCatalog: SystemCatalog, knowledgeBaseSpecifier: Term): PrologRuntimeEnvironment {
+    fun getRuntimeEnvironment(systemCatalog: SystemCatalog, knowledgeBaseSpecifier: Term): DatabaseRuntimeEnvironment {
         if (knowledgeBaseSpecifier is Atom) {
             val knowledgeBaseName = knowledgeBaseSpecifier.name
+
+            if (knowledgeBaseName == GlobalMetaKnowledgeBaseRuntimeEnvironment.KNOWLEDGE_BASE_NAME) {
+                return globalMetaRuntimeEnvironment
+            }
 
             val knowledgeBaseCatalog = systemCatalog.knowledgeBases.firstOrNull { it.name == knowledgeBaseName }
                 ?: throw KnowledgeBaseNotFoundException(knowledgeBaseName)
@@ -92,18 +97,18 @@ class PrologDatabase(
             return runtimeEnvironmentByCatalogRevision
                 .computeIfAbsent(systemCatalog.revision) { ConcurrentHashMap() }
                 .computeIfAbsent(knowledgeBaseCatalog.name) {
-                    PhysicalDatabaseRuntimeEnvironment(knowledgeBaseCatalog, this)
+                    PhysicalKnowledgeBaseRuntimeEnvironment(knowledgeBaseCatalog, this)
                 }
         }
 
-        if (knowledgeBaseSpecifier is CompoundTerm && knowledgeBaseSpecifier.functor == "meta" && knowledgeBaseSpecifier.arity == 1) {
+        if (knowledgeBaseSpecifier is CompoundTerm && knowledgeBaseSpecifier.functor == MetaKnowledgeBaseRuntimeEnvironment.KNOWLEDGE_BASE_SPECIFIER_FUNCTOR && knowledgeBaseSpecifier.arity == 1) {
             val nameTerm = knowledgeBaseSpecifier.arguments[0]
             if (nameTerm is Atom) {
                 val knowledgeBaseName = nameTerm.name
                 val knowledgeBaseCatalog = systemCatalog.knowledgeBases.firstOrNull { it.name == knowledgeBaseName }
                     ?: throw KnowledgeBaseNotFoundException(knowledgeBaseName)
 
-                return MetaKnowledgeBaseRuntimeEnvironment(knowledgeBaseCatalog)
+                return MetaKnowledgeBaseRuntimeEnvironment(this, knowledgeBaseCatalog)
             }
         }
 

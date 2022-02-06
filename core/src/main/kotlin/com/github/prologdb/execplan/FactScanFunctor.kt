@@ -3,9 +3,8 @@ package com.github.prologdb.execplan
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.async.mapRemaining
-import com.github.prologdb.dbms.DBProofSearchContext
+import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.dbms.SystemCatalog
-import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.PrologPermissionError
 import com.github.prologdb.runtime.PrologStackTraceElement
 import com.github.prologdb.runtime.term.CompoundTerm
@@ -23,7 +22,7 @@ class FactScanFunctor(
 {
     private val stackFrame by lazy(stackFrameProvider)
     
-    override fun invoke(ctxt: DBProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>> {
+    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>> {
         if (!ctxt.authorization.mayRead(predicate.indicator)) {
             throw PrologPermissionError("Not allowed to read ${predicate.indicator}")
         }

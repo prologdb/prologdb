@@ -2,8 +2,9 @@ package com.github.prologdb.orchestration.engine
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.buildLazySequence
-import com.github.prologdb.dbms.DatabaseRuntimeEnvironment
+import com.github.prologdb.dbms.GlobalMetaKnowledgeBaseRuntimeEnvironment
 import com.github.prologdb.dbms.PhysicalDatabaseRuntimeEnvironment
+import com.github.prologdb.dbms.PhysicalKnowledgeBaseRuntimeEnvironment
 import com.github.prologdb.dbms.PrologDatabase
 import com.github.prologdb.dbms.SystemCatalog
 import com.github.prologdb.net.session.DatabaseEngine
@@ -16,11 +17,9 @@ import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.parser.PrologParser.Companion.STOP_AT_EOF
 import com.github.prologdb.parser.source.SourceUnit
-import com.github.prologdb.runtime.ArgumentTypeError
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.ClauseIndicator
-import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
 import com.github.prologdb.runtime.query.Query
@@ -40,13 +39,8 @@ class PrologDatabaseToNetworkAdapter(
             val specifier = args[0]
             val runtimeEnvironment = database.getRuntimeEnvironment(session.systemCatalog, specifier)
 
-            session.module = null
             session.runtimeEnvironment = runtimeEnvironment
-            session.module = if (runtimeEnvironment is PhysicalDatabaseRuntimeEnvironment) {
-                runtimeEnvironment.knowledgeBaseCatalog.defaultModule
-            } else {
-                runtimeEnvironment.rootModule.name
-            }
+            session.module = runtimeEnvironment.defaultModuleName
 
             LazySequence.of(Unification.TRUE)
         },
@@ -56,7 +50,7 @@ class PrologDatabaseToNetworkAdapter(
             val query = queryResult.item
                 ?: throw PrologRuntimeException("Failed to parse query: " + queryResult.reportings.first())
 
-            val runtimeEnvironment = session.runtimeEnvironment as? DatabaseRuntimeEnvironment
+            val runtimeEnvironment = session.runtimeEnvironment as? PhysicalDatabaseRuntimeEnvironment
                 ?: throw PrologRuntimeException("In this context, execution plans are not used to execute queries. Cannot show a plan.")
 
             val psc = runtimeEnvironment
@@ -68,8 +62,8 @@ class PrologDatabaseToNetworkAdapter(
             LazySequence.of(Unification(solutionVars))
         },
         ClauseIndicator.of("rename_knowledge_base", 2) to { session, args ->
-            if ((session.runtimeEnvironment as? DatabaseRuntimeEnvironment?)?.knowledgeBaseCatalog?.name != SystemCatalog.META_KNOWLEDGE_BASE_NAME) {
-                throw PrologRuntimeException("Directive ${args.indicator} can only be invoked from the ${SystemCatalog.META_KNOWLEDGE_BASE_NAME} knowledge base.")
+            if (session.runtimeEnvironment !is GlobalMetaKnowledgeBaseRuntimeEnvironment) {
+                throw PrologRuntimeException("Directive ${args.indicator} can only be invoked from the ${GlobalMetaKnowledgeBaseRuntimeEnvironment.KNOWLEDGE_BASE_NAME} knowledge base.")
             }
 
             val oldName = args.getTyped<Atom>(0).name
@@ -151,7 +145,7 @@ class PrologDatabaseToNetworkAdapter(
         get() {
             val runtimeEnvironment = runtimeEnvironment ?: throw KnowledgeBaseNotSelectedException()
             val moduleName = module ?: throw ModuleNotSelectedException()
-            if (runtimeEnvironment !is DatabaseRuntimeEnvironment) {
+            if (runtimeEnvironment !is PhysicalDatabaseRuntimeEnvironment) {
                 throw PrologRuntimeException("Cannot obtain a module catalog because the current context is not managed through the system catalog.")
             }
 

@@ -126,18 +126,6 @@ data class SystemCatalog(
     }
 
     companion object {
-        const val META_KNOWLEDGE_BASE_NAME = "\$meta"
-        const val META_SCHEMA_MODULE_NAME = "schema"
-        val INITIAL: SystemCatalog = SystemCatalog(0, setOf(
-            KnowledgeBase(
-                name = META_KNOWLEDGE_BASE_NAME,
-                defaultModule = META_SCHEMA_MODULE_NAME,
-                modules = setOf(Module(
-                    name = "schema",
-                    predicates = emptySet(),
-                    prologSource = ""
-                ))
-            )
-        ))
+        val INITIAL: SystemCatalog = SystemCatalog(0, emptySet())
     }
 }

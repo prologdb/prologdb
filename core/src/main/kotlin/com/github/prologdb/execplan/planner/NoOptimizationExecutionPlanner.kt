@@ -1,9 +1,7 @@
 package com.github.prologdb.execplan.planner
 
-import com.github.prologdb.dbms.DBProofSearchContext
-import com.github.prologdb.dbms.SystemCatalog
+import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.execplan.*
-import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.PrologStackTraceElement
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.query.AndQuery
@@ -17,7 +15,7 @@ import com.github.prologdb.runtime.query.Query
  */
 class NoOptimizationExecutionPlanner : ExecutionPlanner {
     @Suppress("UNCHECKED_CAST")
-    override fun planExecution(query: Query, ctxt: DBProofSearchContext, randomVariableScope: RandomVariableScope): PlanFunctor<Unit, Any> {
+    override fun planExecution(query: Query, ctxt: PhysicalDatabaseProofSearchContext, randomVariableScope: RandomVariableScope): PlanFunctor<Unit, Any> {
         return when(query) {
             is OrQuery -> UnionFunctor(
                 query.goals

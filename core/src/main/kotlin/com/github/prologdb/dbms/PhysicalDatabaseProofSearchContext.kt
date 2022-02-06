@@ -22,32 +22,28 @@ import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.runtime.util.OperatorRegistry
 import com.github.prologdb.storage.fact.FactStore
 
-interface DBProofSearchContext : ProofSearchContext {
-    val database: PrologDatabase
+interface PhysicalDatabaseProofSearchContext : DatabaseProofSearchContext {
     val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase
-    val moduleName: String
 
-    fun getFactStore(predicate: SystemCatalog.Predicate): FactStore
-
-    override fun deriveForModuleContext(moduleName: String): DBProofSearchContext
+    override fun deriveForModuleContext(moduleName: String): PhysicalDatabaseProofSearchContext
 }
 
-class DBProofSearchContextImpl(
+class PhysicalDatabaseProofSearchContextImpl(
     override val database: PrologDatabase,
     override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
     override val moduleName: String,
-    private val runtimeEnvironment: PhysicalDatabaseRuntimeEnvironment,
+    private val runtimeEnvironment: PhysicalKnowledgeBaseRuntimeEnvironment,
     private val lookupTable: Map<ClauseIndicator, Pair<ModuleReference, PrologCallable>>,
     override val principal: Principal,
     override val authorization: Authorization,
     override val randomVariableScope: RandomVariableScope
-) : DBProofSearchContext {
+) : PhysicalDatabaseProofSearchContext {
     private val selfModule = runtimeEnvironment.loadedModules.getValue(moduleName)
     override val fulfillAttach: suspend LazySequenceBuilder<Unification>.(Query, initialVariables: VariableBucket) -> Unification? = { q, variables ->
-        val executionPlan = runtimeEnvironment.database.executionPlanner.planExecution(q, this@DBProofSearchContextImpl, randomVariableScope)
+        val executionPlan = runtimeEnvironment.database.executionPlanner.planExecution(q, this@PhysicalDatabaseProofSearchContextImpl, randomVariableScope)
         yieldAllFinal(
             executionPlan
-                .invoke(this@DBProofSearchContextImpl, LazySequence.of(Pair(variables, Unit)))
+                .invoke(this@PhysicalDatabaseProofSearchContextImpl, LazySequence.of(Pair(variables, Unit)))
                 .mapRemaining { (variables, _) -> Unification(variables) }
         )
     }
@@ -108,11 +104,7 @@ class DBProofSearchContextImpl(
         )
     }
 
-    override fun deriveForModuleContext(moduleName: String): DBProofSearchContext {
+    override fun deriveForModuleContext(moduleName: String): PhysicalDatabaseProofSearchContext {
         return runtimeEnvironment.deriveProofSearchContextForModule(this, moduleName)
-    }
-
-    override fun getFactStore(predicate: SystemCatalog.Predicate): FactStore {
-        return database.getFactStore(predicate.uuid)
     }
 }

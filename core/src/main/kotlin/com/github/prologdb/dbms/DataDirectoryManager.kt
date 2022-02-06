@@ -39,10 +39,6 @@ class DataDirectoryManager private constructor(
     private val catalogWriter = catalogMapper.writerWithDefaultPrettyPrinter()
 
     @Volatile
-    var systemCatalog: SystemCatalog = loadSystemCatalog()
-        private set
-
-    @Volatile
     private var closed: Boolean = false
 
     private val systemCatalogModificationMutex = Any()
@@ -52,6 +48,10 @@ class DataDirectoryManager private constructor(
             throw IOException("Failed to lock data directory $dataDirectory")
         }
     }
+
+    @Volatile
+    var systemCatalog: SystemCatalog = loadSystemCatalog()
+        private set
 
     /**
      * @param revision If not null, attempts to load this revision of the catalog
@@ -76,7 +76,10 @@ class DataDirectoryManager private constructor(
                         ?.toLongOrNull()
                 }
                 .max()
-            ?: return saveSystemCatalog(SystemCatalog.INITIAL)
+            ?: run {
+                systemCatalog = SystemCatalog.INITIAL
+                return saveSystemCatalog(systemCatalog)
+            }
 
         val file = catalogDirectory.resolve("system-$actualRevision.json")
         val fileContent = try {
