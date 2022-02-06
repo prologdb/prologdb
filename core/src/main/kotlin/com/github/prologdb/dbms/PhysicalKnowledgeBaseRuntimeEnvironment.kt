@@ -16,6 +16,7 @@ import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.proofsearch.ProofSearchContext
+import com.github.prologdb.runtime.stdlib.loader.StandardLibraryModuleLoader
 import java.util.UUID
 
 class PhysicalKnowledgeBaseRuntimeEnvironment private constructor(
@@ -73,7 +74,7 @@ class PhysicalKnowledgeBaseRuntimeEnvironment private constructor(
         private val parser = PrologParser()
         override fun load(reference: ModuleReference): Module {
             if (reference.pathAlias != DATABASE_MODULE_PATH_ALIAS) {
-                throw ModuleNotFoundException(reference)
+                return StandardLibraryModuleLoader.load(reference)
             }
 
             val module = knowledgeBaseCatalog.modulesByName[reference.moduleName]

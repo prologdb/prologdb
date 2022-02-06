@@ -107,4 +107,6 @@ class PhysicalDatabaseProofSearchContextImpl(
     override fun deriveForModuleContext(moduleName: String): PhysicalDatabaseProofSearchContext {
         return runtimeEnvironment.deriveProofSearchContextForModule(this, moduleName)
     }
+
+    override fun toString() = "context of module $moduleName"
 }
