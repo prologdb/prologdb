@@ -19,6 +19,10 @@ val BuiltinCreateModule2 = nativeDatabaseRule("create_module", 2) { args, ctxt -
             throw PrologRuntimeException("A module with name $moduleName already exists in knowledge base $knowledgeBaseName")
         }
 
+        if (moduleName in ctxt.runtimeEnvironment.loadedModules) {
+            throw PrologRuntimeException("Module $moduleName in knowledge base $knowledgeBaseName is already defined as a non-physical module.")
+        }
+
         return@modifySystemCatalog systemCatalog.copy(knowledgeBases = (systemCatalog.knowledgeBases - knowledgeBaseCatalog) + knowledgeBaseCatalog.copy(
             modules = knowledgeBaseCatalog.modules + SystemCatalog.Module(
                 moduleName,

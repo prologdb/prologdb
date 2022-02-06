@@ -90,11 +90,12 @@ class MetaKnowledgeBaseRuntimeEnvironment(
         }
     }
 
-    private class ProofSearchContext(
+    private inner class ProofSearchContext(
         override val database: PrologDatabase,
         override val moduleName: String,
         private val delegate: RuntimeProofSearchContext
     ) : RuntimeProofSearchContext by delegate, DatabaseProofSearchContext {
+        override val runtimeEnvironment = this@MetaKnowledgeBaseRuntimeEnvironment
         override fun deriveForModuleContext(moduleName: String): DatabaseProofSearchContext {
             return ProofSearchContext(database, moduleName, delegate)
         }

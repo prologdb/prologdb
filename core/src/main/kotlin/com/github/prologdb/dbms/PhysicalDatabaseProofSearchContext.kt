@@ -32,7 +32,7 @@ class PhysicalDatabaseProofSearchContextImpl(
     override val database: PrologDatabase,
     override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
     override val moduleName: String,
-    private val runtimeEnvironment: PhysicalKnowledgeBaseRuntimeEnvironment,
+    override val runtimeEnvironment: PhysicalKnowledgeBaseRuntimeEnvironment,
     private val lookupTable: Map<ClauseIndicator, Pair<ModuleReference, PrologCallable>>,
     override val principal: Principal,
     override val authorization: Authorization,

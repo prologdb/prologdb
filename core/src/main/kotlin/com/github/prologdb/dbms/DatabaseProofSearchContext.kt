@@ -6,6 +6,7 @@ import com.github.prologdb.storage.fact.FactStore
 interface DatabaseProofSearchContext : ProofSearchContext {
     val database: PrologDatabase
     val moduleName: String
+    val runtimeEnvironment: DatabaseRuntimeEnvironment
 
     fun getFactStore(predicate: SystemCatalog.Predicate): FactStore {
         return database.getFactStore(predicate.uuid)

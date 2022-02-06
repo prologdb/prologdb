@@ -104,11 +104,13 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
         }
     }
 
-    private class ProofSearchContext(
+    private inner class ProofSearchContext(
         override val database: PrologDatabase,
         override val moduleName: String,
         private val delegate: RuntimeProofSearchContext
     ) : RuntimeProofSearchContext by delegate, DatabaseProofSearchContext {
+
+        override val runtimeEnvironment = this@GlobalMetaKnowledgeBaseRuntimeEnvironment
 
         init {
             if (moduleName != SCHEMA_MODULE_NAME && moduleName != RootModule.name) {
