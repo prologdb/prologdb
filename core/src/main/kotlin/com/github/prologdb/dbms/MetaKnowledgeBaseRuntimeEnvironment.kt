@@ -32,7 +32,7 @@ class MetaKnowledgeBaseRuntimeEnvironment(
     override fun newProofSearchContext(authorization: Authorization): DatabaseProofSearchContext {
         val superContext = super.newProofSearchContext(authorization)
         if (superContext is ModuleScopeProofSearchContext) {
-            return ProofSearchContext(database, superContext.module.name, superContext)
+            return ProofSearchContext(superContext.module.name, superContext)
         } else {
             return deriveProofSearchContextForModule(superContext, rootModule.name)
         }
@@ -45,7 +45,7 @@ class MetaKnowledgeBaseRuntimeEnvironment(
         return if (deriveFrom is ProofSearchContext) {
             deriveFrom.deriveForModuleContext(moduleName)
         } else {
-            ProofSearchContext(database, moduleName, super.deriveProofSearchContextForModule(deriveFrom, moduleName))
+            ProofSearchContext(moduleName, super.deriveProofSearchContextForModule(deriveFrom, moduleName))
         }
     }
 
@@ -91,13 +91,12 @@ class MetaKnowledgeBaseRuntimeEnvironment(
     }
 
     private inner class ProofSearchContext(
-        override val database: PrologDatabase,
         override val moduleName: String,
         private val delegate: RuntimeProofSearchContext
     ) : RuntimeProofSearchContext by delegate, DatabaseProofSearchContext {
         override val runtimeEnvironment = this@MetaKnowledgeBaseRuntimeEnvironment
         override fun deriveForModuleContext(moduleName: String): DatabaseProofSearchContext {
-            return ProofSearchContext(database, moduleName, delegate)
+            return ProofSearchContext(moduleName, delegate)
         }
     }
 }

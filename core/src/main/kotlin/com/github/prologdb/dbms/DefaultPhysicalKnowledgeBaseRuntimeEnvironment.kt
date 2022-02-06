@@ -32,7 +32,7 @@ import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.runtime.util.OperatorRegistry
 import java.util.UUID
 
-class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructor(
+internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructor(
     override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
     override val database: PrologDatabase,
     moduleLoader: ModuleLoader
@@ -57,7 +57,6 @@ class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructor(
         }
 
         return ProofSearchContext(
-            database,
             knowledgeBaseCatalog,
             moduleName,
             this,
@@ -71,7 +70,6 @@ class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructor(
     override fun newProofSearchContext(authorization: Authorization): PhysicalDatabaseProofSearchContext {
         val moduleName = knowledgeBaseCatalog.defaultModule ?: rootModule.name
         return ProofSearchContext(
-            database,
             knowledgeBaseCatalog,
             moduleName,
             this,
@@ -118,7 +116,6 @@ class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructor(
     }
 
     private inner class ProofSearchContext(
-        override val database: PrologDatabase,
         override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
         override val moduleName: String,
         override val runtimeEnvironment: DefaultPhysicalKnowledgeBaseRuntimeEnvironment,

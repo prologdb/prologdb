@@ -8,7 +8,7 @@ import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.unify
 
 val BuiltinModule2 = nativeDatabaseRule("module", 2) { args, ctxt ->
-    val systemCatalog = ctxt.database.dataDirectory.systemCatalog
+    val systemCatalog = ctxt.runtimeEnvironment.database.dataDirectory.systemCatalog
 
     yieldAllFinal(
         LazySequence.ofIterable(systemCatalog.knowledgeBases)

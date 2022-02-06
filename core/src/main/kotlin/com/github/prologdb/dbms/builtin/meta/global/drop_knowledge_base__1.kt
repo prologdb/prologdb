@@ -8,7 +8,7 @@ import com.github.prologdb.runtime.unification.Unification
 val BuiltinDropKnowledgeBase1 = nativeDatabaseRule("drop_knowledge_base", 1) { args, ctxt ->
     val name = args.getTyped<Atom>(0).name
     return@nativeDatabaseRule try {
-        ctxt.database.dropKnowledgeBase(name)
+        ctxt.runtimeEnvironment.database.dropKnowledgeBase(name)
         Unification.TRUE
     }
     catch (ex: KnowledgeBaseNotFoundException) {

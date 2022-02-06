@@ -11,7 +11,7 @@ val BuiltinCreateModule2 = nativeDatabaseRule("create_module", 2) { args, ctxt -
     val knowledgeBaseName = args.getTyped<Atom>(0).name
     val moduleName = args.getTyped<Atom>(1).name
 
-    ctxt.database.dataDirectory.modifySystemCatalog { systemCatalog ->
+    ctxt.runtimeEnvironment.database.dataDirectory.modifySystemCatalog { systemCatalog ->
         val knowledgeBaseCatalog = systemCatalog.knowledgeBases.firstOrNull { it.name == knowledgeBaseName }
             ?: throw KnowledgeBaseNotFoundException(knowledgeBaseName)
 

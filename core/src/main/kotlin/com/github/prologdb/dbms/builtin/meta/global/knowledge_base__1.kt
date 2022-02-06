@@ -14,7 +14,7 @@ val BuiltinKnowledgeBase1 = nativeDatabaseRule("knowledge_base", 1) { args, ctxt
     }
 
     yieldAllFinal(
-        LazySequence.ofIterable(ctxt.database.dataDirectory.systemCatalog.knowledgeBases)
+        LazySequence.ofIterable(ctxt.runtimeEnvironment.database.dataDirectory.systemCatalog.knowledgeBases)
             .mapRemainingNotNull { Atom(it.name).unify(nameArg, ctxt.randomVariableScope) }
     )
 }
