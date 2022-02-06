@@ -21,6 +21,7 @@ import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.RandomVariableScope
+import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
@@ -41,6 +42,16 @@ class PrologDatabaseToNetworkAdapter(
 
             session.runtimeEnvironment = runtimeEnvironment
             session.module = runtimeEnvironment.defaultModuleName
+
+            LazySequence.of(Unification.TRUE)
+        },
+        ClauseIndicator.of("module", 1) to { session, args ->
+            val moduleName = args.getTyped<Atom>(0).name
+            val runtimeEnvironment = session.runtimeEnvironment ?: throw KnowledgeBaseNotSelectedException()
+            val module = runtimeEnvironment.loadedModules[moduleName]
+                ?: throw PrologRuntimeException("Module $moduleName is not loaded / does not exist.")
+
+            session.module = module.name
 
             LazySequence.of(Unification.TRUE)
         },
