@@ -11,6 +11,7 @@ retract(knowledge_base(Name)) :- drop_knowledge_base(Name).
 
 :- native create_module/2.
 :- native drop_module/2.
+:- native module/2.
 
 assert(module(KnowledgeBaseName, ModuleName)) :- create_module(KnowledgeBaseName, ModuleName).
 retract(module(KnowledgeBaseName, ModuleName)) :- drop_module(KnowledgeBaseName, ModuleName).

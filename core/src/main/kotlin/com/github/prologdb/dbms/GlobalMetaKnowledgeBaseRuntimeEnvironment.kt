@@ -5,6 +5,7 @@ import com.github.prologdb.dbms.builtin.meta.global.BuiltinCreateModule2
 import com.github.prologdb.dbms.builtin.meta.global.BuiltinDropKnowledgeBase1
 import com.github.prologdb.dbms.builtin.meta.global.BuiltinDropModule2
 import com.github.prologdb.dbms.builtin.meta.global.BuiltinKnowledgeBase1
+import com.github.prologdb.dbms.builtin.meta.global.BuiltinModule2
 import com.github.prologdb.parser.parser.DefaultModuleSourceFileVisitor
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.parser.SourceFileVisitor
@@ -98,7 +99,8 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
                     BuiltinDropKnowledgeBase1,
                     BuiltinKnowledgeBase1,
                     BuiltinCreateModule2,
-                    BuiltinDropModule2
+                    BuiltinDropModule2,
+                    BuiltinModule2
                 )
             ).mapValues { (_, nativeCodes) ->
                 nativeCodes.associateBy(ClauseIndicator.Companion::of)
