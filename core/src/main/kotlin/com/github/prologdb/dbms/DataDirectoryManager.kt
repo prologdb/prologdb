@@ -151,8 +151,8 @@ class DataDirectoryManager private constructor(
 
     fun modifySystemCatalog(action: (SystemCatalog) -> SystemCatalog): SystemCatalog {
         synchronized(systemCatalogModificationMutex) {
-            val newCatalog = action(systemCatalog)
-            saveSystemCatalog(newCatalog)
+            var newCatalog = action(systemCatalog)
+            newCatalog = saveSystemCatalog(newCatalog)
             systemCatalog = newCatalog
             return newCatalog
         }
