@@ -131,7 +131,8 @@ class DataDirectoryManager private constructor(
 
         if (keepOldRevisions != null) {
             try {
-                Files.walk(catalogDirectory, 0)
+                Files.walk(catalogDirectory, 1)
+                    .filter { file -> file != catalogDirectory }
                     .filter { file ->
                         val revisionNumber = CATALOG_REVISION_FILENAME_PATTERN.matchEntire(file.fileName.toString())
                             ?.groupValues
@@ -140,7 +141,10 @@ class DataDirectoryManager private constructor(
 
                         revisionNumber != null && revisionNumber < asRevision - keepOldRevisions
                     }
-                    .forEach { Files.deleteIfExists(it) }
+                    .forEach {
+                        log.debug("Deleting obsolete system catalog revision at $it")
+                        Files.deleteIfExists(it)
+                    }
             } catch (ex: Exception) {
                 log.warn("Failed to delete old system catalog revisions", ex)
             }
