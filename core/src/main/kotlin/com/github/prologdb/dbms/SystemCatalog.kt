@@ -52,6 +52,7 @@ data class SystemCatalog(
         )
     }
 
+    // TODO: identify by uuid
     data class KnowledgeBase(
         val name: String,
         val modules: Set<Module>,
@@ -70,6 +71,7 @@ data class SystemCatalog(
         }
     }
 
+    // TODO: identify by uuid
     data class Module(
         val name: String,
         val predicates: Set<Predicate>,

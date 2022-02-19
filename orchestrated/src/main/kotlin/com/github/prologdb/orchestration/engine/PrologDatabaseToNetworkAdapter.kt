@@ -35,6 +35,8 @@ class PrologDatabaseToNetworkAdapter(
 ) : DatabaseEngine<Session> {
     private val globalDirectives: Map<ClauseIndicator, (Session, TypedPredicateArguments) -> LazySequence<Unification>> = mapOf(
         ClauseIndicator.of("knowledge_base", 1) to { session, args ->
+            // TODO: require ongoing TX to be finished
+            // TODO: refresh system catalog here? because its also the TX boundary
             val specifier = args[0]
             val runtimeEnvironment = database.getRuntimeEnvironment(session.systemCatalog, specifier)
 

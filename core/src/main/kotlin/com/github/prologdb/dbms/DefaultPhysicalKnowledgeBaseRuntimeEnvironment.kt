@@ -4,8 +4,10 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.LazySequenceBuilder
 import com.github.prologdb.async.Principal
 import com.github.prologdb.async.mapRemaining
+import com.github.prologdb.parser.Reporting
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.lexer.LineEndingNormalizer
+import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.Clause
@@ -15,6 +17,7 @@ import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
+import com.github.prologdb.runtime.module.ASTModule
 import com.github.prologdb.runtime.module.Module
 import com.github.prologdb.runtime.module.ModuleImport
 import com.github.prologdb.runtime.module.ModuleNotFoundException
@@ -82,7 +85,6 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
 
     // todo: make a special version of the standard library module loader with adapted essential($clauses)
     private class ModuleLoader(private val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase) : com.github.prologdb.runtime.module.ModuleLoader {
-        private val parser = PrologParser()
         override fun load(reference: ModuleReference): Module {
             if (reference.pathAlias != DATABASE_MODULE_PATH_ALIAS) {
                 return StandardLibraryModuleLoader.load(reference)
@@ -91,13 +93,15 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
             val module = knowledgeBaseCatalog.modulesByName[reference.moduleName]
                 ?: throw ModuleNotFoundException(reference)
 
-            val lexer = Lexer(
-                SourceUnit("module ${reference.moduleName}"),
-                LineEndingNormalizer(module.prologSource.iterator())
-            )
-            val result = parser.parseSourceFile(lexer, DatabaseModuleSourceFileVisitor(module.name))
-            return result.item
-                ?: throw IllegalStateException("Failed to parse stored source for module ${module.name}: " + result.reportings.first())
+            val parseResult = parseModuleSource(reference, module.prologSource)
+            parseResult.reportings
+                .firstOrNull { it.level == Reporting.Level.ERROR }
+                ?.let { error ->
+                    throw IllegalStateException("Failed to parse stored source for module $reference: $error")
+                }
+
+            return parseResult.item
+                ?: throw IllegalStateException("Failed to parse stored source for module $reference")
         }
 
         val rootModule: Module = object : Module {
@@ -113,6 +117,15 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
 
     companion object {
         const val DATABASE_MODULE_PATH_ALIAS = "db"
+        private val parser = PrologParser()
+
+        fun parseModuleSource(reference: ModuleReference, source: String): ParseResult<ASTModule> {
+            val lexer = Lexer(
+                SourceUnit("module ${reference.moduleName}"),
+                LineEndingNormalizer(source.iterator())
+            )
+            return parser.parseSourceFile(lexer, DatabaseModuleSourceFileVisitor(reference.moduleName))
+        }
     }
 
     private inner class ProofSearchContext(

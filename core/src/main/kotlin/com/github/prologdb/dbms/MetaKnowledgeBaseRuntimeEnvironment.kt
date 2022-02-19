@@ -1,5 +1,6 @@
 package com.github.prologdb.dbms
 
+import com.github.prologdb.dbms.builtin.meta.BuiltinSource1
 import com.github.prologdb.parser.ModuleDeclaration
 import com.github.prologdb.parser.parser.DefaultModuleSourceFileVisitor
 import com.github.prologdb.parser.parser.PrologParser
@@ -27,7 +28,7 @@ class MetaKnowledgeBaseRuntimeEnvironment(
     rootModuleFor(knowledgeBaseCatalog),
     META_MODULE_LOADER
 ) {
-    override val defaultModuleName = null
+    override val defaultModuleName = ROOT_MODULE_NAME
 
     override fun newProofSearchContext(authorization: Authorization): DatabaseProofSearchContext {
         val superContext = super.newProofSearchContext(authorization)
@@ -52,7 +53,10 @@ class MetaKnowledgeBaseRuntimeEnvironment(
     companion object {
         const val KNOWLEDGE_BASE_SPECIFIER_FUNCTOR = "meta"
         private const val META_MODULE_PATH_ALIAS = "meta"
-        private val META_MODULE_NATIVE_IMPLEMENTATIONS: Map<ClauseIndicator, NativeCodeRule> = mapOf()
+        private const val ROOT_MODULE_NAME = "\$root"
+        private val META_MODULE_NATIVE_IMPLEMENTATIONS: Map<ClauseIndicator, NativeCodeRule> = listOf(
+            BuiltinSource1
+        ).associateBy(ClauseIndicator.Companion::of)
         private val PARSER = PrologParser()
 
         private val META_MODULE_LOADER = CascadingModuleLoader(listOf(
@@ -86,7 +90,7 @@ class MetaKnowledgeBaseRuntimeEnvironment(
                 ModuleImport.Selective(ModuleReference(META_MODULE_PATH_ALIAS, moduleCatalog.name), emptyMap())
             }
             override val localOperators = ISOOpsOperatorRegistry
-            override val name = "\$root"
+            override val name = ROOT_MODULE_NAME
         }
     }
 
