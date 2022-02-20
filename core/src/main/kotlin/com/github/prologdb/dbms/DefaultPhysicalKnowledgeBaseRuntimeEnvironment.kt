@@ -5,7 +5,7 @@ import com.github.prologdb.async.LazySequenceBuilder
 import com.github.prologdb.async.Principal
 import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.builtin.DatabaseStandardLibraryModuleLoader
-import com.github.prologdb.parser.Reporting
+import com.github.prologdb.parser.ReportingException
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.lexer.LineEndingNormalizer
 import com.github.prologdb.parser.parser.ParseResult
@@ -17,6 +17,7 @@ import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.PredicateNotDefinedException
 import com.github.prologdb.runtime.PredicateNotExportedException
+import com.github.prologdb.runtime.PrologInternalError
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.module.ASTModule
@@ -95,14 +96,10 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
                 ?: throw ModuleNotFoundException(reference)
 
             val parseResult = parseModuleSource(reference, module.prologSource)
-            parseResult.reportings
-                .firstOrNull { it.level == Reporting.Level.ERROR }
-                ?.let { error ->
-                    throw IllegalStateException("Failed to parse stored source for module $reference: $error")
-                }
+            ReportingException.failOnError(parseResult.reportings, "Failed to parse stored source for module $reference")
 
             return parseResult.item
-                ?: throw IllegalStateException("Failed to parse stored source for module $reference")
+                ?: throw PrologInternalError("Failed to parse stored source for module $reference. Got no errors and no result.")
         }
 
         val rootModule: Module = object : Module {
