@@ -3,6 +3,7 @@ package com.github.prologdb.storage.fact
 import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.storage.StorageException
 import com.github.prologdb.storage.fact.heapfile.HeapFileFactStore
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The default implementation to [FactStoreLoader].
@@ -21,21 +22,15 @@ import com.github.prologdb.storage.fact.heapfile.HeapFileFactStore
  */
 open class DefaultFactStoreLoader : FactStoreLoader {
 
-    private val knownSpecializedLoaders: MutableSet<SpecializedFactStoreLoader<*>> = mutableSetOf()
+    private val knownSpecializedLoadersById: MutableMap<String, FactStoreImplementationLoader> = ConcurrentHashMap()
 
     /**
-     * Adds the given [SpecializedFactStoreLoader] to the known loaders. The loader will be
+     * Adds the given [FactStoreImplementationLoader] to the known loaders. The loader will be
      * considered for calls to [create] and [load].
      */
-    fun registerSpecializedLoader(loader: SpecializedFactStoreLoader<*>) {
-        synchronized(knownSpecializedLoaders) {
-            if (loader !in knownSpecializedLoaders) {
-                if (knownSpecializedLoaders.any { it.type == loader.type }) {
-                    throw IllegalStateException("A specialized loader for fact store type ${loader.type} is already registered.")
-                }
-
-                knownSpecializedLoaders.add(loader)
-            }
+    fun registerSpecializedLoader(loader: FactStoreImplementationLoader) {
+        if (knownSpecializedLoadersById.putIfAbsent(loader.implementationId, loader) == null) {
+            throw IllegalStateException("A specialized loader for fact store implementation id ${loader.implementationId} is already registered.")
         }
     }
 
@@ -45,7 +40,7 @@ open class DefaultFactStoreLoader : FactStoreLoader {
     }
 
     override fun create(directoryManager: DataDirectoryManager.PredicateScope, requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStore {
-        if (directoryManager.catalogEntry?.factStoreClassName != null) {
+        if (directoryManager.catalogEntry.factStoreImplementationId != null) {
             throw StorageException("A fact store for predicate ${directoryManager.uuid} already exists.")
         }
 
@@ -61,8 +56,8 @@ open class DefaultFactStoreLoader : FactStoreLoader {
         getLoader(directoryManager)?.destroy(directoryManager)
     }
 
-    protected fun getLoader(directoryManager: DataDirectoryManager.PredicateScope): SpecializedFactStoreLoader<*>? {
-        val implClassName = directoryManager.catalogEntry.factStoreClassName ?: return null
+    protected fun getLoader(directoryManager: DataDirectoryManager.PredicateScope): FactStoreImplementationLoader? {
+        val implClassName = directoryManager.catalogEntry.factStoreImplementationId ?: return null
         return getLoader(implClassName)
     }
 
@@ -70,22 +65,22 @@ open class DefaultFactStoreLoader : FactStoreLoader {
      * **MUST BE THREAD-SAFE!**
      * @return the loader for the given class name
      */
-    protected fun getLoader(implClassName: String): SpecializedFactStoreLoader<*> {
-        synchronized(knownSpecializedLoaders) {
-            return knownSpecializedLoaders
-                .firstOrNull { it.type.qualifiedName == implClassName }
-                ?: throw StorageException("Specialized loader for store implementation $implClassName is not registered.")
+    protected fun getLoader(implementationId: String): FactStoreImplementationLoader {
+        synchronized(knownSpecializedLoadersById) {
+            return knownSpecializedLoadersById[implementationId]
+                ?: throw StorageException("Specialized loader for store implementation $implementationId is not registered.")
         }
     }
 
-    protected fun selectImplementation(requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): SpecializedFactStoreLoader<*> {
-        val implsFittingRequirements = knownSpecializedLoaders.filter { loader ->
-            requiredFeatures.all { feature -> feature.isSupportedBy(loader.type) }
+    protected fun selectImplementation(requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStoreImplementationLoader {
+        val allImplsLocal = knownSpecializedLoadersById.values.toList()
+        val implsFittingRequirements = allImplsLocal.filter { loader ->
+            requiredFeatures.all(loader::supportsFeature)
         }
 
         if (implsFittingRequirements.isEmpty()) {
             val requirementsNotFulfilled = requiredFeatures.filter { feature ->
-                knownSpecializedLoaders.none { loader -> feature.isSupportedBy(loader.type) }
+                allImplsLocal.none { loader -> loader.supportsFeature(feature) }
             }
 
             if (requirementsNotFulfilled.isEmpty()) {
@@ -99,13 +94,11 @@ open class DefaultFactStoreLoader : FactStoreLoader {
             .mapIndexed { index, loader -> Pair(loader, desiredFeatures.size - index) }
             .toSet()
 
-        val implementationsWithScore: Set<Pair<SpecializedFactStoreLoader<*>, Int>> = implsFittingRequirements
+        val implementationsWithScore: Set<Pair<FactStoreImplementationLoader, Int>> = implsFittingRequirements
             .map { loader ->
-                val score = desiredFeaturesWithWeight
-                    .map { (feature, weight) ->
-                        if (feature.isSupportedBy(loader.type)) weight else 0
-                    }
-                    .sum()
+                val score = desiredFeaturesWithWeight.sumOf { (feature, weight) ->
+                    if (loader.supportsFeature(feature)) weight else 0
+                }
 
                 Pair(loader, score)
             }
@@ -121,9 +114,9 @@ open class DefaultFactStoreLoader : FactStoreLoader {
         // there is a draw; go through the features by weight decreasing
         // if a non-empty subset of the implementations supports the feature,
         // reduce the working set to those and go on to the next feature
-        var drawImpls: List<SpecializedFactStoreLoader<*>> = implementationsWithTopScore
+        var drawImpls: List<FactStoreImplementationLoader> = implementationsWithTopScore
         for (desiredFeature in desiredFeatures) {
-            val implsSupportingFeature = drawImpls.filter { desiredFeature.isSupportedBy(it.type) }
+            val implsSupportingFeature = drawImpls.filter { it.supportsFeature(desiredFeature) }
             if (implsSupportingFeature.isNotEmpty()) {
                 drawImpls = implsSupportingFeature
             }

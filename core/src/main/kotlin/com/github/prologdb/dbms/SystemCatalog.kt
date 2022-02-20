@@ -73,7 +73,10 @@ data class SystemCatalog(
         override val functor: String,
         override val arity: Int,
         val uuid: UUID,
-        val factStoreClassName: String?
+        /**
+         * @see com.github.prologdb.storage.fact.FactStoreImplementationLoader.implementationId
+         */
+        val factStoreImplementationId: String?
     ) : HasFunctorAndArity {
         @get:JsonIgnore
         lateinit var module: Module

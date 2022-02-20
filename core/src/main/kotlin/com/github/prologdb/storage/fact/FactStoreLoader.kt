@@ -4,6 +4,7 @@ import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.dbms.SystemCatalog
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
+import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.StorageException
 import java.util.UUID
 

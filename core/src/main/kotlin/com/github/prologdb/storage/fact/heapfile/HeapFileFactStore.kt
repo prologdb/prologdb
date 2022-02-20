@@ -10,11 +10,11 @@ import com.github.prologdb.io.util.ByteArrayOutputStream
 import com.github.prologdb.io.util.Pool
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.InvalidPersistenceIDException
-import com.github.prologdb.storage.PersistentStorage
 import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.fact.FactStore
+import com.github.prologdb.storage.fact.FactStoreFeature
 import com.github.prologdb.storage.fact.PersistenceID
-import com.github.prologdb.storage.fact.SpecializedFactStoreLoader
+import com.github.prologdb.storage.fact.FactStoreImplementationLoader
 import com.github.prologdb.storage.heapfile.HeapFile
 import com.github.prologdb.storage.rootDeviceProperties
 import java.io.DataOutput
@@ -27,7 +27,6 @@ import java.util.concurrent.Future
 /**
  * An implementation of [FactStore] based on [HeapFile]
  */
-@PersistentStorage
 class HeapFileFactStore(
     private val arity: Int,
     private val binaryReader: BinaryPrologReader,
@@ -97,8 +96,9 @@ class HeapFileFactStore(
         return Array(arity) { binaryReader.readTermFrom(data) }
     }
 
-    object Loader : SpecializedFactStoreLoader<HeapFileFactStore> {
-        override val type = HeapFileFactStore::class
+    object Loader : FactStoreImplementationLoader {
+
+        override val implementationId = "storage.facts.firstparty.heapfile"
 
         override fun createOrLoad(directoryManager: DataDirectoryManager.PredicateScope): HeapFileFactStore {
             val path = directoryManager.heapFilePath
@@ -120,6 +120,10 @@ class HeapFileFactStore(
 
         override fun destroy(directoryManager: DataDirectoryManager.PredicateScope) {
             Files.deleteIfExists(directoryManager.heapFilePath)
+        }
+
+        override fun supportsFeature(feature: FactStoreFeature): Boolean {
+            return feature == FactStoreFeature.PERSISTENT
         }
 
         private val DataDirectoryManager.PredicateScope.heapFilePath: Path

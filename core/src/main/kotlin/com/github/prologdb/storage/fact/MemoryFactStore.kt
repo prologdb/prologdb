@@ -14,8 +14,6 @@ import java.util.concurrent.Future
 /**
  * A [FactStore] that works only in memory.
  */
-@VolatileStorage
-@AcceleratedStorage
 class MemoryFactStore(val arity: Int) : FactStore {
 
     /** Stores facts. Gets resized throughout the lifetime */
