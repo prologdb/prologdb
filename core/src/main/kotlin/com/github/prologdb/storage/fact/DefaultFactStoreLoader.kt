@@ -3,6 +3,8 @@ package com.github.prologdb.storage.fact
 import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.storage.StorageException
 import com.github.prologdb.storage.fact.heapfile.HeapFileFactStore
+import org.slf4j.LoggerFactory
+import java.util.ServiceLoader
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -30,13 +32,8 @@ open class DefaultFactStoreLoader : FactStoreLoader {
      */
     fun registerSpecializedLoader(loader: FactStoreImplementationLoader) {
         if (knownSpecializedLoadersById.putIfAbsent(loader.implementationId, loader) == null) {
-            throw IllegalStateException("A specialized loader for fact store implementation id ${loader.implementationId} is already registered.")
+            throw DuplicateFactStoreImplementationException(loader.implementationId)
         }
-    }
-
-    init {
-        // TODO: replace with ServiceLoader
-        registerSpecializedLoader(HeapFileFactStore.Loader)
     }
 
     override fun create(directoryManager: DataDirectoryManager.PredicateScope, requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStore {
@@ -126,5 +123,23 @@ open class DefaultFactStoreLoader : FactStoreLoader {
         // not predictable which one ist the first in the list. Hence
         // the contract defines that it is not defined which implementation will be used.
         return drawImpls.first()
+    }
+
+    companion object {
+        private val log = LoggerFactory.getLogger("prologdb.storage")
+        @JvmStatic
+        fun withServiceLoaderImplementations() : DefaultFactStoreLoader {
+            val loader = DefaultFactStoreLoader()
+            ServiceLoader.load(FactStoreImplementationLoader::class.java).forEach { impl ->
+                try {
+                    loader.registerSpecializedLoader(impl)
+                }
+                catch (ex: DuplicateFactStoreImplementationException) {
+                    log.warn("Ignoring fact store implementation ${impl::class.qualifiedName} because another class already provides an implementation for ${ex.id}")
+                }
+            }
+
+            return loader
+        }
     }
 }

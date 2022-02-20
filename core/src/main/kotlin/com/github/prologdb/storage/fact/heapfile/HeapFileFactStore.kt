@@ -96,7 +96,7 @@ class HeapFileFactStore(
         return Array(arity) { binaryReader.readTermFrom(data) }
     }
 
-    object Loader : FactStoreImplementationLoader {
+    class Loader : FactStoreImplementationLoader {
 
         override val implementationId = "storage.facts.firstparty.heapfile"
 

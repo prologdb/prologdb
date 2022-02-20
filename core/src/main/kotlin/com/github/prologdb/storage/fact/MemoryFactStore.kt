@@ -3,6 +3,7 @@ package com.github.prologdb.storage.fact
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.Principal
 import com.github.prologdb.async.buildLazySequence
+import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Term
@@ -104,5 +105,22 @@ class MemoryFactStore(val arity: Int) : FactStore {
 
     override fun close() {
         // nothing to do, really
+    }
+
+    class Loader : FactStoreImplementationLoader {
+
+        override val implementationId = "storage.facts.firstparty.in-memory"
+
+        override fun createOrLoad(directoryManager: DataDirectoryManager.PredicateScope): FactStore {
+            return MemoryFactStore(directoryManager.catalogEntry.indicator.indicator.arity)
+        }
+
+        override fun destroy(directoryManager: DataDirectoryManager.PredicateScope) {
+
+        }
+
+        override fun supportsFeature(feature: FactStoreFeature): Boolean {
+            return feature in setOf(FactStoreFeature.VOLATILE, FactStoreFeature.ACCELERATED)
+        }
     }
 }

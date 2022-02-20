@@ -1,0 +1,2 @@
+com.github.prologdb.storage.fact.heapfile.HeapFileFactStore$Loader
+com.github.prologdb.storage.fact.MemoryFactStore$Loader

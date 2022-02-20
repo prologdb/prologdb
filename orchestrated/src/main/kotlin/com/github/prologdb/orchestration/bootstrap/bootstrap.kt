@@ -83,4 +83,4 @@ enum class ShutdownReason {
     MAINTENANCE
 }
 
-private val FactStoreLoader: FactStoreLoader = DefaultFactStoreLoader()
+private val FactStoreLoader: FactStoreLoader = DefaultFactStoreLoader.withServiceLoaderImplementations()
