@@ -6,23 +6,14 @@ import com.github.prologdb.runtime.module.ModuleLoader
 import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.stdlib.loader.StandardLibraryModuleLoader
+import com.github.prologdb.util.OverrideModule
 
 object DatabaseStandardLibraryModuleLoader : ModuleLoader {
     override fun load(reference: ModuleReference): Module {
         val fromDefaultStdlib = StandardLibraryModuleLoader.load(reference)
         val overrides = overrides[reference] ?: return fromDefaultStdlib
 
-        return object : Module {
-            override val name = fromDefaultStdlib.name
-            override val imports = fromDefaultStdlib.imports
-            override val localOperators = fromDefaultStdlib.localOperators
-            override val allDeclaredPredicates = HashMap(fromDefaultStdlib.allDeclaredPredicates).also { allDeclared ->
-                overrides.forEach { (overrideIndicator, overrideImpl) ->
-                    allDeclared[overrideIndicator] = overrideImpl
-                }
-            }
-            override val exportedPredicates = fromDefaultStdlib.exportedPredicates.keys.associateWith(allDeclaredPredicates::getValue)
-        }
+        return OverrideModule(fromDefaultStdlib, overrides)
     }
 
     private val overrides: Map<ModuleReference, Map<ClauseIndicator, PrologCallable>> = mapOf(

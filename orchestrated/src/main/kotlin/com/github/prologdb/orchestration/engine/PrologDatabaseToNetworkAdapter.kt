@@ -11,25 +11,27 @@ import com.github.prologdb.net.session.handle.STOP_AT_EOF_OR_FULL_STOP
 import com.github.prologdb.orchestration.KnowledgeBaseNotSelectedException
 import com.github.prologdb.orchestration.ModuleNotSelectedException
 import com.github.prologdb.orchestration.Session
-import com.github.prologdb.parser.ReportingException
+import com.github.prologdb.parser.ParseException
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.parser.PrologParser.Companion.STOP_AT_EOF
 import com.github.prologdb.parser.source.SourceUnit
-import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.PrologInternalError
 import com.github.prologdb.runtime.PrologInvocationContractViolationException
 import com.github.prologdb.runtime.PrologUnsupportedOperationException
 import com.github.prologdb.runtime.RandomVariableScope
-import com.github.prologdb.runtime.module.ModuleNotFoundException
+import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.module.ModuleNotLoadedException
 import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
-import com.github.prologdb.runtime.term.*
+import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import org.slf4j.LoggerFactory
@@ -64,7 +66,7 @@ class PrologDatabaseToNetworkAdapter(
         ClauseIndicator.of("explain", 1) to { session, args ->
             val queryTerm = args.getTyped<CompoundTerm>(0)
             val queryResult = parser.transformQuery(queryTerm)
-            ReportingException.failOnError(queryResult.reportings)
+            ParseException.failOnError(queryResult.reportings)
             val query = queryResult.item
                 ?: throw PrologInternalError("Failed to parse query. Got no errors and no result.")
             val runtimeEnvironment = session.runtimeEnvironment as? PhysicalKnowledgeBaseRuntimeEnvironment

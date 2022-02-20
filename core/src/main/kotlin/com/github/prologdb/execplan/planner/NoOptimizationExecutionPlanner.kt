@@ -1,6 +1,7 @@
 package com.github.prologdb.execplan.planner
 
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
+import com.github.prologdb.dbms.builtin.PhysicalDynamicPredicate
 import com.github.prologdb.execplan.FactScanFunctor
 import com.github.prologdb.execplan.FunctorPipe
 import com.github.prologdb.execplan.InvokeFunctor
@@ -51,21 +52,18 @@ class NoOptimizationExecutionPlanner : ExecutionPlanner {
                 }
             }
             is PredicateInvocationQuery -> {
-                val (fqi, _, trueInvocation) = ctxt.resolveHead(query.goal)
+                val (fqi, callable, trueInvocation) = ctxt.resolveHead(query.goal)
                 val stackTraceElementProvider = {
                     PrologStackTraceElement(query.goal, query.sourceInformation)
                 }
 
-                val predicateCatalog = ctxt.knowledgeBaseCatalog.allPredicatesByFqi[fqi]
-                if (predicateCatalog != null) {
-
-
+                if (callable is PhysicalDynamicPredicate) {
                     FunctorPipe(
-                        FactScanFunctor(predicateCatalog, stackTraceElementProvider),
+                        FactScanFunctor(callable.catalog, stackTraceElementProvider),
                         UnifyFunctor(trueInvocation)
                     ) as PlanFunctor<Unit, Any>
                 } else {
-                    InvokeFunctor(fqi.moduleName, trueInvocation, stackTraceElementProvider) as PlanFunctor<Unit, Any>
+                    InvokeFunctor(fqi.moduleName, trueInvocation, callable, stackTraceElementProvider) as PlanFunctor<Unit, Any>
                 }
             }
             else -> throw PrologQueryException("Unsupported query type ${query::class.simpleName}")

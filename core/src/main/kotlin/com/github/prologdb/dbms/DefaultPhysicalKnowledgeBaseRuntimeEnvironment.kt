@@ -5,7 +5,8 @@ import com.github.prologdb.async.LazySequenceBuilder
 import com.github.prologdb.async.Principal
 import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.builtin.DatabaseStandardLibraryModuleLoader
-import com.github.prologdb.parser.ReportingException
+import com.github.prologdb.dbms.builtin.PhysicalDynamicPredicate
+import com.github.prologdb.parser.ParseException
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.lexer.LineEndingNormalizer
 import com.github.prologdb.parser.parser.ParseResult
@@ -35,6 +36,7 @@ import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.runtime.util.OperatorRegistry
+import com.github.prologdb.util.OverrideModule
 import java.util.UUID
 import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProofSearchContext
 
@@ -88,6 +90,22 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
 
     private class ModuleLoader(private val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase) : com.github.prologdb.runtime.module.ModuleLoader {
         override fun load(reference: ModuleReference): Module {
+            val fromSource = loadSource(reference)
+
+            val moduleCatalog = knowledgeBaseCatalog.modulesByName[reference.moduleName]
+            if (moduleCatalog == null || moduleCatalog.predicates.isEmpty()) {
+                return fromSource
+            }
+
+            return OverrideModule(
+                fromSource,
+                moduleCatalog.predicates.associate { predicateCatalog ->
+                    ClauseIndicator.of(predicateCatalog) to PhysicalDynamicPredicate(predicateCatalog)
+                }
+            )
+        }
+
+        private fun loadSource(reference: ModuleReference): Module {
             if (reference.pathAlias != DATABASE_MODULE_PATH_ALIAS) {
                 return DatabaseStandardLibraryModuleLoader.load(reference)
             }
@@ -96,7 +114,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
                 ?: throw ModuleNotFoundException(reference)
 
             val parseResult = parseModuleSource(reference, module.prologSource)
-            ReportingException.failOnError(parseResult.reportings, "Failed to parse stored source for module $reference")
+            ParseException.failOnError(parseResult.reportings, "Failed to parse stored source for module $reference")
 
             return parseResult.item
                 ?: throw PrologInternalError("Failed to parse stored source for module $reference. Got no errors and no result.")

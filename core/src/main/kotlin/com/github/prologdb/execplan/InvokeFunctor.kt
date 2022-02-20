@@ -7,9 +7,9 @@ import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
-import com.github.prologdb.runtime.PrologInternalError
 import com.github.prologdb.runtime.exception.PrologStackTraceElement
 import com.github.prologdb.runtime.exception.prologTry
+import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.Unification
@@ -18,6 +18,7 @@ import com.github.prologdb.runtime.unification.VariableBucket
 class InvokeFunctor(
     val moduleName: String,
     val invocation: CompoundTerm,
+    val callable: PrologCallable,
     val stackTraceElementProvider: () -> PrologStackTraceElement
 ) : PlanFunctor<Any?, Unit> {
     val asColonTwo = CompoundTerm(":", arrayOf(
@@ -27,9 +28,6 @@ class InvokeFunctor(
     val fqi = FullyQualifiedClauseIndicator(moduleName, ClauseIndicator.of(invocation))
 
     override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Unit>> {
-        val (_, callable, _) = ctxt.resolveModuleScopedCallable(asColonTwo)
-            ?: throw PrologInternalError("Did not find predicate defined in execution plan $fqi")
-
         return inputs.flatMapRemaining { (vars, _) ->
             val replacedInvocation = invocation.substituteVariables(vars.asSubstitutionMapper())
             yieldAllFinal(

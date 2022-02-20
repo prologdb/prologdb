@@ -1,13 +1,23 @@
 package com.github.prologdb.net
 
 import com.github.prologdb.async.LazySequence
-import com.github.prologdb.net.session.*
+import com.github.prologdb.net.session.ConnectionCloseEvent
+import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
+import com.github.prologdb.net.session.DatabaseEngine
+import com.github.prologdb.net.session.GeneralError
+import com.github.prologdb.net.session.InitializeQueryCommand
+import com.github.prologdb.net.session.ProtocolMessage
+import com.github.prologdb.net.session.QueryClosedMessage
+import com.github.prologdb.net.session.QueryOpenedMessage
+import com.github.prologdb.net.session.QueryRelatedError
+import com.github.prologdb.net.session.QuerySolutionMessage
+import com.github.prologdb.net.session.SessionInitializer
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.net.util.prettyPrintStackTrace
 import com.github.prologdb.net.util.sortForSubstitution
 import com.github.prologdb.net.util.unsingedIntHexString
-import com.github.prologdb.parser.ReportingException
+import com.github.prologdb.parser.ParseException
 import com.github.prologdb.parser.SyntaxError
 import com.github.prologdb.parser.source.SourceLocation
 import com.github.prologdb.runtime.PrologException
@@ -23,7 +33,9 @@ import java.net.Inet6Address
 import java.net.InetSocketAddress
 import java.nio.channels.AsynchronousCloseException
 import java.nio.channels.AsynchronousServerSocketChannel
-import java.util.*
+import java.util.Collections
+import java.util.Timer
+import java.util.TimerTask
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
 import kotlin.concurrent.thread
@@ -182,7 +194,7 @@ class ServerInterface<SessionState : Any>(
 
     private fun <SessionState : Any> InitializeQueryCommand.startUsing(sessionState: SessionState, engine: DatabaseEngine<SessionState>): LazySequence<Unification> {
         if (kind == InitializeQueryCommand.Kind.DIRECTIVE && instruction !is PredicateInvocationQuery) {
-            throw ReportingException.ofSingle(SyntaxError("Directives must consist of a single predicate invocation query, found compound query.", SourceLocation.EOF))
+            throw ParseException.ofSingle(SyntaxError("Directives must consist of a single predicate invocation query, found compound query.", SourceLocation.EOF))
         }
 
         val instruction = if (preInstantiations == null || preInstantiations.isEmpty) instruction else {

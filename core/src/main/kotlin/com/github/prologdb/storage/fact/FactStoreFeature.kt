@@ -1,6 +1,6 @@
 package com.github.prologdb.storage.fact
 
-import com.github.prologdb.parser.ReportingException
+import com.github.prologdb.parser.ParseException
 import com.github.prologdb.parser.SyntaxError
 import com.github.prologdb.parser.source.SourceLocation
 import com.github.prologdb.runtime.term.Atom
@@ -10,7 +10,7 @@ import com.github.prologdb.runtime.term.Term
 value class FactStoreFeature(val spec: Term) {
     init {
         if (spec.variables.isNotEmpty()) {
-            throw ReportingException.ofSingle(
+            throw ParseException.ofSingle(
                 SyntaxError("FactStoreFeature specs must be ground.", SourceLocation.EOF)
             )
         }

@@ -3,8 +3,7 @@ package com.github.prologdb.dbms.builtin.meta
 import com.github.prologdb.dbms.DefaultPhysicalKnowledgeBaseRuntimeEnvironment
 import com.github.prologdb.dbms.MetaKnowledgeBaseRuntimeEnvironment
 import com.github.prologdb.dbms.builtin.nativeDatabaseRule
-import com.github.prologdb.parser.Reporting
-import com.github.prologdb.parser.ReportingException
+import com.github.prologdb.parser.ParseException
 import com.github.prologdb.runtime.ArgumentTypeError
 import com.github.prologdb.runtime.PrologInternalError
 import com.github.prologdb.runtime.PrologInvocationContractViolationException
@@ -35,7 +34,7 @@ val BuiltinSource1 = nativeDatabaseRule("source", 1) { args, ctxt ->
 
             val newSource = arg.toKotlinString()
             val parseResult = DefaultPhysicalKnowledgeBaseRuntimeEnvironment.parseModuleSource(moduleReference, newSource)
-            ReportingException.failOnError(parseResult.reportings)
+            ParseException.failOnError(parseResult.reportings)
             if (parseResult.item == null) {
                 throw PrologInternalError("Failed to parse new source for module $moduleReference. Got no errors and no result.")
             }
