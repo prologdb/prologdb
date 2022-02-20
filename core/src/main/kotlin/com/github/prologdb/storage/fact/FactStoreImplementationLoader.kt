@@ -1,8 +1,6 @@
 package com.github.prologdb.storage.fact
 
 import com.github.prologdb.dbms.DataDirectoryManager
-import com.github.prologdb.runtime.term.Term
-import kotlin.reflect.KClass
 
 /**
  * Creates a new / loads from persistence [FactStore]s of only one particular type.

@@ -67,7 +67,11 @@ data class SystemCatalog(
         val name: String,
         val predicates: Set<Predicate>,
         val prologSource: String
-    )
+    ) {
+        @get:JsonIgnore
+        lateinit var knowledgeBase: KnowledgeBase
+            internal set
+    }
 
     data class Predicate(
         override val functor: String,
@@ -114,6 +118,7 @@ data class SystemCatalog(
     private fun setBackwardsReferences() {
         knowledgeBases.forEach { kb ->
             kb.modules.forEach { module ->
+                module.knowledgeBase = kb
                 module.predicates.forEach { predicate ->
                     predicate.module = module
                 }

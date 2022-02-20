@@ -2,7 +2,6 @@ package com.github.prologdb.storage.fact
 
 import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.storage.StorageException
-import com.github.prologdb.storage.fact.heapfile.HeapFileFactStore
 import org.slf4j.LoggerFactory
 import java.util.ServiceLoader
 import java.util.concurrent.ConcurrentHashMap
@@ -37,12 +36,34 @@ open class DefaultFactStoreLoader : FactStoreLoader {
     }
 
     override fun create(directoryManager: DataDirectoryManager.PredicateScope, requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStore {
-        if (directoryManager.catalogEntry.factStoreImplementationId != null) {
-            throw StorageException("A fact store for predicate ${directoryManager.uuid} already exists.")
+        val loader = selectImplementation(requiredFeatures, desiredFeatures)
+        return create(directoryManager, loader)
+    }
+
+    override fun create(
+        directoryManager: DataDirectoryManager.PredicateScope,
+        implementationId: String
+    ): FactStore {
+        val loader = knownSpecializedLoadersById[implementationId]
+            ?: throw FactStoreImplementationUnknownException(implementationId)
+        return create(directoryManager, loader)
+    }
+
+    private fun create(
+        directoryManager: DataDirectoryManager.PredicateScope,
+        loader: FactStoreImplementationLoader
+    ): FactStore {
+        lateinit var factStore: FactStore
+        directoryManager.modifyPredicateCatalog { catalog ->
+            if (catalog.factStoreImplementationId != null) {
+                throw StorageException("A fact store for predicate ${directoryManager.uuid} already exists.")
+            }
+
+            factStore = loader.createOrLoad(directoryManager)
+            catalog.copy(factStoreImplementationId = loader.implementationId)
         }
 
-        val loader = selectImplementation(requiredFeatures, desiredFeatures)
-        return loader.createOrLoad(directoryManager)
+        return factStore
     }
 
     override fun load(directoryManager: DataDirectoryManager.PredicateScope): FactStore? {

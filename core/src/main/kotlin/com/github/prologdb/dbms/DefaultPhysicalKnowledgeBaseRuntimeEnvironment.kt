@@ -4,6 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.LazySequenceBuilder
 import com.github.prologdb.async.Principal
 import com.github.prologdb.async.mapRemaining
+import com.github.prologdb.dbms.builtin.DatabaseStandardLibraryModuleLoader
 import com.github.prologdb.parser.Reporting
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.lexer.LineEndingNormalizer
@@ -26,9 +27,7 @@ import com.github.prologdb.runtime.module.ModuleNotLoadedException
 import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
-import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProofSearchContext
 import com.github.prologdb.runtime.query.Query
-import com.github.prologdb.runtime.stdlib.loader.StandardLibraryModuleLoader
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Term
@@ -36,6 +35,7 @@ import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.runtime.util.OperatorRegistry
 import java.util.UUID
+import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProofSearchContext
 
 internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructor(
     override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
@@ -85,11 +85,10 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         )
     }
 
-    // todo: make a special version of the standard library module loader with adapted essential($clauses)
     private class ModuleLoader(private val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase) : com.github.prologdb.runtime.module.ModuleLoader {
         override fun load(reference: ModuleReference): Module {
             if (reference.pathAlias != DATABASE_MODULE_PATH_ALIAS) {
-                return StandardLibraryModuleLoader.load(reference)
+                return DatabaseStandardLibraryModuleLoader.load(reference)
             }
 
             val module = knowledgeBaseCatalog.modulesByName[reference.moduleName]

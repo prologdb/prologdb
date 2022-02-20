@@ -2,7 +2,6 @@ package com.github.prologdb.dbms
 
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.execplan.planner.NoOptimizationExecutionPlanner
-import com.github.prologdb.runtime.PrologInvocationContractViolationException
 import com.github.prologdb.runtime.PrologUnsupportedOperationException
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
@@ -10,6 +9,7 @@ import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.MissingFactStoreException
 import com.github.prologdb.storage.fact.DefaultFactStoreLoader
 import com.github.prologdb.storage.fact.FactStore
+import com.github.prologdb.storage.fact.FactStoreFeature
 import com.github.prologdb.storage.fact.FactStoreLoader
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
@@ -125,6 +125,18 @@ class PrologDatabase(
                 ?: throw MissingFactStoreException(predicateUuid)
             factStores[predicateUuid] = factStore
             return factStore
+        }
+    }
+
+    fun createFactStore(predicateUuid: UUID, implementationId: String): FactStore {
+        synchronized(factStoreLoadingMutex) {
+            return factStoreLoader.create(dataDirectory.scopedForPredicate(predicateUuid), implementationId)
+        }
+    }
+
+    fun createFactStore(predicateUuid: UUID, requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStore {
+        synchronized(factStoreLoadingMutex) {
+            return factStoreLoader.create(dataDirectory.scopedForPredicate(predicateUuid), requiredFeatures, desiredFeatures)
         }
     }
 

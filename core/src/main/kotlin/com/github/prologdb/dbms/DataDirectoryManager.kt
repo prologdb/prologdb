@@ -1,7 +1,5 @@
 package com.github.prologdb.dbms
 
-import com.fasterxml.jackson.core.PrettyPrinter
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.prologdb.util.concurrency.locks.PIDLockFile
@@ -9,12 +7,9 @@ import com.github.prologdb.util.filesystem.setOwnerReadWriteEverybodyElseNoAcces
 import org.slf4j.LoggerFactory
 import java.io.FileNotFoundException
 import java.io.IOException
-import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.nio.file.attribute.PosixFilePermission
-import java.nio.file.attribute.PosixFilePermissions
 import java.util.UUID
 import java.util.stream.Collectors.toList
 
@@ -179,7 +174,24 @@ class DataDirectoryManager private constructor(
 
     inner class PredicateScope internal constructor(val uuid: UUID, val directory: Path) {
 
-        val catalogEntry: SystemCatalog.Predicate = systemCatalog.allPredicates.getValue(uuid)
+        val catalogEntry: SystemCatalog.Predicate
+            get() = systemCatalog.allPredicates.getValue(uuid)
+
+        fun modifyPredicateCatalog(action: (SystemCatalog.Predicate) -> SystemCatalog.Predicate): SystemCatalog.Predicate {
+            val newSystemCatalog = modifySystemCatalog { systemCatalog ->
+                val currentPredicateCatalog = systemCatalog.allPredicates.getValue(uuid)
+                val newPredicateCatalog = action(currentPredicateCatalog)
+                val currentModuleCatalog = currentPredicateCatalog.module
+                val currentKnowledgeBaseCatalog = currentModuleCatalog.knowledgeBase
+                systemCatalog.copy(knowledgeBases = (systemCatalog.knowledgeBases - currentKnowledgeBaseCatalog) + currentKnowledgeBaseCatalog.copy(
+                    modules = (currentKnowledgeBaseCatalog.modules - currentModuleCatalog) + currentModuleCatalog.copy(
+                        predicates = (currentModuleCatalog.predicates - currentPredicateCatalog) + newPredicateCatalog
+                    )
+                ))
+            }
+
+            return newSystemCatalog.allPredicates.getValue(uuid)
+        }
     }
 
     private fun requireOpen() {
