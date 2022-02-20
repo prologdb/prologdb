@@ -51,6 +51,7 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
         when (mode) {
             MODE_LENGTH -> readAndContinueLength()
             MODE_MESSAGE -> readAndContinueMessage()
+            else -> { /* impossible code path */ }
         }
     }
 
@@ -185,6 +186,7 @@ class AsyncByteChannelDelimitedProtobufReader<T : GeneratedMessageV3>(
         source.limit(positionBefore + length)
 
         try {
+            @Suppress("UNCHECKED_CAST")
             return typeClass
                 .getMethod("parseFrom", ByteBuffer::class.java)
                 .invoke(null, source) as T

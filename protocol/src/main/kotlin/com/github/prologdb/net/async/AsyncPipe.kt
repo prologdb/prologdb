@@ -66,7 +66,7 @@ class AsyncPipe<Item, ConsumptionResult>(private val consumer: (Item, Completabl
 
         val (item, callback) = nextItem
 
-        callback.whenComplete { r, e ->
+        callback.whenComplete { _, _ ->
             consume(onQueueDepleted)
         }
         consumer(item, callback)

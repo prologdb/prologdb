@@ -35,19 +35,19 @@ import java.util.function.Consumer
 
 private val log = LoggerFactory.getLogger("prologdb.network")
 
-internal class ProtocolVersion1SessionHandle(
+internal class ProtocolVersion1SessionHandle<SessionState : Any>(
     override val clientId: String,
     private val channel: AsynchronousByteChannel,
-    parserDelegate: ParserDelegate<*>,
+    parserDelegate: ParserDelegate<SessionState>,
     binaryReader: BinaryPrologReader,
     binaryWriter: BinaryPrologWriter
-) : SessionHandle {
-    override var sessionState: Any? = null
+) : SessionHandle<SessionState> {
+    override var sessionState: SessionState? = null
 
     override val incomingMessages: Observable<ProtocolMessage>
 
     private val prologReader = ProtocolVersion1PrologReader(
-        parserDelegate as ParserDelegate<Any?>,
+        parserDelegate,
         binaryReader
     )
 
@@ -161,11 +161,11 @@ internal class ProtocolVersion1SessionHandle(
     }
 }
 
-private class ProtocolVersion1PrologReader(
-    private val parser: ParserDelegate<Any?>,
+private class ProtocolVersion1PrologReader<SessionState : Any>(
+    private val parser: ParserDelegate<SessionState>,
     private val binaryPrologReader: BinaryPrologReader
 ) {
-    fun toRuntimeTerm(sessionState: Any?, protoTerm: com.github.prologdb.net.v1.messages.Term, source: SourceUnit): Term {
+    fun toRuntimeTerm(sessionState: SessionState?, protoTerm: com.github.prologdb.net.v1.messages.Term, source: SourceUnit): Term {
         return when (protoTerm.type!!) {
             com.github.prologdb.net.v1.messages.Term.Type.BINARY -> {
                 try {
@@ -186,7 +186,7 @@ private class ProtocolVersion1PrologReader(
         }
     }
 
-    fun toRuntimeQuery(sessionState: Any?, protoQuery: com.github.prologdb.net.v1.messages.Query, source: SourceUnit): Query {
+    fun toRuntimeQuery(sessionState: SessionState?, protoQuery: com.github.prologdb.net.v1.messages.Query, source: SourceUnit): Query {
         return when (protoQuery.type!!) {
             com.github.prologdb.net.v1.messages.Query.Type.BINARY -> {
                 try {
@@ -228,7 +228,7 @@ private class ProtocolVersion1PrologWriter(
 private val SOURCE_UNIT_QUERY = SourceUnit("query")
 private val SOURCE_UNIT_DIRECTIVE = SourceUnit("directive")
 
-private fun QueryInitialization.toIndependent(sessionState: Any?, prologReader: ProtocolVersion1PrologReader): InitializeQueryCommand {
+private fun <SessionState : Any> QueryInitialization.toIndependent(sessionState: SessionState?, prologReader: ProtocolVersion1PrologReader<SessionState>): InitializeQueryCommand {
     val cmd = InitializeQueryCommand(
         queryId,
         prologReader.toRuntimeQuery(
@@ -250,7 +250,7 @@ private fun QueryInitialization.toIndependent(sessionState: Any?, prologReader: 
     return cmd
 }
 
-private fun Map<String, com.github.prologdb.net.v1.messages.Term>.toBucket(sessionState: Any?, prologReader: ProtocolVersion1PrologReader): VariableBucket {
+private fun <SessionState : Any> Map<String, com.github.prologdb.net.v1.messages.Term>.toBucket(sessionState: SessionState?, prologReader: ProtocolVersion1PrologReader<SessionState>): VariableBucket {
     val bucket = VariableBucket()
     for ((variableName, term) in this) {
         bucket.instantiate(Variable(variableName), prologReader.toRuntimeTerm(sessionState, term, SourceUnit("parameter $variableName")))

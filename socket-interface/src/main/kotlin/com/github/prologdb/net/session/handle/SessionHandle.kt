@@ -13,7 +13,7 @@ import java.net.Socket
  *
  * Session handles are generally **NOT THREAD SAFE!**
  */
-interface SessionHandle {
+interface SessionHandle<SessionState : Any> {
     /**
      * The incoming message is one of those annotated with [ToServer].
      */
@@ -22,7 +22,7 @@ interface SessionHandle {
     /**
      * Simple storage variable. Implementations supposed not to tinker with this object.
      */
-    var sessionState: Any?
+    var sessionState: SessionState?
 
     /**
      * An identifier for this very connection to the server.

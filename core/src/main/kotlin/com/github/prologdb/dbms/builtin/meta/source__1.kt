@@ -4,10 +4,10 @@ import com.github.prologdb.dbms.DefaultPhysicalKnowledgeBaseRuntimeEnvironment
 import com.github.prologdb.dbms.MetaKnowledgeBaseRuntimeEnvironment
 import com.github.prologdb.dbms.builtin.nativeDatabaseRule
 import com.github.prologdb.parser.Reporting
-import com.github.prologdb.parser.SemanticInfo
-import com.github.prologdb.parser.SemanticWarning
+import com.github.prologdb.parser.ReportingException
 import com.github.prologdb.runtime.ArgumentTypeError
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.PrologInternalError
+import com.github.prologdb.runtime.PrologInvocationContractViolationException
 import com.github.prologdb.runtime.module.ModuleNotFoundException
 import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.term.PrologString
@@ -17,7 +17,7 @@ import com.github.prologdb.runtime.unification.Unification
 val BuiltinSource1 = nativeDatabaseRule("source", 1) { args, ctxt ->
     val runtime = ctxt.runtimeEnvironment
     if (runtime !is MetaKnowledgeBaseRuntimeEnvironment) {
-        throw PrologRuntimeException("The builtin ${args.indicator} can only be invoked in a meta knowledge-base")
+        throw PrologInvocationContractViolationException("${args.indicator} can only be invoked in a meta knowledge-base")
     }
 
     val moduleReference = ModuleReference(DefaultPhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS, ctxt.moduleName)
@@ -35,14 +35,9 @@ val BuiltinSource1 = nativeDatabaseRule("source", 1) { args, ctxt ->
 
             val newSource = arg.toKotlinString()
             val parseResult = DefaultPhysicalKnowledgeBaseRuntimeEnvironment.parseModuleSource(moduleReference, newSource)
-            parseResult.reportings
-                .firstOrNull { it.level == Reporting.Level.ERROR }
-                ?.let { error ->
-                    throw PrologRuntimeException("Failed to parse new source for module $moduleReference: $error")
-                }
-
+            ReportingException.failOnError(parseResult.reportings)
             if (parseResult.item == null) {
-                throw PrologRuntimeException("Failed to parse new source for module $moduleReference")
+                throw PrologInternalError("Failed to parse new source for module $moduleReference. Got no errors and no result.")
             }
 
             systemCatalog.copy(knowledgeBases = (systemCatalog.knowledgeBases - knowledgeBaseCatalog) + knowledgeBaseCatalog.copy(

@@ -141,6 +141,7 @@ fun <T : GeneratedMessageV3> AsynchronousByteChannel.readSingleDelimited(typeCla
                     buffer.flip()
 
                     try {
+                        @Suppress("UNCHECKED_CAST")
                         messageFuture.complete(typeClass
                             .getMethod("parseFrom", ByteBuffer::class.java)
                             .invoke(null, buffer) as T)

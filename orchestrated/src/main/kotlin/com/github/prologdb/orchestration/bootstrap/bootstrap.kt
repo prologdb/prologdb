@@ -56,7 +56,7 @@ private val PROTOCOL_VERSION1_SEMVER = SemanticVersion.newBuilder()
  * A handle to a running server.
  */
 class ServerHandle(
-    private val networkIFace: ServerInterface,
+    private val networkIFace: ServerInterface<*>,
     private val engine: PrologDatabaseToNetworkAdapter
 ) {
     /**

@@ -140,6 +140,7 @@ internal class QueryContext(
                     close()
                     listener.onSolutionsDepleted(queryId)
                 }
+                else -> { /* nothing to do */ }
             }
         }
 

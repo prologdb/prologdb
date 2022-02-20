@@ -7,7 +7,10 @@ import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.net.util.prettyPrintStackTrace
 import com.github.prologdb.net.util.sortForSubstitution
 import com.github.prologdb.net.util.unsingedIntHexString
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.parser.ReportingException
+import com.github.prologdb.parser.SyntaxError
+import com.github.prologdb.parser.source.SourceLocation
+import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.unification.Unification
 import io.reactivex.Single
@@ -27,11 +30,11 @@ import kotlin.concurrent.thread
 
 private val log = LoggerFactory.getLogger("prologdb.srv-intf")
 
-class ServerInterface(
+class ServerInterface<SessionState : Any>(
     /**
      * The instance MUST be thread-safe.
      */
-    databaseEngine: DatabaseEngine<*>,
+    private val databaseEngine: DatabaseEngine<SessionState>,
 
     /**
      * Used to do the handshakes. This is where support for multiple protocols can be added.
@@ -54,9 +57,6 @@ class ServerInterface(
         }
     }
 
-    private val databaseEngine: DatabaseEngine<Any?> = databaseEngine as DatabaseEngine<Any?>
-    /* type erasure is okay since we'll only pass in what we get out of it. */
-
     private val serverChannel = AsynchronousServerSocketChannel.open()
 
     val localAddress: InetSocketAddress
@@ -78,11 +78,11 @@ class ServerInterface(
     var closed: Boolean = false
         private set
 
-    private val openSessions: MutableSet<SessionHandle> = Collections.newSetFromMap(ConcurrentHashMap())
+    private val openSessions: MutableSet<SessionHandle<SessionState>> = Collections.newSetFromMap(ConcurrentHashMap())
 
-    private val queryContexts: MutableMap<SessionHandle, MutableMap<Int, QueryContext>> = ConcurrentHashMap()
+    private val queryContexts: MutableMap<SessionHandle<SessionState>, MutableMap<Int, QueryContext>> = ConcurrentHashMap()
 
-    private fun handleMessage(message: ProtocolMessage, handle: SessionHandle) {
+    private fun handleMessage(message: ProtocolMessage, handle: SessionHandle<SessionState>) {
         when (message) {
             is InitializeQueryCommand -> initializeQuery(message, handle)
             is ConsumeQuerySolutionsCommand -> consumeQuerySolutions(message, handle)
@@ -92,7 +92,7 @@ class ServerInterface(
         }
     }
 
-    private fun initializeQuery(command: InitializeQueryCommand, handle: SessionHandle) {
+    private fun initializeQuery(command: InitializeQueryCommand, handle: SessionHandle<SessionState>) {
         fun refuseForDuplicateID() {
             throw QueryRelatedException(
                 QueryRelatedError(
@@ -109,9 +109,15 @@ class ServerInterface(
             refuseForDuplicateID()
         }
 
+        val sessionState = handle.sessionState ?: throw QueryRelatedException(QueryRelatedError(
+            command.desiredQueryId,
+            QueryRelatedError.Kind.ERROR_GENERIC,
+            "Session not initialized yet"
+        ))
+
         // initialize the context
         val initialized = try {
-            command.startUsing(handle.sessionState, databaseEngine)
+            command.startUsing(sessionState, databaseEngine)
         }
         catch (ex: Throwable) {
             log.error("Unknown error while trying to start command ${command.instruction} as ${command.kind.name}", ex)
@@ -119,8 +125,8 @@ class ServerInterface(
             handle.queueMessage(QueryRelatedError(
                 command.desiredQueryId,
                 QueryRelatedError.Kind.ERROR_GENERIC,
-                (ex as? PrologRuntimeException)?.message ?: "Unknown Error",
-                if (ex is PrologRuntimeException) mapOf("prologStackTrace" to ex.prettyPrint()) else emptyMap()
+                (ex as? PrologException)?.message ?: "Unknown Error",
+                if (ex is PrologException) mapOf("prologStackTrace" to ex.prettyPrint()) else emptyMap()
             ))
             handle.queueMessage(QueryClosedMessage(command.desiredQueryId, QueryClosedMessage.CloseReason.FAILED))
             return
@@ -142,7 +148,7 @@ class ServerInterface(
         handle.queueMessage(QueryOpenedMessage(command.desiredQueryId))
     }
 
-    private fun consumeQuerySolutions(command: ConsumeQuerySolutionsCommand, handle: SessionHandle) {
+    private fun consumeQuerySolutions(command: ConsumeQuerySolutionsCommand, handle: SessionHandle<SessionState>) {
         val contexts = queryContexts.computeIfAbsent(handle) { ConcurrentHashMap() }
         val context = contexts[command.queryId]
         if (context == null) {
@@ -162,24 +168,21 @@ class ServerInterface(
         catch (ex: QueryContextClosedException) { /* ignore */ }
     }
 
-    private fun handleClientError(error: GeneralError, handle: SessionHandle) {
+    private fun handleClientError(error: GeneralError, handle: SessionHandle<*>) {
         val contexts = queryContexts.remove(handle)
-        if (contexts != null) {
-            contexts.values.forEach {
-                it.doWith { it.close() }
-            }
+        contexts?.values?.forEach { context ->
+            context.doWith { it.close() }
         }
         closeSession(handle)
     }
 
-    private fun closeSession(session: SessionHandle) {
+    private fun closeSession(session: SessionHandle<*>) {
         session.closeSession()
-
     }
 
-    private fun InitializeQueryCommand.startUsing(sessionState: Any?, engine: DatabaseEngine<Any?>): LazySequence<Unification> {
+    private fun <SessionState : Any> InitializeQueryCommand.startUsing(sessionState: SessionState, engine: DatabaseEngine<SessionState>): LazySequence<Unification> {
         if (kind == InitializeQueryCommand.Kind.DIRECTIVE && instruction !is PredicateInvocationQuery) {
-            throw PrologRuntimeException("Directives must consist of a single predicate invocation query, found compound query.")
+            throw ReportingException.ofSingle(SyntaxError("Directives must consist of a single predicate invocation query, found compound query.", SourceLocation.EOF))
         }
 
         val instruction = if (preInstantiations == null || preInstantiations.isEmpty) instruction else {
@@ -187,7 +190,7 @@ class ServerInterface(
             val sortedSubstitutions = try {
                 preInstantiations.sortForSubstitution()
             }
-            catch (ex: PrologRuntimeException) {
+            catch (ex: PrologException) {
                 throw QueryRelatedException(
                     QueryRelatedError(
                         desiredQueryId,
@@ -217,7 +220,7 @@ class ServerInterface(
          * Is set within [run] so that callbacks from [QueryContext] the
          * additional information that they need.
          */
-        private var currentSessionHandle: SessionHandle? = null
+        private var currentSessionHandle: SessionHandle<SessionState>? = null
 
         private var closed = false
 
@@ -291,7 +294,7 @@ class ServerInterface(
                 queryId,
                 QueryRelatedError.Kind.ERROR_GENERIC,
                 ex.message,
-                if (ex is PrologRuntimeException) mapOf("prologStackTrace" to ex.prettyPrintStackTrace()) else emptyMap()
+                if (ex is PrologException) mapOf("prologStackTrace" to ex.prettyPrintStackTrace()) else emptyMap()
             ))
             currentSessionHandle!!.queueMessage(QueryClosedMessage(queryId, QueryClosedMessage.CloseReason.FAILED))
         }
@@ -391,6 +394,11 @@ class ServerInterface(
             try {
                 Single.fromFuture(sessionInitializer.init(channel).toCompletableFuture())
                     .map {
+                        require(it.sessionState == null)
+                        @Suppress("UNCHECKED_CAST")
+                        it as SessionHandle<SessionState>
+                    }
+                    .map {
                         Pair(it, this@ServerInterface.databaseEngine.initializeSession())
                     }
                     .subscribeBy(
@@ -411,7 +419,9 @@ class ServerInterface(
                                 },
                                 onComplete = {
                                     openSessions.remove(handle)
-                                    this@ServerInterface.databaseEngine.onSessionDestroyed(handle.sessionState)
+                                    handle.sessionState?.let {
+                                        this@ServerInterface.databaseEngine.onSessionDestroyed(it)
+                                    }
                                 }
                             )
                         },

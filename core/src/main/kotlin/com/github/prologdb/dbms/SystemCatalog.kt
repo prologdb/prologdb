@@ -1,19 +1,10 @@
 package com.github.prologdb.dbms
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.github.prologdb.parser.lexer.Lexer
-import com.github.prologdb.parser.lexer.LineEndingNormalizer
-import com.github.prologdb.parser.parser.DefaultModuleSourceFileVisitor
-import com.github.prologdb.parser.parser.PrologParser
-import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.HasFunctorAndArity
-import com.github.prologdb.runtime.PrologRuntimeException
-import com.github.prologdb.runtime.module.ASTModule
-import com.github.prologdb.runtime.util.OperatorRegistry
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 
 data class SystemCatalog(
     @JsonIgnore

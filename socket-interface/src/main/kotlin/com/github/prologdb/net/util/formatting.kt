@@ -1,27 +1,27 @@
 package com.github.prologdb.net.util
 
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.PrologException
 
-fun PrologRuntimeException.prettyPrint(): String {
+fun PrologException.prettyPrint(): String {
     val b = StringBuilder()
     prettyPrint(b)
     return b.toString()
 }
 
-fun PrologRuntimeException.prettyPrint(toBuilder: StringBuilder) {
+fun PrologException.prettyPrint(toBuilder: StringBuilder) {
     toBuilder.append("M: ")
     toBuilder.append(message ?: "null")
     toBuilder.append("\n")
     prettyPrintStackTrace(toBuilder)
 }
 
-fun PrologRuntimeException.prettyPrintStackTrace(): String {
+fun PrologException.prettyPrintStackTrace(): String {
     val b = StringBuilder()
     prettyPrintStackTrace(b)
     return b.toString()
 }
 
-fun PrologRuntimeException.prettyPrintStackTrace(toBuilder: StringBuilder) {
+fun PrologException.prettyPrintStackTrace(toBuilder: StringBuilder) {
     for (sf in prologStackTrace) {
         toBuilder.append("\t")
         toBuilder.append(sf.toString())
@@ -29,14 +29,14 @@ fun PrologRuntimeException.prettyPrintStackTrace(toBuilder: StringBuilder) {
     }
 
     val _cause = cause
-    if (_cause != null && _cause is PrologRuntimeException) {
+    if (_cause != null && _cause is PrologException) {
         toBuilder.append("caused by: ")
         _cause.prettyPrint(toBuilder)
     }
 
-    (suppressed
+    suppressed
         .asSequence()
-        .filter { it is PrologRuntimeException } as Sequence<PrologRuntimeException>)
+        .filterIsInstance<PrologException>()
         .forEach {
             toBuilder.append("suppressed: ")
             it.prettyPrint(toBuilder)

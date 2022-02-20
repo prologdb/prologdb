@@ -13,14 +13,14 @@ fun buildProtocolVersion1SessionHandleFactory(
     parser: ParserDelegate<*> = IsoOpsStatelessParserDelegate,
     binaryReader: BinaryPrologReader = BinaryPrologReader.getDefaultInstance(),
     binaryWriter: BinaryPrologWriter = BinaryPrologWriter.getDefaultInstance()
-): (AsynchronousByteChannel, ClientHello) -> CompletionStage<SessionHandle> = { channel, _ ->
+): (AsynchronousByteChannel, ClientHello) -> CompletionStage<SessionHandle<*>> = { channel, _ ->
     val id = if (channel is AsynchronousSocketChannel) {
         "${channel.remoteAddress}-${channel.localAddress}"
     } else {
         UUID.randomUUID().toString()
     }
 
-    val source = CompletableFuture<SessionHandle>()
+    val source = CompletableFuture<SessionHandle<*>>()
     source.complete(ProtocolVersion1SessionHandle(
         id,
         channel,

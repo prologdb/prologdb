@@ -2,11 +2,8 @@ package com.github.prologdb.execplan
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.transformExceptionsOnRemaining
-import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.PrologException
-import com.github.prologdb.runtime.PrologStackTraceElement
-import com.github.prologdb.runtime.prologTry
-import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.exception.PrologStackTraceElement
 
 /**
  * Maps the sequence; for every [PrologException] thrown from the original sequence as a result

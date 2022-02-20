@@ -111,7 +111,7 @@ open class DefaultFactStoreLoader : FactStoreLoader {
             }
             .toSet()
 
-        val topScore = implementationsWithScore.map { it.second }.max()
+        val topScore = implementationsWithScore.maxOfOrNull { it.second }
         val implementationsWithTopScore = implementationsWithScore.filter { it.second == topScore }.map { it.first }
 
         if (implementationsWithTopScore.size == 1) {

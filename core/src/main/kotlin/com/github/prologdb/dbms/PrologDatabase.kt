@@ -2,10 +2,12 @@ package com.github.prologdb.dbms
 
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.execplan.planner.NoOptimizationExecutionPlanner
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.PrologInvocationContractViolationException
+import com.github.prologdb.runtime.PrologUnsupportedOperationException
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.storage.MissingFactStoreException
 import com.github.prologdb.storage.fact.DefaultFactStoreLoader
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.FactStoreLoader
@@ -37,7 +39,7 @@ class PrologDatabase(
     fun createKnowledgeBase(name: String) {
         dataDirectory.modifySystemCatalog { catalog ->
             if (catalog.knowledgeBases.any { it.name == name }) {
-                throw PrologRuntimeException("A knowledge base with the name $name already exists.")
+                throw KnowledgeBaseAlreadyExistsException(Atom(name))
             }
 
             return@modifySystemCatalog catalog.copy(knowledgeBases = catalog.knowledgeBases + SystemCatalog.KnowledgeBase(
@@ -54,7 +56,7 @@ class PrologDatabase(
                 ?: throw KnowledgeBaseNotFoundException(oldName)
 
             if (catalog.knowledgeBases.any { it.name == newName }) {
-                throw PrologRuntimeException("A knowledge base with the name $newName already exists.")
+                throw KnowledgeBaseAlreadyExistsException(Atom(newName))
             }
 
             return@modifySystemCatalog catalog.copy(knowledgeBases = (catalog.knowledgeBases - knowledgeBaseCatalog) + knowledgeBaseCatalog.copy(
@@ -65,7 +67,7 @@ class PrologDatabase(
 
     fun dropKnowledgeBase(name: String) {
         if (name == GlobalMetaKnowledgeBaseRuntimeEnvironment.KNOWLEDGE_BASE_NAME) {
-            throw PrologRuntimeException("Cannot delete the meta knowledge base.")
+            throw PrologUnsupportedOperationException("Cannot delete the meta knowledge base.")
         }
         // TODO: instead, mark as deleted with TXID
 
@@ -114,12 +116,13 @@ class PrologDatabase(
         throw KnowledgeBaseNotFoundException(knowledgeBaseSpecifier)
     }
 
+    @Throws(MissingFactStoreException::class)
     fun getFactStore(predicateUuid: UUID): FactStore {
         factStores[predicateUuid]?.let { return it }
         synchronized(factStoreLoadingMutex) {
             factStores[predicateUuid]?.let { return it }
             val factStore = factStoreLoader.load(dataDirectory.scopedForPredicate(predicateUuid))
-                ?: throw PrologRuntimeException("There is no fact store for Predicate $predicateUuid yet.")
+                ?: throw MissingFactStoreException(predicateUuid)
             factStores[predicateUuid] = factStore
             return factStore
         }

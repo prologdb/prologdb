@@ -11,12 +11,12 @@ import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.parser.SourceFileVisitor
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
-import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.module.CascadingModuleLoader
 import com.github.prologdb.runtime.module.Module
 import com.github.prologdb.runtime.module.ModuleImport
 import com.github.prologdb.runtime.module.ModuleNotFoundException
+import com.github.prologdb.runtime.module.ModuleNotLoadedException
 import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.module.ModuleScopeProofSearchContext
 import com.github.prologdb.runtime.proofsearch.Authorization
@@ -117,7 +117,7 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
 
         init {
             if (moduleName != SCHEMA_MODULE_NAME && moduleName != RootModule.name) {
-                throw PrologRuntimeException("Module $moduleName is not loaded.")
+                throw ModuleNotLoadedException(moduleName)
             }
         }
 

@@ -14,13 +14,15 @@ import com.github.prologdb.runtime.Clause
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.PredicateNotDefinedException
+import com.github.prologdb.runtime.PredicateNotExportedException
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.module.ASTModule
 import com.github.prologdb.runtime.module.Module
 import com.github.prologdb.runtime.module.ModuleImport
 import com.github.prologdb.runtime.module.ModuleNotFoundException
+import com.github.prologdb.runtime.module.ModuleNotLoadedException
 import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
@@ -56,7 +58,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         moduleName: String
     ): PhysicalDatabaseProofSearchContext {
         if (moduleName !in loadedModules) {
-            throw PrologRuntimeException("Module $moduleName is not loaded.")
+            throw ModuleNotLoadedException(moduleName)
         }
 
         return ProofSearchContext(
@@ -149,7 +151,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
 
         override val operators: OperatorRegistry = selfModule.localOperators
 
-        override fun resolveCallable(simpleIndicator: ClauseIndicator): Pair<FullyQualifiedClauseIndicator, PrologCallable>? {
+        override fun resolveCallable(simpleIndicator: ClauseIndicator): Pair<FullyQualifiedClauseIndicator, PrologCallable> {
             selfModule.allDeclaredPredicates[simpleIndicator]?.let { callable ->
                 val fqIndicator = FullyQualifiedClauseIndicator(moduleName, simpleIndicator)
                 return Pair(fqIndicator, callable)
@@ -161,7 +163,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
                 return Pair(fqIndicator, callable)
             }
 
-            return null
+            throw PredicateNotDefinedException(simpleIndicator, this.selfModule)
         }
 
         override fun resolveModuleScopedCallable(goal: Clause): Triple<FullyQualifiedClauseIndicator, PrologCallable, Array<out Term>>? {
@@ -180,20 +182,20 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
 
             if (moduleNameTerm.name == this.moduleName) {
                 val callable = selfModule.allDeclaredPredicates[simpleIndicator]
-                    ?: throw PrologRuntimeException("Predicate $simpleIndicator not defined in context of module ${this.moduleName}")
+                    ?: throw PredicateNotDefinedException(simpleIndicator, selfModule)
 
                 val fqIndicator = FullyQualifiedClauseIndicator(this.moduleName, simpleIndicator)
                 return Triple(fqIndicator, callable, unscopedGoal.arguments)
             }
 
             val module = runtimeEnvironment.loadedModules[moduleNameTerm.name]
-                ?: throw PrologRuntimeException("Module ${moduleNameTerm.name} not loaded")
+                ?: throw ModuleNotLoadedException(moduleNameTerm.name)
 
             val callable = module.exportedPredicates[simpleIndicator]
                 ?: if (simpleIndicator in module.allDeclaredPredicates) {
-                    throw PrologRuntimeException("Predicate $simpleIndicator not exported by module ${module.name}")
+                    throw PredicateNotExportedException(FullyQualifiedClauseIndicator(module.name, simpleIndicator), selfModule)
                 } else {
-                    throw PrologRuntimeException("Predicate $simpleIndicator not defined by module ${module.name}")
+                    throw PredicateNotDefinedException(simpleIndicator, module)
                 }
 
             return Triple(

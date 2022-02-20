@@ -20,7 +20,7 @@ import com.github.prologdb.runtime.term.Term
  *
  * @param SessionState The session state to be used with this delegate.
  */
-interface ParserDelegate<in SessionState> {
+interface ParserDelegate<in SessionState : Any> {
     /**
      * Parses `codeToParse` as a term.
      * @param context The context in which the parsing should happen. This must be the same value as [SessionHandle.sessionState].
@@ -52,7 +52,7 @@ val STOP_AT_EOF_OR_FULL_STOP: (TransactionalSequence<Token>) -> Boolean = {
  * A [ParserDelegate] that is **NOT** context-dependent and provides only
  * the ISO operators (see [ISOOpsOperatorRegistry]).
  */
-object IsoOpsStatelessParserDelegate : ParserDelegate<Any?> {
+object IsoOpsStatelessParserDelegate : ParserDelegate<Any> {
     private val parser = PrologParser()
 
     override fun parseTerm(context: Any?, codeToParse: String, origin: SourceUnit): ParseResult<Term> {

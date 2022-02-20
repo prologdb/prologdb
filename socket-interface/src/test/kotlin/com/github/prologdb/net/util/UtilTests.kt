@@ -1,6 +1,7 @@
 package com.github.prologdb.net.util
 
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.CircularTermException
+import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Variable
@@ -42,7 +43,7 @@ class UtilTests : FreeSpec({
                 bucket.instantiate(Variable("B"), CompoundTerm("bar", arrayOf(Variable("A"))))
 
                 // ACT & ASSERT
-                shouldThrow<PrologRuntimeException> {
+                shouldThrow<CircularTermException> {
                     bucket.sortForSubstitution()
                 }
             }

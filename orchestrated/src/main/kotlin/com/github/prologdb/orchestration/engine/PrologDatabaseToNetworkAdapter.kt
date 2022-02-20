@@ -11,15 +11,21 @@ import com.github.prologdb.net.session.handle.STOP_AT_EOF_OR_FULL_STOP
 import com.github.prologdb.orchestration.KnowledgeBaseNotSelectedException
 import com.github.prologdb.orchestration.ModuleNotSelectedException
 import com.github.prologdb.orchestration.Session
+import com.github.prologdb.parser.ReportingException
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.parser.PrologParser.Companion.STOP_AT_EOF
 import com.github.prologdb.parser.source.SourceUnit
-import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.ClauseIndicator
+import com.github.prologdb.runtime.PrologException
+import com.github.prologdb.runtime.PrologInternalError
+import com.github.prologdb.runtime.PrologInvocationContractViolationException
+import com.github.prologdb.runtime.PrologUnsupportedOperationException
 import com.github.prologdb.runtime.RandomVariableScope
+import com.github.prologdb.runtime.module.ModuleNotFoundException
+import com.github.prologdb.runtime.module.ModuleNotLoadedException
 import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
@@ -49,7 +55,7 @@ class PrologDatabaseToNetworkAdapter(
             val moduleName = args.getTyped<Atom>(0).name
             val runtimeEnvironment = session.runtimeEnvironment ?: throw KnowledgeBaseNotSelectedException()
             val module = runtimeEnvironment.loadedModules[moduleName]
-                ?: throw PrologRuntimeException("Module $moduleName is not loaded / does not exist.")
+                ?: throw ModuleNotLoadedException(moduleName)
 
             session.module = module.name
 
@@ -58,11 +64,11 @@ class PrologDatabaseToNetworkAdapter(
         ClauseIndicator.of("explain", 1) to { session, args ->
             val queryTerm = args.getTyped<CompoundTerm>(0)
             val queryResult = parser.transformQuery(queryTerm)
+            ReportingException.failOnError(queryResult.reportings)
             val query = queryResult.item
-                ?: throw PrologRuntimeException("Failed to parse query: " + queryResult.reportings.first())
-
+                ?: throw PrologInternalError("Failed to parse query. Got no errors and no result.")
             val runtimeEnvironment = session.runtimeEnvironment as? PhysicalKnowledgeBaseRuntimeEnvironment
-                ?: throw PrologRuntimeException("In this context, execution plans are not used to execute queries. Cannot show a plan.")
+                ?: throw PrologInvocationContractViolationException("In this context, execution plans are not used to execute queries. Cannot show a plan.")
 
             val psc = runtimeEnvironment
                 .newProofSearchContext(ReadWriteAuthorization)
@@ -74,7 +80,7 @@ class PrologDatabaseToNetworkAdapter(
         },
         ClauseIndicator.of("rename_knowledge_base", 2) to { session, args ->
             if (session.runtimeEnvironment !is GlobalMetaKnowledgeBaseRuntimeEnvironment) {
-                throw PrologRuntimeException("Directive ${args.indicator} can only be invoked from the ${GlobalMetaKnowledgeBaseRuntimeEnvironment.KNOWLEDGE_BASE_NAME} knowledge base.")
+                throw PrologInvocationContractViolationException("Directive ${args.indicator} can only be invoked from the ${GlobalMetaKnowledgeBaseRuntimeEnvironment.KNOWLEDGE_BASE_NAME} knowledge base.")
             }
 
             val oldName = args.getTyped<Atom>(0).name
@@ -102,7 +108,7 @@ class PrologDatabaseToNetworkAdapter(
                 psc.fulfillAttach(this, query, VariableBucket())
             }
         }
-        catch (ex: PrologRuntimeException) {
+        catch (ex: PrologException) {
             return lazySequenceOfError(ex)
         }
     }
@@ -110,12 +116,12 @@ class PrologDatabaseToNetworkAdapter(
     override fun startDirective(session: Session, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
         val indicator = ClauseIndicator.of(command)
         val directive = globalDirectives[indicator]
-            ?: return lazySequenceOfError(PrologRuntimeException("Directive $indicator is not implemented."))
+            ?: return lazySequenceOfError(PrologUnsupportedOperationException("Directive $indicator is not implemented."))
 
         return try {
             directive.invoke(session, TypedPredicateArguments(indicator, command.arguments))
         }
-        catch (ex: PrologRuntimeException) {
+        catch (ex: PrologException) {
             lazySequenceOfError(ex)
         }
     }
@@ -157,10 +163,10 @@ class PrologDatabaseToNetworkAdapter(
             val runtimeEnvironment = runtimeEnvironment ?: throw KnowledgeBaseNotSelectedException()
             val moduleName = module ?: throw ModuleNotSelectedException()
             if (runtimeEnvironment !is PhysicalKnowledgeBaseRuntimeEnvironment) {
-                throw PrologRuntimeException("Cannot obtain a module catalog because the current context is not managed through the system catalog.")
+                throw PrologInvocationContractViolationException("Cannot obtain a module catalog because the current context is not managed through the system catalog.")
             }
 
             return runtimeEnvironment.knowledgeBaseCatalog.modulesByName[moduleName]
-                ?: throw PrologRuntimeException("Internal error: selected module $moduleName does not exist in knowledge base ${runtimeEnvironment.knowledgeBaseCatalog.name}")
+                ?: throw PrologInternalError("Selected module $moduleName does not exist in knowledge base ${runtimeEnvironment.knowledgeBaseCatalog.name}")
         }
 }

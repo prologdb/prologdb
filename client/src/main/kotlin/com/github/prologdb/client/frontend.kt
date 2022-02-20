@@ -2,7 +2,7 @@ package com.github.prologdb.client
 
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.util.prettyPrint
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.unification.Unification
 
 class CLIFrontend(private val connection: Connection) {
@@ -43,7 +43,7 @@ class CLIFrontend(private val connection: Connection) {
                         for ((key, value) in ex.additionalInformation) {
                             println("$key: $value")
                         }
-                    } else if (ex is PrologRuntimeException) {
+                    } else if (ex is PrologException) {
                         println(ex.prettyPrint())
                     } else {
                         ex.printStackTrace(System.out)

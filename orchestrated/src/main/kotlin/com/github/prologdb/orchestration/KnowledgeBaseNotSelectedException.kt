@@ -1,5 +1,5 @@
 package com.github.prologdb.orchestration
 
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.PrologException
 
-class KnowledgeBaseNotSelectedException : PrologRuntimeException("No knowledge base selected. Select one using :- knowledge_base(Name).")
+class KnowledgeBaseNotSelectedException : PrologException("No knowledge base selected. Select one using :- knowledge_base(Name).")

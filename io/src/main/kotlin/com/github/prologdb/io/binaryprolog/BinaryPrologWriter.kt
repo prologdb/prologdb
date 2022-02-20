@@ -35,10 +35,15 @@ class BinaryPrologWriter {
 
     private fun <T : Term> findWriter(forType: Class<out T>): TermWriter<T>? {
         val byDirectMatch = termWriters[forType]
+        @Suppress("UNCHECKED_CAST")
         if (byDirectMatch != null) return byDirectMatch as TermWriter<T>
 
-        val keyBySubtype = termWriters.keys.firstOrNull { it.isAssignableFrom(forType) }
-        return if (keyBySubtype == null) null else termWriters[keyBySubtype] as TermWriter<T>
+        return termWriters.keys
+            .firstOrNull { it.isAssignableFrom(forType) }
+            ?.let { keyBySubtype ->
+                @Suppress("UNCHECKED_CAST")
+                termWriters[keyBySubtype] as TermWriter<T>
+            }
     }
 
     interface TermWriter<in T : Term> {

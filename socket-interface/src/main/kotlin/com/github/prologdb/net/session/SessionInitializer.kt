@@ -18,7 +18,7 @@ import java.util.concurrent.CompletionStage
 class SessionInitializer(
     private val serverVendorName: String?,
     private val serverVersion: SemanticVersion,
-    private val versionHandleFactories: Map<SemanticVersion, (AsynchronousByteChannel, ClientHello) -> CompletionStage<SessionHandle>>
+    private val versionHandleFactories: Map<SemanticVersion, (AsynchronousByteChannel, ClientHello) -> CompletionStage<SessionHandle<*>>>
 ) {
     private val preferredVersion: SemanticVersion = versionHandleFactories.keys
         .asSequence()
@@ -30,8 +30,8 @@ class SessionInitializer(
      * Performs the handshake with the other side and initializes a suitable
      * [SessionHandle] instance for the negotiated parameters.
      */
-    fun init(channel: AsynchronousByteChannel): CompletionStage<SessionHandle> {
-        val clientHelloRead = channel.readSingleDelimited(ToServer::class.java).thenCompose<SessionHandle> { clientHelloEnvelope ->
+    fun init(channel: AsynchronousByteChannel): CompletionStage<SessionHandle<*>> {
+        val clientHelloRead = channel.readSingleDelimited(ToServer::class.java).thenCompose<SessionHandle<*>> { clientHelloEnvelope ->
             val clientHello = clientHelloEnvelope.hello!!
 
             val targetVersion: SemanticVersion? = if (clientHello.desiredProtocolVersionList.isEmpty()) {

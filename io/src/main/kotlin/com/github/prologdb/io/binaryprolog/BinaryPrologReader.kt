@@ -152,10 +152,10 @@ object VariableReader : BinaryPrologReader.TermReader<Variable> {
     override val prologTypeName = "variable"
 
     override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): Variable {
-        return Variable(readVariableNameFrom(buffer, readerRef))
+        return Variable(readVariableNameFrom(buffer))
     }
 
-    private fun readVariableNameFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): String {
+    private fun readVariableNameFrom(buffer: ByteBuffer): String {
         val nUTF8Bytes = buffer.readEncodedIntegerAsInt()
         val dst = ByteArray(nUTF8Bytes)
         buffer.get(dst)
@@ -188,10 +188,10 @@ object AtomReader : BinaryPrologReader.TermReader<Atom> {
     override val prologTypeName = "atom"
 
     override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): Atom {
-        return Atom(readAtomNameFrom(buffer, readerRef))
+        return Atom(readAtomNameFrom(buffer))
     }
 
-    fun readAtomNameFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): String {
+    fun readAtomNameFrom(buffer: ByteBuffer): String {
         val nUTF8Bytes = buffer.readEncodedIntegerAsInt()
         val dst = ByteArray(nUTF8Bytes)
         buffer.get(dst)
@@ -204,16 +204,19 @@ object PredicateReader : BinaryPrologReader.TermReader<CompoundTerm> {
 
     override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): CompoundTerm {
         val arity = buffer.readEncodedIntegerAsInt()
-        val name = AtomReader.readAtomNameFrom(buffer, readerRef)
+        val name = AtomReader.readAtomNameFrom(buffer)
         val arguments = Array<Term?>(arity) { null }
         for (currentArgumentIndex in 0..arguments.lastIndex) {
             val term = readerRef.readTermFrom(buffer)
             arguments[currentArgumentIndex] = term
         }
 
+        @Suppress("UNCHECKED_CAST")
+        arguments as Array<Term>
+
         return CompoundTerm(
             name,
-            arguments as Array<Term>
+            arguments
         )
     }
 }
@@ -301,12 +304,13 @@ private object QueryReader {
     private fun readCombinedQueryFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): Query {
         val operator = buffer.get()
         val nSubQueries = buffer.readEncodedIntegerAsInt()
-        val subQueries = Array<Query?>(nSubQueries, { null })
+        val subQueries = Array<Query?>(nSubQueries) { null }
         for (iSubQuery in 0 until nSubQueries) {
             subQueries[iSubQuery] = readQueryFrom(buffer, readerRef)
         }
 
-        subQueries as Array<Query> // all fields set, remove null typing
+        @Suppress("UNCHECKED_CAST")
+        subQueries as Array<Query>
 
         return when (operator) {
             0x00.toByte() -> AndQuery(subQueries)

@@ -6,7 +6,7 @@ import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.dbms.SystemCatalog
 import com.github.prologdb.runtime.PrologPermissionError
-import com.github.prologdb.runtime.PrologStackTraceElement
+import com.github.prologdb.runtime.exception.PrologStackTraceElement
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.storage.fact.PersistenceID

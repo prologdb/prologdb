@@ -1,9 +1,9 @@
 package com.github.prologdb.dbms.builtin.meta.global
 
+import com.github.prologdb.ModuleAlreadyExistsException
 import com.github.prologdb.dbms.KnowledgeBaseNotFoundException
 import com.github.prologdb.dbms.SystemCatalog
 import com.github.prologdb.dbms.builtin.nativeDatabaseRule
-import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.unification.Unification
 
@@ -16,11 +16,11 @@ val BuiltinCreateModule2 = nativeDatabaseRule("create_module", 2) { args, ctxt -
             ?: throw KnowledgeBaseNotFoundException(knowledgeBaseName)
 
         if (moduleName in knowledgeBaseCatalog.modulesByName) {
-            throw PrologRuntimeException("A module with name $moduleName already exists in knowledge base $knowledgeBaseName")
+            throw ModuleAlreadyExistsException(moduleName, "A module with name $moduleName already exists in knowledge base $knowledgeBaseName")
         }
 
         if (moduleName in ctxt.runtimeEnvironment.loadedModules) {
-            throw PrologRuntimeException("Module $moduleName in knowledge base $knowledgeBaseName is already defined as a non-physical module.")
+            throw ModuleAlreadyExistsException(moduleName, "Module $moduleName in knowledge base $knowledgeBaseName is already defined as a non-physical module.")
         }
 
         return@modifySystemCatalog systemCatalog.copy(knowledgeBases = (systemCatalog.knowledgeBases - knowledgeBaseCatalog) + knowledgeBaseCatalog.copy(

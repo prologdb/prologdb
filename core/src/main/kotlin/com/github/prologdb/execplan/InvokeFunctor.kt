@@ -5,11 +5,11 @@ import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
-import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
-import com.github.prologdb.runtime.PrologStackTraceElement
-import com.github.prologdb.runtime.prologTry
+import com.github.prologdb.runtime.PrologInternalError
+import com.github.prologdb.runtime.exception.PrologStackTraceElement
+import com.github.prologdb.runtime.exception.prologTry
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.Unification
@@ -24,11 +24,11 @@ class InvokeFunctor(
         Atom(moduleName),
         invocation
     ))
-    val fullyQualifiedClauseIndicator = FullyQualifiedClauseIndicator(moduleName, ClauseIndicator.of(invocation))
+    val fqi = FullyQualifiedClauseIndicator(moduleName, ClauseIndicator.of(invocation))
 
     override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Unit>> {
         val (_, callable, _) = ctxt.resolveModuleScopedCallable(asColonTwo)
-            ?: throw PrologRuntimeException("Predicate $fullyQualifiedClauseIndicator is not defined")
+            ?: throw PrologInternalError("Did not find predicate defined in execution plan $fqi")
 
         return inputs.flatMapRemaining { (vars, _) ->
             val replacedInvocation = invocation.substituteVariables(vars.asSubstitutionMapper())

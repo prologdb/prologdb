@@ -1,9 +1,16 @@
 package com.github.prologdb.execplan.planner
 
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
-import com.github.prologdb.execplan.*
-import com.github.prologdb.runtime.PrologStackTraceElement
+import com.github.prologdb.execplan.FactScanFunctor
+import com.github.prologdb.execplan.FunctorPipe
+import com.github.prologdb.execplan.InvokeFunctor
+import com.github.prologdb.execplan.NoopFunctor
+import com.github.prologdb.execplan.PlanFunctor
+import com.github.prologdb.execplan.PrologQueryException
+import com.github.prologdb.execplan.UnifyFunctor
+import com.github.prologdb.execplan.UnionFunctor
 import com.github.prologdb.runtime.RandomVariableScope
+import com.github.prologdb.runtime.exception.PrologStackTraceElement
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateInvocationQuery

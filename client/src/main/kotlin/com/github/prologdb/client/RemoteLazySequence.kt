@@ -3,7 +3,6 @@ package com.github.prologdb.client
 import com.github.prologdb.async.IrrelevantPrincipal
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.v1.messages.QueryRelatedError
-import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.unification.Unification
 import java.util.concurrent.LinkedBlockingQueue
 import com.github.prologdb.net.v1.messages.QueryClosedEvent as NetQClosedEvent
@@ -68,9 +67,10 @@ class RemoteSolutions internal constructor(
     override fun tryAdvance(): Unification? {
         if (closed) {
             when (closeReason) {
-                NetQClosedEvent.Reason.ABORTED_ON_USER_REQUEST -> throw PrologRuntimeException("Query $queryId aborted on user request")
+                NetQClosedEvent.Reason.ABORTED_ON_USER_REQUEST -> throw QueryClosedOnUserRequestException(queryId)
                 NetQClosedEvent.Reason.FAILED -> throw errorCache!!
                 NetQClosedEvent.Reason.SOLUTIONS_DEPLETED -> return null
+                null -> throw IllegalStateException("Missing closeReason")
             }
         }
 

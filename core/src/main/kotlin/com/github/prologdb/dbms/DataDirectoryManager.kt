@@ -75,7 +75,7 @@ class DataDirectoryManager private constructor(
                         ?.get(1)
                         ?.toLongOrNull()
                 }
-                .max()
+                .maxOrNull()
             ?: run {
                 systemCatalog = SystemCatalog.INITIAL
                 return saveSystemCatalog(systemCatalog)
@@ -206,7 +206,8 @@ class DataDirectoryManager private constructor(
 }
 
 class SystemCatalogNotFoundException(revision: Long, atPath: Path, cause: Throwable? = null) : RuntimeException(
-    "Did not find system catalog with revision $revision at $atPath"
+    "Did not find system catalog with revision $revision at $atPath",
+    cause
 ) {
 
     init {

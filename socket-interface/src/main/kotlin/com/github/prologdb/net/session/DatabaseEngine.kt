@@ -16,7 +16,7 @@ import com.github.prologdb.runtime.unification.Unification
  *
  * Implementations **MUST BE THREAD SAFE!**
  */
-interface DatabaseEngine<SessionState> : ParserDelegate<SessionState> {
+interface DatabaseEngine<SessionState : Any> : ParserDelegate<SessionState> {
     /**
      * Called when a new connection is opened. This is the opportunity for the engine
      * to allocate context for that connection.

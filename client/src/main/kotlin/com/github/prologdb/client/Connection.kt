@@ -174,6 +174,12 @@ class Connection(val host: String, val port: Int) {
                     ToClient.EventCase.SERVER_ERROR -> {
                         TODO()
                     }
+                    ToClient.EventCase.GOODBYE -> {
+                        // nothing to do
+                    }
+                    ToClient.EventCase.EVENT_NOT_SET -> {
+                        throw IllegalStateException("Received invalid data from server: missing event in ToClient")
+                    }
                 }
             }
         }

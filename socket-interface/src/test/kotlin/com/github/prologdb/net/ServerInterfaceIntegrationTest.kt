@@ -17,7 +17,7 @@ import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.v1.messages.*
 import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.source.SourceUnit
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.PrologInternalError
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.PrologString
@@ -41,7 +41,7 @@ import com.github.prologdb.net.negotiation.ToServer as ToServerHS
 
 class ServerInterfaceIntegrationTest : FreeSpec() {
 
-    private lateinit var interfaceInstance: ServerInterface
+    private lateinit var interfaceInstance: ServerInterface<Map<String, String>>
 
     override fun listeners(): List<TestListener> = listOf(object : TestListener {
         override fun beforeSpec(description: Description, spec: Spec) {
@@ -464,7 +464,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
     override fun startQuery(session: Map<String, String>, query: Query, totalLimit: Long?): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
             if (errorOnQuery) {
-                throw PrologRuntimeException("Error :(")
+                throw PrologInternalError("Error :(")
             } else {
                 val vars = VariableBucket()
                 vars.instantiate(Variable("A"), CompoundTerm("?-", arrayOf(PrologString(query.toString()))))
@@ -476,7 +476,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
     override fun startDirective(session: Map<String, String>, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
             if (errorOnDirective) {
-                throw PrologRuntimeException("Error directive :(")
+                throw PrologInternalError("Error directive :(")
             } else {
                 val vars = VariableBucket()
                 vars.instantiate(Variable("A"), CompoundTerm(":-", arrayOf(command)))
@@ -494,7 +494,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
     }
 }
 
-private fun initConnection(serverInterface: ServerInterface): Pair<ServerHello, Socket> {
+private fun initConnection(serverInterface: ServerInterface<*>): Pair<ServerHello, Socket> {
     val socket = Socket("localhost", serverInterface.localAddress.port)
     ToServerHS.newBuilder()
         .setHello(ClientHello.newBuilder()
@@ -545,8 +545,8 @@ private fun Socket.startDirective(id: Int, command: String) {
         .writeDelimitedTo(getOutputStream())
 }
 
-private val ProtoclVersion1HandleFactory: (AsynchronousByteChannel, ClientHello) -> CompletionStage<SessionHandle> = { channel, _ ->
-    val future = CompletableFuture<SessionHandle>()
+private val ProtoclVersion1HandleFactory: (AsynchronousByteChannel, ClientHello) -> CompletionStage<SessionHandle<*>> = { channel, _ ->
+    val future = CompletableFuture<SessionHandle<*>>()
     future.complete(ProtocolVersion1SessionHandle(
         UUID.randomUUID().toString(),
         channel,

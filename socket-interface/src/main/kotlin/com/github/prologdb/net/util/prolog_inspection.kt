@@ -1,6 +1,6 @@
 package com.github.prologdb.net.util
 
-import com.github.prologdb.runtime.PrologRuntimeException
+import com.github.prologdb.runtime.CircularTermException
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -45,7 +45,7 @@ fun VariableBucket.sortForSubstitution(): List<VariableBucket> {
         val free = variablesToSort.filterNot { it.isReferenced() }
         if (free.isEmpty()) {
             // there are variables left but none of them are free -> circular dependency!
-            throw PrologRuntimeException("Circular dependency in variable instantiations between $variablesToSort")
+            throw CircularTermException("Circular dependency in variable instantiations between $variablesToSort")
         }
 
         val subBucket = VariableBucket()

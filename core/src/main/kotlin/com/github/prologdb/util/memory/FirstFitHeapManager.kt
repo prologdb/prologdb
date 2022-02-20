@@ -201,8 +201,8 @@ class FirstFitHeapManager(
                 } else {
                     // merge
                     overlaps.forEach { freeChunks.remove(it) }
-                    val minFirst = min(range.first, overlaps.minBy { it.first }!!.first)
-                    val maxLast = max(range.last, overlaps.maxBy { it.last }!!.last)
+                    val minFirst = min(range.first, overlaps.minByOrNull { it.first }!!.first)
+                    val maxLast = max(range.last, overlaps.minByOrNull { it.last }!!.last)
                     freeChunks.add(minFirst..maxLast)
                 }
             }
