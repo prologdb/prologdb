@@ -1,15 +1,21 @@
 package com.github.prologdb.storage.fact
 
+import com.github.prologdb.parser.ReportingException
+import com.github.prologdb.parser.SyntaxError
+import com.github.prologdb.parser.source.SourceLocation
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.Term
-import com.github.prologdb.storage.AcceleratedStorage
-import com.github.prologdb.storage.PersistentStorage
-import com.github.prologdb.storage.VolatileStorage
-import kotlin.reflect.KClass
-import kotlin.reflect.full.findAnnotation
 
 @JvmInline
 value class FactStoreFeature(val spec: Term) {
+    init {
+        if (spec.variables.isNotEmpty()) {
+            throw ReportingException.ofSingle(
+                SyntaxError("FactStoreFeature specs must be ground.", SourceLocation.EOF)
+            )
+        }
+    }
+
     companion object {
         @JvmStatic
         val PERSISTENT = FactStoreFeature(Atom("persistent"))
