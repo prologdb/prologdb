@@ -7,7 +7,7 @@ import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.VariableBucket
 
 /**
- * Concatenates the output of multiple steps. This is the quivalent of a prolog `;` or SQL UNION
+ * Concatenates the output of multiple steps. This is the equivalent of a prolog `;` or SQL UNION
  */
 class UnionFunctor<Input, Output>(
     private val steps: Array<PlanFunctor<Input, Output>>
