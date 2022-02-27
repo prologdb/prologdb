@@ -19,7 +19,6 @@ class DatabaseModuleSourceFileVisitor(val moduleName: String) : DefaultModuleSou
     }
 
     companion object {
-        // TODO: exclude/exchange essential($clauses)
         val DEFAULT_IMPORTS: Set<ModuleImport.Full> = DefaultModuleSourceFileVisitor.DEFAULT_IMPORTS
     }
 }

@@ -16,9 +16,17 @@ object DatabaseStandardLibraryModuleLoader : ModuleLoader {
         return OverrideModule(fromDefaultStdlib, overrides)
     }
 
+    // TODO: override retract, retractAll to refuse any call, because there are plan functors for deleting
     private val overrides: Map<ModuleReference, Map<ClauseIndicator, PrologCallable>> = mapOf(
         ModuleReference("essential", "\$dynamic") to listOf(
-            BuiltinDatabaseCurrentModule1
-        ).associateBy { ClauseIndicator.of(it) }
+            BuiltinDatabaseCurrentModule1,
+        ),
+        ModuleReference("essential", "\$clauses") to listOf(
+            BuiltinDatabaseAssert1,
+        )
     )
+        .map { (moduleRef, clauses) ->
+            moduleRef to clauses.associateBy { ClauseIndicator.of(it) }
+        }
+        .toMap()
 }
