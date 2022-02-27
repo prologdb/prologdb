@@ -2,6 +2,7 @@ package com.github.prologdb.dbms
 
 import com.github.prologdb.dbms.builtin.DatabaseStandardLibraryModuleLoader
 import com.github.prologdb.dbms.builtin.meta.BuiltinCreateDynamicPredicate2
+import com.github.prologdb.dbms.builtin.meta.BuiltinDynamic2
 import com.github.prologdb.dbms.builtin.meta.BuiltinSource1
 import com.github.prologdb.parser.ModuleDeclaration
 import com.github.prologdb.parser.parser.DefaultModuleSourceFileVisitor
@@ -59,6 +60,7 @@ class MetaKnowledgeBaseRuntimeEnvironment(
         private val META_MODULE_NATIVE_IMPLEMENTATIONS: Map<ClauseIndicator, NativeCodeRule> = listOf(
             BuiltinSource1,
             BuiltinCreateDynamicPredicate2,
+            BuiltinDynamic2,
         ).associateBy(ClauseIndicator.Companion::of)
         private val PARSER = PrologParser()
 
@@ -107,7 +109,7 @@ class MetaKnowledgeBaseRuntimeEnvironment(
     ) : RuntimeProofSearchContext by delegate, DatabaseProofSearchContext {
         override val runtimeEnvironment = this@MetaKnowledgeBaseRuntimeEnvironment
         override fun deriveForModuleContext(moduleName: String): DatabaseProofSearchContext {
-            return ProofSearchContext(moduleName, delegate)
+            return ProofSearchContext(moduleName, delegate.deriveForModuleContext(moduleName))
         }
     }
 }
