@@ -20,7 +20,7 @@ private val log = LoggerFactory.getLogger("prologdb.worker")
  * for interaction.
  */
 internal class QueryContext(
-    val queryId: Int,
+    private val queryId: Int,
     private val solutions: LazySequence<Unification>,
     val originalQuery: Query
 ) {
@@ -90,12 +90,59 @@ internal class QueryContext(
             this@QueryContext.consumptionRequests.add(command)
         }
 
-        val state: LazySequence.State get() = solutions.state
+        val moreSolutionsRequested: Boolean
+            get() {
+                val request = consumptionRequests.peek() ?: return false
+                if (request.amount == null) {
+                    return true
+                }
+                return currentlyConsumed < request.amount
+            }
 
         /**
-         * Does one [LazySequence.step] on the solutions.
+         * If work can be done on this query, attempts to perform work.
+         * @return whether useful work was done
          */
-        fun step() = solutions.step()
+        fun tick(listener: SolutionConsumptionListener): Boolean {
+            var usefulWorkDone = false
+            if (solutions.state == LazySequence.State.PENDING && moreSolutionsRequested) {
+                // stepping must only happen in PENDING. If done in RESULTS_AVAILABLE,
+                // more solutions are being computed than requested by the client. That
+                // would be sub-optimal for read-only queries and absolutely unacceptable for
+                // queries with side effects
+                solutions.step()
+                usefulWorkDone = true
+            }
+
+            if (solutions.state == LazySequence.State.RESULTS_AVAILABLE) {
+                val nConsumed = consumeSolutions(listener)
+                usefulWorkDone = usefulWorkDone || nConsumed > 0
+            }
+
+            when(solutions.state) {
+                LazySequence.State.FAILED -> {
+                    val ex = try {
+                        solutions.tryAdvance()
+                        null
+                    } catch (ex: Exception) {
+                        ex
+                    }
+                    ex!!
+
+                    log.trace("query {} failed", queryId, ex)
+                    close()
+                    listener.onError(queryId, ex)
+                }
+                LazySequence.State.DEPLETED -> {
+                    log.trace("query {} is depleted of solutions", queryId)
+                    close()
+                    listener.onSolutionsDepleted(queryId)
+                }
+                else -> { /* nothing to do */ }
+            }
+
+            return usefulWorkDone
+        }
 
         /**
          * If there are open consumption requests (see [registerConsumptionRequest]), consumes
@@ -104,16 +151,19 @@ internal class QueryContext(
          * It is guaranteed that, before this method returns, all calls to the given
          * listener have returned. In other words: methods of the given listener will not be invoked
          * as a result of an invocation of this method after this method has returned.
+         *
+         * @return the number of solutions actually consumed
          */
-        fun consumeSolutions(listener: SolutionConsumptionListener) {
-            var currentRequest = consumptionRequests.peek() ?: return
+        private fun consumeSolutions(listener: SolutionConsumptionListener): Int {
+            var currentRequest = consumptionRequests.peek() ?: return 0
 
+            var nConsumed = 0
             solutionAvailable@while (solutions.state == LazySequence.State.RESULTS_AVAILABLE) {
                 while (currentRequest.amount != null && currentlyConsumed >= currentRequest.amount!!) {
                     if (currentRequest.closeAfterwards) {
                         close()
                         listener.onAbortedByRequest(queryId)
-                        return
+                        break@solutionAvailable
                     }
 
                     currentlyConsumed = 0
@@ -122,6 +172,7 @@ internal class QueryContext(
                 }
 
                 val solution = solutions.tryAdvance()!!
+                nConsumed++
                 log.trace("obtained one solution to query #{}; handling({}): {}", queryId, currentRequest.handling.name, solution)
 
                 if (currentRequest.handling == ConsumeQuerySolutionsCommand.SolutionHandling.RETURN) {
@@ -130,19 +181,8 @@ internal class QueryContext(
 
                 currentlyConsumed++
             }
-        }
 
-        fun getErrorIfFailed(): Exception? {
-            if (solutions.state != LazySequence.State.FAILED) {
-                try {
-                    solutions.tryAdvance()
-                }
-                catch (ex: Exception) {
-                    return ex
-                }
-            }
-
-            return null
+            return nConsumed
         }
 
         /**
