@@ -5,7 +5,7 @@ import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.unification.Unification
 import org.slf4j.LoggerFactory
-import java.util.*
+import java.util.ArrayDeque
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -20,7 +20,7 @@ private val log = LoggerFactory.getLogger("prologdb.worker")
  * for interaction.
  */
 internal class QueryContext(
-    private val queryId: Int,
+    val queryId: Int,
     private val solutions: LazySequence<Unification>,
     val originalQuery: Query
 ) {
@@ -90,10 +90,12 @@ internal class QueryContext(
             this@QueryContext.consumptionRequests.add(command)
         }
 
+        val state: LazySequence.State get() = solutions.state
+
         /**
          * Does one [LazySequence.step] on the solutions.
          */
-        fun step(): LazySequence.State = solutions.step()
+        fun step() = solutions.step()
 
         /**
          * If there are open consumption requests (see [registerConsumptionRequest]), consumes
@@ -128,20 +130,19 @@ internal class QueryContext(
 
                 currentlyConsumed++
             }
+        }
 
-            when(solutions.state) {
-                LazySequence.State.FAILED -> {
-                    val ex = try { solutions.tryAdvance(); null } catch (ex: Throwable) { ex }!!
-                    close()
-                    listener.onError(queryId, ex)
+        fun getErrorIfFailed(): Exception? {
+            if (solutions.state != LazySequence.State.FAILED) {
+                try {
+                    solutions.tryAdvance()
                 }
-                LazySequence.State.DEPLETED -> {
-                    log.trace("query {} is depleted of solutions", queryId)
-                    close()
-                    listener.onSolutionsDepleted(queryId)
+                catch (ex: Exception) {
+                    return ex
                 }
-                else -> { /* nothing to do */ }
             }
+
+            return null
         }
 
         /**

@@ -245,20 +245,49 @@ class ServerInterface<SessionState : Any>(
         override fun run() {
             try {
                 while (!this@ServerInterface.closed && !this@WorkerRunnable.closed) {
-                    var nContextsWorkedOn = 0
+                    var anyWorkDone = false
                     for ((sessionHandle, contexts) in queryContexts) {
                         for (context in contexts.values) {
                             context.ifAvailable {
                                 currentSessionHandle = sessionHandle
-                                it.step()
-                                it.consumeSolutions(this)
-                                currentSessionHandle = null
-                                nContextsWorkedOn++
+                                try {
+                                    if (it.state == LazySequence.State.PENDING) {
+                                        // stepping must only happen in PENDING. If done in RESULTS_AVAILABLE,
+                                        // more solutions are being computed than requested by the client. That
+                                        // would be sub-optimal for read-only queries and absolutely unacceptable for
+                                        // queries with side effects
+                                        it.step()
+                                        anyWorkDone = true
+                                    }
+
+                                    if (it.state == LazySequence.State.RESULTS_AVAILABLE) {
+                                        it.consumeSolutions(this)
+                                        anyWorkDone = true
+                                    }
+
+                                    when(it.state) {
+                                        LazySequence.State.FAILED -> {
+                                            val ex = it.getErrorIfFailed()!!
+                                            log.trace("query {} failed", context.queryId, ex)
+                                            close()
+                                            this.onError(context.queryId, ex)
+                                        }
+                                        LazySequence.State.DEPLETED -> {
+                                            log.trace("query {} is depleted of solutions", context.queryId)
+                                            close()
+                                            this.onSolutionsDepleted(context.queryId)
+                                        }
+                                        else -> { /* nothing to do */ }
+                                    }
+                                }
+                                finally {
+                                    currentSessionHandle = null
+                                }
                             }
                         }
                     }
 
-                    if (nContextsWorkedOn == 0) {
+                    if (!anyWorkDone) {
                         // apparently there is nothing to do, wait a little
                         // as not to waste CPU time (between 200 and 800 ms)
                         Thread.sleep(floor(Math.random() * 600.0).toLong() + 200)
