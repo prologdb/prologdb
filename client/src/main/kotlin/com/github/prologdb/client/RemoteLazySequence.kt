@@ -38,7 +38,7 @@ class RemoteSolutions internal constructor(
     private var firstSolutionReceived = false
 
     @Volatile
-    private var moreSolutionsRequested = false
+    private var solutionRequestUnderway = false
 
     override val state: LazySequence.State
         get() {
@@ -91,9 +91,6 @@ class RemoteSolutions internal constructor(
 
         return when (event) {
             is QuerySolutionEvent -> {
-                // prefetch more
-                onMoreSolutionsNeeded()
-
                 event.solution
             }
             is QueryClosedEvent   -> {
@@ -116,13 +113,13 @@ class RemoteSolutions internal constructor(
 
         if (firstSolutionRequestSent) {
             if (firstSolutionReceived) {
-                if (moreSolutionsRequested) {
+                if (solutionRequestUnderway) {
                     // already underway, wait
                     return
                 } else {
                     // one more at a time
                     onMoreSolutionsNeeded(1)
-                    moreSolutionsRequested = true
+                    solutionRequestUnderway = true
                 }
             } else {
                 // the first request for the prefetch amount is still
@@ -132,18 +129,18 @@ class RemoteSolutions internal constructor(
         } else  {
             // first, request the prefetch amount
             firstSolutionRequestSent = true
+            solutionRequestUnderway = true
             onMoreSolutionsNeeded(prefetchAmount)
         }
     }
 
     internal fun onQueryEvent(event: QueryEvent) {
-        // println("LocalSeq ${System.identityHashCode(this)} on query #$queryId got event $event")
         eventQueue.put(event)
         if (event is QuerySolutionEvent) {
             if (!firstSolutionReceived) {
                 firstSolutionReceived = true
             }
-            moreSolutionsRequested = false
+            solutionRequestUnderway = false
         }
     }
 }
