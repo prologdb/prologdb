@@ -84,7 +84,7 @@ class Connection(val host: String, val port: Int) {
                 .build()
                 .writeDelimitedTo(socket.getOutputStream())
 
-            val solutionSeq = RemoteSolutions(id, 5, { amount -> this.requestSolutions(id, amount) }, { this.abort(id) })
+            val solutionSeq = RemoteSolutions(id, 1, { amount -> this.requestSolutions(id, amount) }, { this.abort(id) })
             openQueries[id] = solutionSeq
             return solutionSeq
         }
