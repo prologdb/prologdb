@@ -10,10 +10,11 @@ import com.github.prologdb.runtime.unification.VariableDiscrepancyException
 import com.github.prologdb.storage.fact.PersistenceID
 
 /**
- * Implements `[+, fact] -> unify(fact) -> +`
+ * Implements `[+, fact] -> unify(fact) -> +` and `[+, fact] -> unify_filter(fact) -> +`
  */
 class UnifyFunctor(
-    val rhs: CompoundTerm
+    val rhs: CompoundTerm,
+    val instantiate: Boolean = true
 ) : PlanFunctor<Pair<PersistenceID, CompoundTerm>, PersistenceID> {
 
     private val rhsVariables = rhs.variables
@@ -30,7 +31,7 @@ class UnifyFunctor(
                     resolvedBucket.retainAll(rhsVariables)
                     try {
                         resolvedBucket.incorporate(variableCarry)
-                        Pair(resolvedBucket, persistenceID)
+                        if (instantiate) Pair(resolvedBucket, persistenceID) else Pair(variableCarry, persistenceID)
                     } catch (ex: VariableDiscrepancyException) {
                         // mismatch, do not yield (equals to prolog false)
                         null
@@ -39,6 +40,5 @@ class UnifyFunctor(
             }
     }
     
-    override val explanation: CompoundTerm
-        get() = CompoundTerm("unify", arrayOf(rhs))
+    override val explanation: CompoundTerm = CompoundTerm(if (instantiate) "unify" else "unify_filter", arrayOf(rhs))
 }

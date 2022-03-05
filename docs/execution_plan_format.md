@@ -193,6 +193,10 @@ However, prolog first randomizes the variables in both the goal and rule before 
 
 Step 1 to 3 are an isolated unification.
 
+### `[+, fact] -> unify_filter(fact) -> +`
+
+Like `unify`, except that this one doesn't instantiate anything.
+
 ### `+ -> fact_get(indicator) -> [+, fact]`
 
 **Input**: the persistence ID of the fact to read  
@@ -215,7 +219,8 @@ An index-lookup
 
 **Action**: Looks up predicate IDs for the given indicator where the indexed values
 match those given in the 3rd argument.  
-**Yields**: the matching persistence IDs.
+**Yields**: the matching persistence IDs.  
+**Instantiates**: ? (how to implement index-only retrievals/scans)
 
 #### Example
 
