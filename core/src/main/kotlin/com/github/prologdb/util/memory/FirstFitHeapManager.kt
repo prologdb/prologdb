@@ -2,7 +2,6 @@ package com.github.prologdb.util.memory
 
 import java.util.SortedSet
 import java.util.TreeSet
-import kotlin.collections.ArrayList
 import kotlin.math.max
 import kotlin.math.min
 
@@ -127,17 +126,17 @@ class FirstFitHeapManager(
         }
 
         val chunk = freeChunksSorted.firstOrNull { it.size >= desiredSize }
-            // defrag is it is likely to help
-            ?: if (defragEffortFactor > 0f && desiredSize / defragEffortFactor <= freeSpaceAmount) {
+            // defrag if it is likely to help
+            ?: (if (defragEffortFactor > 0f && desiredSize / defragEffortFactor <= freeSpaceAmount) {
                     if (defragmentFreeSpace(defragEffortFactor, desiredSize)) {
                         freeChunksSorted.first { it.size >= desiredSize }
                     } else null
-                } else null
-            ?: if (enlargeIfNecessary) {
+                } else null)
+            ?: (if (enlargeIfNecessary) {
                     val newChunk = size..(size + desiredSize - 1)
                     size += desiredSize
                     newChunk
-                } else null
+                } else null)
 
         chunk ?: return null
 
