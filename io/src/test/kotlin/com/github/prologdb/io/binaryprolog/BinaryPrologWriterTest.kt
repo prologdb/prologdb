@@ -3,7 +3,15 @@ package com.github.prologdb.io.binaryprolog
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
-import com.github.prologdb.runtime.term.*
+import com.github.prologdb.runtime.term.AnonymousVariable
+import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.PrologDecimal
+import com.github.prologdb.runtime.term.PrologDictionary
+import com.github.prologdb.runtime.term.PrologInteger
+import com.github.prologdb.runtime.term.PrologList
+import com.github.prologdb.runtime.term.PrologString
+import com.github.prologdb.runtime.term.Variable
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.FreeSpec
 import java.io.ByteArrayOutputStream
@@ -157,6 +165,19 @@ class BinaryPrologWriterTest : FreeSpec({
         bufferData shouldBe byteArrayOf(0x20, 0x8D.toByte(), 0x53, 0x74, 0x72, 0x69, 0x6E,
             0x67, 0xE2.toByte(), 0x9E.toByte(), 0xA9.toByte(), 0xF0.toByte(), 0x9F.toByte(),
             0x99.toByte(), 0x8A.toByte())
+    }
+
+    "anonymous variable" {
+        val buffer = ByteArrayOutputStream()
+        val out = DataOutputStream(buffer)
+
+        BinaryPrologWriter.getDefaultInstance().writeTermTo(
+            AnonymousVariable(),
+            out
+        )
+
+        val bufferData = buffer.toByteArray()
+        bufferData shouldBe byteArrayOf(0x21)
     }
 
     "predicate" - {

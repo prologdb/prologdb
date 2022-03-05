@@ -4,7 +4,17 @@ import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.query.Query
-import com.github.prologdb.runtime.term.*
+import com.github.prologdb.runtime.term.AnonymousVariable
+import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.PrologDecimal
+import com.github.prologdb.runtime.term.PrologDictionary
+import com.github.prologdb.runtime.term.PrologInteger
+import com.github.prologdb.runtime.term.PrologList
+import com.github.prologdb.runtime.term.PrologNumber
+import com.github.prologdb.runtime.term.PrologString
+import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.term.Variable
 import java.io.DataOutput
 
 class BinaryPrologWriter {
@@ -153,7 +163,7 @@ object VariableWriter : BinaryPrologWriter.TermWriter<Variable> {
     override val prologTypeName = "variable"
 
     private val TYPE_BYTE_REGULAR = 0x20
-    private val TYPE_BYTE_ANONYMOUS = 0x20
+    private val TYPE_BYTE_ANONYMOUS = 0x21
 
     override fun writeTermTo(term: Variable, out: DataOutput, writerRef: BinaryPrologWriter) {
         if (term is AnonymousVariable || term.name == "_") {
