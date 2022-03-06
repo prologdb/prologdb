@@ -23,6 +23,8 @@ object DatabaseStandardLibraryModuleLoader : ModuleLoader {
         ),
         ModuleReference("essential", "\$clauses") to listOf(
             BuiltinDatabaseAssert1,
+            BuiltinDatabaseRetract1,
+            BuiltinDatabaseRetractAll1,
         )
     )
         .map { (moduleRef, clauses) ->

@@ -18,4 +18,10 @@ class FunctorPipe<Input, Intermediate, Output>(
 
     override val explanation: CompoundTerm
         get() = CompoundTerm("|", arrayOf(first.explanation, second.explanation))
+
+    companion object {
+        infix fun <Input, Intermediate, Output> PlanFunctor<Input, Intermediate>.into(into: PlanFunctor<Intermediate, Output>): PlanFunctor<Input, Output> {
+            return FunctorPipe(this, into)
+        }
+    }
 }

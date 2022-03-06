@@ -263,7 +263,7 @@ Does nothing.
 [bash pipes]: https://ryanstutorials.net/linuxtutorial/piping.php
 [jq]: https://stedolan.github.io/jq/tutorial/ 
 
-### `* -> invoke_compiled(fact) -> void`
+### `* -> invoke(fact) -> void`
 
 Invokes a compiled predicate. Compiled predicates are either builtins
 or are user-defined rules that, transitively, do not need access to the
@@ -272,9 +272,21 @@ persistent storages (e.g. `append/3` or `member/2`).
 Whether the predicate code is *actually* compiled into code native
 to the database program or interpreted is not defined as of now.
 
-**Input**: is discarded/ignored
+**Input**: is discarded/ignored  
 **Arguments**:
 1. The invocation to the compiled predicate
 
-**Yields**: nothing, results from the compiled code are carried along
+**Yields**: nothing, results from the compiled code are carried along  
 **Instantiates**: as per the results of the invocation
+
+### `* -> discard -> void`
+
+Yields void exactly once, regardless of the number of inputs.
+All inputs are computed regardless, to make sure that the side-effects
+of computing them are applied.
+Used e.g. to implement `retractAll/1`.
+
+**Input**: is discarded/ignored  
+**Arguments**: n/a  
+**Yields**: For the first input only, yields void.  
+**Instantiates**: nothing
