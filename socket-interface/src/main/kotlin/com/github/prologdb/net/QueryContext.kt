@@ -90,22 +90,19 @@ internal class QueryContext(
             this@QueryContext.consumptionRequests.add(command)
         }
 
-        val moreSolutionsRequested: Boolean
-            get() {
-                val request = consumptionRequests.peek() ?: return false
-                if (request.amount == null) {
-                    return true
-                }
-                return currentlyConsumed < request.amount
-            }
-
         /**
          * If work can be done on this query, attempts to perform work.
          * @return whether useful work was done
          */
         fun tick(listener: SolutionConsumptionListener): Boolean {
+            val consumptionRequest = getNextConsumptionRequest(listener)
+            if (closed) {
+                return false
+            }
+
             var usefulWorkDone = false
-            if (solutions.state == LazySequence.State.PENDING && moreSolutionsRequested) {
+
+            if (solutions.state == LazySequence.State.PENDING && moreSolutionsRequested(consumptionRequest)) {
                 // stepping must only happen in PENDING. If done in RESULTS_AVAILABLE,
                 // more solutions are being computed than requested by the client. That
                 // would be sub-optimal for read-only queries and absolutely unacceptable for
@@ -155,31 +152,24 @@ internal class QueryContext(
          * @return the number of solutions actually consumed
          */
         private fun consumeSolutions(listener: SolutionConsumptionListener): Int {
-            var currentRequest = consumptionRequests.peek() ?: return 0
-
             var nConsumed = 0
             solutionAvailable@while (solutions.state == LazySequence.State.RESULTS_AVAILABLE) {
-                while (currentRequest.amount != null && currentlyConsumed >= currentRequest.amount!!) {
-                    if (currentRequest.closeAfterwards) {
-                        close()
-                        listener.onAbortedByRequest(queryId)
-                        break@solutionAvailable
+                val consumptionRequest = getNextConsumptionRequest(listener)
+                if (consumptionRequest == null || closed) {
+                    return nConsumed
+                }
+
+                while (moreSolutionsRequested(consumptionRequest)) {
+                    val solution = solutions.tryAdvance()!!
+                    nConsumed++
+                    currentlyConsumed++
+
+                    log.trace("obtained one solution to query #{}; handling({}): {}", queryId, consumptionRequest.handling.name, solution)
+
+                    if (consumptionRequest.handling == ConsumeQuerySolutionsCommand.SolutionHandling.RETURN) {
+                        listener.onReturnSolution(queryId, solution)
                     }
-
-                    currentlyConsumed = 0
-                    consumptionRequests.pop()
-                    currentRequest = consumptionRequests.peek() ?: break@solutionAvailable
                 }
-
-                val solution = solutions.tryAdvance()!!
-                nConsumed++
-                log.trace("obtained one solution to query #{}; handling({}): {}", queryId, currentRequest.handling.name, solution)
-
-                if (currentRequest.handling == ConsumeQuerySolutionsCommand.SolutionHandling.RETURN) {
-                    listener.onReturnSolution(queryId, solution)
-                }
-
-                currentlyConsumed++
             }
 
             return nConsumed
@@ -191,6 +181,41 @@ internal class QueryContext(
         fun close() {
             closed = true
             solutions.close()
+        }
+
+        /**
+         * **IMPORTANT:** this method may close the query if a completed consumption request has
+         * [ConsumeQuerySolutionsCommand.closeAfterwards] set to true.
+         * @return the next consumption request
+         */
+        private fun getNextConsumptionRequest(listener: SolutionConsumptionListener): ConsumeQuerySolutionsCommand? {
+            var currentRequest: ConsumeQuerySolutionsCommand? = consumptionRequests.peek()
+
+            while (currentRequest?.amount != null && currentlyConsumed >= currentRequest.amount!!) {
+                if (currentRequest.closeAfterwards) {
+                    close()
+                    listener.onAbortedByRequest(queryId)
+                    return currentRequest
+                }
+
+                currentlyConsumed = 0
+                consumptionRequests.pop()
+                currentRequest = consumptionRequests.peek()
+            }
+
+            return currentRequest
+        }
+
+        private fun moreSolutionsRequested(currentRequest: ConsumeQuerySolutionsCommand?): Boolean {
+            if (currentRequest == null) {
+                return false
+            }
+
+            if (currentRequest.amount == null) {
+                return true
+            }
+
+            return currentRequest.amount > currentlyConsumed
         }
     }
 
