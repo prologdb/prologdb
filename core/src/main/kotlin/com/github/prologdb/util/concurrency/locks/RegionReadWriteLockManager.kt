@@ -1,12 +1,15 @@
 package com.github.prologdb.util.concurrency.locks
 
 import com.github.prologdb.async.Principal
+import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.util.*
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
 import java.util.concurrent.LinkedBlockingDeque
+
+private val log = LoggerFactory.getLogger("prologdb.locks")
 
 /**
  * For some contiguous thing where single units can be represented by offsets of type [Long]
@@ -217,9 +220,13 @@ class RegionReadWriteLockManager(val name: String? = null) : AutoCloseable, Clos
          * Assures the region associated with the given request is not locked.
          */
         private fun doUnlock(request: UnlockRequest) {
-            when (request.mode) {
+            val released = when (request.mode) {
                 LockMode.READ -> activeReadLocks.removeIf { it.first == request.thread && it.second == request.region }
                 LockMode.READ_WRITE -> activeWriteLocks.removeIf { it.first == request.thread && it.second == request.region }
+            }
+
+            if (released) {
+                log.trace("Released ${request.mode} lock on ${request.region} in $name as ${request.thread}")
             }
         }
 
@@ -270,12 +277,17 @@ class RegionReadWriteLockManager(val name: String? = null) : AutoCloseable, Clos
             val granted = CompletableFuture<Unit>()
             lockRequestQueue.put(LockRequest(region, mode, principal, granted))
 
-            return granted
+            log.trace("Acquiring $mode lock on $region in $name as $principal")
+            return granted.thenApply { result ->
+                log.trace("Acquired $mode lock on $region in $name as $principal")
+                return@thenApply result
+            }
         }
 
         override fun releaseFor(principal: Principal) {
             if (closeMode == null) {
                 unlockRequestQueue.put(UnlockRequest(region, mode, principal))
+                log.trace("Releasing $mode lock on $region in $name as $principal")
                 lockGrantThread.interrupt()
             }
         }

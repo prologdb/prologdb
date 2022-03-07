@@ -271,7 +271,6 @@ class ServerInterface<SessionState : Any>(
                 (completedEv as SingleSubject<Unit>).onSuccess(Unit)
             }
             catch (ex: Throwable) {
-                ex.printStackTrace(System.err)
                 (completedEv as SingleSubject<Unit>).onError(ex)
             }
         }
@@ -350,7 +349,7 @@ class ServerInterface<SessionState : Any>(
                 }
             }
             catch (ex: Throwable) {
-                log.error("Exception while trying to scale worker threads", ex)
+                log.warn("Exception while trying to scale worker threads", ex)
             }
         }
 
@@ -364,7 +363,6 @@ class ServerInterface<SessionState : Any>(
                         log.error("Worker thread ${it.second.name} died because of an exception", ex)
                     },
                     onSuccess = { _ ->
-                        // TODO: log
                         log.error("Worker thread ${it.second.name} stopped by itself (did not report an exception)")
                     }
                 )

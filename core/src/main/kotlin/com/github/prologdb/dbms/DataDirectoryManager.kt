@@ -40,7 +40,7 @@ class DataDirectoryManager private constructor(
     private val lock = PIDLockFile(dataDirectory.resolve("lock.pid").toFile())
     init {
         if (!lock.tryLock()) {
-            throw IOException("Failed to lock data directory $dataDirectory")
+            throw IOException("Failed to lock data directory $dataDirectory. An instance of prologdb seems to be already running.")
         }
     }
 

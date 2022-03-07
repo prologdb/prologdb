@@ -179,6 +179,7 @@ internal class QueryContext(
          * Closes the context, releasing any open resources.
          */
         fun close() {
+            log.trace("Closing query #${queryId}")
             closed = true
             solutions.close()
         }
