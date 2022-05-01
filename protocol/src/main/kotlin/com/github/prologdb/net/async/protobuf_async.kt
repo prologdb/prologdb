@@ -66,12 +66,18 @@ fun AsynchronousByteChannel.readVarUInt32(): CompletionStage<Long> {
         }
 
         override fun completed(result: Int, attachment: Nothing?) {
+            if (result < 0) {
+                future.completeExceptionally(IOException("Unexpected EOF in variable uint"))
+                return
+            }
+
             if (result > 0) {
                 buffer.flip()
                 val byte = buffer.get()
                 val value = if (byte >= 0) byte else byte and 0b01111111
 
                 carry += value.toLong() * digitSignificance
+                digitSignificance = digitSignificance shl 7
 
                 if (carry and 0xFFFFFFFFL != carry) {
                     // larger than 32 bits
