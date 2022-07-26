@@ -12,21 +12,9 @@ import com.github.prologdb.parser.lexer.LineEndingNormalizer
 import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.source.SourceUnit
-import com.github.prologdb.runtime.Clause
-import com.github.prologdb.runtime.ClauseIndicator
-import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
-import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
-import com.github.prologdb.runtime.PredicateNotDefinedException
-import com.github.prologdb.runtime.PredicateNotExportedException
-import com.github.prologdb.runtime.PrologInternalError
-import com.github.prologdb.runtime.RandomVariableScope
+import com.github.prologdb.runtime.*
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
-import com.github.prologdb.runtime.module.ASTModule
-import com.github.prologdb.runtime.module.Module
-import com.github.prologdb.runtime.module.ModuleImport
-import com.github.prologdb.runtime.module.ModuleNotFoundException
-import com.github.prologdb.runtime.module.ModuleNotLoadedException
-import com.github.prologdb.runtime.module.ModuleReference
+import com.github.prologdb.runtime.module.*
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.query.Query
@@ -37,14 +25,14 @@ import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.runtime.util.OperatorRegistry
 import com.github.prologdb.util.OverrideModule
-import java.util.UUID
+import java.util.*
 import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProofSearchContext
 
 internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructor(
     override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
     override val database: PrologDatabase,
     moduleLoader: ModuleLoader
-) : DefaultPrologRuntimeEnvironment(moduleLoader.rootModule, moduleLoader), PhysicalKnowledgeBaseRuntimeEnvironment {
+) : DefaultPrologRuntimeEnvironment(moduleLoader), PhysicalKnowledgeBaseRuntimeEnvironment {
     constructor(
         knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
         database: PrologDatabase
@@ -153,7 +141,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         override val authorization: Authorization,
         override val randomVariableScope: RandomVariableScope
     ) : PhysicalDatabaseProofSearchContext {
-        private val selfModule = runtimeEnvironment.loadedModules.getValue(moduleName)
+        private val selfModule = runtimeEnvironment.getLoadedModule(moduleName)
         override val fulfillAttach: suspend LazySequenceBuilder<Unification>.(Query, initialVariables: VariableBucket) -> Unification? = { q, variables ->
             val executionPlan = runtimeEnvironment.database.executionPlanner.planExecution(q, this@ProofSearchContext, randomVariableScope)
             yieldAllFinal(
