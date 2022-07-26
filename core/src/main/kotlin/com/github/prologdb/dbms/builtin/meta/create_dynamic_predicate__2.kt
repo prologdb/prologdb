@@ -9,18 +9,11 @@ import com.github.prologdb.runtime.ArgumentError
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.PrologInvocationContractViolationException
-import com.github.prologdb.runtime.module.ModuleNotLoadedException
 import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
-import com.github.prologdb.runtime.term.Atom
-import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.term.PrologInteger
-import com.github.prologdb.runtime.term.PrologList
-import com.github.prologdb.runtime.term.PrologString
-import com.github.prologdb.runtime.term.Term
-import com.github.prologdb.runtime.term.Variable
+import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.storage.fact.FactStoreFeature
-import java.util.UUID
+import java.util.*
 
 val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicate", 2) { args, ctxt ->
     val runtime = ctxt.runtimeEnvironment as? MetaKnowledgeBaseRuntimeEnvironment
@@ -50,11 +43,10 @@ val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicat
         val knowledgeBaseCatalog = systemCatalog.knowledgeBases.firstOrNull { it.name == runtime.knowledgeBaseCatalog.name }
             ?: throw KnowledgeBaseNotFoundException(runtime.knowledgeBaseCatalog.name)
         val moduleCatalog = knowledgeBaseCatalog.modulesByName[moduleName.name]
-            ?: if (moduleName.name in runtime.loadedModules) {
-                throw ArgumentError(0, "module $moduleName is not a physical module.")
-            } else {
-                throw ModuleNotLoadedException(moduleName.name)
-            }
+        if (moduleCatalog == null) {
+            runtime.getLoadedModule(moduleName.name) // throws ModuleNotFoundException if it doesn't exist at all
+            throw ArgumentError(0, "module $moduleName is not a physical module.")
+        }
 
         if (moduleCatalog.predicates.any { it.functor == functor.name && it.arity == arity }) {
             throw DynamicPredicateAlreadyExistsException(fqi)

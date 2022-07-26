@@ -8,6 +8,6 @@ interface DatabaseRuntimeEnvironment : PrologRuntimeEnvironment {
     val database: PrologDatabase
     val defaultModuleName: String?
 
-    override fun newProofSearchContext(authorization: Authorization): DatabaseProofSearchContext
+    override fun newProofSearchContext(moduleName: String, authorization: Authorization): DatabaseProofSearchContext
     override fun deriveProofSearchContextForModule(deriveFrom: ProofSearchContext, moduleName: String): DatabaseProofSearchContext
 }

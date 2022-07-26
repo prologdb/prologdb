@@ -1,24 +1,14 @@
 package com.github.prologdb.dbms
 
-import com.github.prologdb.dbms.builtin.meta.global.BuiltinCreateKnowledgeBase1
-import com.github.prologdb.dbms.builtin.meta.global.BuiltinCreateModule2
-import com.github.prologdb.dbms.builtin.meta.global.BuiltinDropKnowledgeBase1
-import com.github.prologdb.dbms.builtin.meta.global.BuiltinDropModule2
-import com.github.prologdb.dbms.builtin.meta.global.BuiltinKnowledgeBase1
-import com.github.prologdb.dbms.builtin.meta.global.BuiltinModule2
+import com.github.prologdb.dbms.builtin.meta.global.*
 import com.github.prologdb.parser.parser.DefaultModuleSourceFileVisitor
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.parser.SourceFileVisitor
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
+import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
-import com.github.prologdb.runtime.module.CascadingModuleLoader
-import com.github.prologdb.runtime.module.Module
-import com.github.prologdb.runtime.module.ModuleImport
-import com.github.prologdb.runtime.module.ModuleNotFoundException
-import com.github.prologdb.runtime.module.ModuleNotLoadedException
-import com.github.prologdb.runtime.module.ModuleReference
-import com.github.prologdb.runtime.module.ModuleScopeProofSearchContext
+import com.github.prologdb.runtime.module.*
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.stdlib.NativeCodeRule
@@ -27,15 +17,19 @@ import com.github.prologdb.runtime.stdlib.loader.NativeCodeSourceFileVisitorDeco
 import com.github.prologdb.runtime.stdlib.loader.StandardLibraryModuleLoader
 import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProofSearchContext
 
-class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDatabase) : DefaultPrologRuntimeEnvironment(RootModule, ModuleLoader), DatabaseRuntimeEnvironment {
+class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDatabase) : DefaultPrologRuntimeEnvironment(ModuleLoader), DatabaseRuntimeEnvironment {
     override val defaultModuleName = SCHEMA_MODULE_NAME
 
-    override fun newProofSearchContext(authorization: Authorization): DatabaseProofSearchContext {
-        val superContext = super.newProofSearchContext(authorization)
+    init {
+        // TODO: load root module
+    }
+
+    override fun newProofSearchContext(moduleName: String, authorization: Authorization): DatabaseProofSearchContext {
+        val superContext = super.newProofSearchContext(moduleName, authorization)
         return if (superContext is ModuleScopeProofSearchContext) {
-            ProofSearchContext(superContext.module.name, superContext)
+            ProofSearchContext(superContext.module.declaration.moduleName, superContext)
         } else {
-            deriveProofSearchContextForModule(superContext, rootModule.name)
+            deriveProofSearchContextForModule(superContext, RootModule.declaration.moduleName)
         }
     }
 
@@ -61,14 +55,14 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
                 ModuleImport.Full(ModuleReference(DefaultPhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS, SCHEMA_MODULE_NAME))
             )
             override val localOperators = ISOOpsOperatorRegistry
-            override val name = "\$root"
+            override val declaration = ModuleDeclaration("\$root")
         }
 
         object ModuleLoader : com.github.prologdb.runtime.module.ModuleLoader {
             private val PARSER = PrologParser()
             private val deletageLoader = CascadingModuleLoader(listOf(
                 ClasspathPrologSourceModuleLoader(
-                    sourceFileVisitorSupplier = { getSourceFileVisitor(it) },
+                    sourceFileVisitorSupplier = this::getSourceFileVisitor,
                     classLoader = GlobalMetaKnowledgeBaseRuntimeEnvironment::class.java.classLoader,
                     parser = PARSER,
                     moduleReferenceToClasspathPath = { moduleRef ->
@@ -82,12 +76,12 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
                 StandardLibraryModuleLoader
             ))
 
-            override fun load(reference: ModuleReference): Module = deletageLoader.load(reference)
+            override fun initiateLoading(reference: ModuleReference, runtime: PrologRuntimeEnvironment): com.github.prologdb.runtime.module.ModuleLoader.PrimedStage = deletageLoader.initiateLoading(reference, runtime)
 
-            private fun getSourceFileVisitor(moduleReference: ModuleReference): SourceFileVisitor<Module> {
+            private fun getSourceFileVisitor(moduleReference: ModuleReference, runtime: PrologRuntimeEnvironment): SourceFileVisitor<Module> {
                 val nativeImplementations = nativeImplementationsByModuleRef[moduleReference.toString()] ?: emptyMap()
                 return NativeCodeSourceFileVisitorDecorator(
-                    DefaultModuleSourceFileVisitor(),
+                    DefaultModuleSourceFileVisitor(runtime),
                     nativeImplementations,
                     PARSER
                 )
@@ -116,7 +110,7 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
         override val runtimeEnvironment = this@GlobalMetaKnowledgeBaseRuntimeEnvironment
 
         init {
-            if (moduleName != SCHEMA_MODULE_NAME && moduleName != RootModule.name) {
+            if (moduleName != SCHEMA_MODULE_NAME && moduleName != RootModule.declaration.moduleName) {
                 throw ModuleNotLoadedException(moduleName)
             }
         }

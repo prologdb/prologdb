@@ -8,7 +8,7 @@ import com.github.prologdb.runtime.term.Atom
 
 val BuiltinDatabaseCurrentModule1 = nativeRule("current_module", 1) { args, ctxt ->
     val moduleName = when(ctxt) {
-        is ModuleScopeProofSearchContext -> ctxt.module.name
+        is ModuleScopeProofSearchContext -> ctxt.module.declaration.moduleName
         is DatabaseProofSearchContext -> ctxt.moduleName
         else -> throw PrologInternalError("Cannot determine current module.")
     }

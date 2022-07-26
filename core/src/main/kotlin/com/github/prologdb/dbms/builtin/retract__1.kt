@@ -3,6 +3,6 @@ package com.github.prologdb.dbms.builtin
 import com.github.prologdb.runtime.PrologInternalError
 import com.github.prologdb.runtime.stdlib.nativeRule
 
-val BuiltinDatabaseRetract1 = nativeRule("retract", 1) { args, ctxt ->
+val BuiltinDatabaseRetract1 = nativeRule("retract", 1) { args, _ ->
     throw PrologInternalError("${args.indicator} should not be invoked directly. Goals to this predicate should be replaced with appropriate execution plan functors by the execution planner.")
 }

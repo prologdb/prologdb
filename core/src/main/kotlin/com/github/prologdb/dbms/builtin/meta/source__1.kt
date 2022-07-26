@@ -5,7 +5,6 @@ import com.github.prologdb.dbms.MetaKnowledgeBaseRuntimeEnvironment
 import com.github.prologdb.dbms.builtin.nativeDatabaseRule
 import com.github.prologdb.parser.ParseException
 import com.github.prologdb.runtime.ArgumentTypeError
-import com.github.prologdb.runtime.PrologInternalError
 import com.github.prologdb.runtime.PrologInvocationContractViolationException
 import com.github.prologdb.runtime.module.ModuleNotFoundException
 import com.github.prologdb.runtime.module.ModuleReference
@@ -33,11 +32,9 @@ val BuiltinSource1 = nativeDatabaseRule("source", 1) { args, ctxt ->
             val moduleCatalog = knowledgeBaseCatalog.modulesByName[ctxt.moduleName] ?: throw ModuleNotFoundException(moduleReference)
 
             val newSource = arg.toKotlinString()
-            val parseResult = DefaultPhysicalKnowledgeBaseRuntimeEnvironment.parseModuleSource(moduleReference, newSource)
-            ParseException.failOnError(parseResult.reportings)
-            if (parseResult.item == null) {
-                throw PrologInternalError("Failed to parse new source for module $moduleReference. Got no errors and no result.")
-            }
+            val primedStage = DefaultPhysicalKnowledgeBaseRuntimeEnvironment.parseModuleSource(moduleReference, newSource, ctxt.runtimeEnvironment)
+            val parsedStage = primedStage.proceed()
+            ParseException.failOnError(parsedStage.reportings)
 
             systemCatalog.copy(knowledgeBases = (systemCatalog.knowledgeBases - knowledgeBaseCatalog) + knowledgeBaseCatalog.copy(
                 modules = (knowledgeBaseCatalog.modules - moduleCatalog) + moduleCatalog.copy(

@@ -9,11 +9,9 @@ import com.github.prologdb.dbms.builtin.PhysicalDynamicPredicate
 import com.github.prologdb.parser.ParseException
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.lexer.LineEndingNormalizer
-import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.*
-import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.module.*
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
@@ -48,9 +46,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         deriveFrom: RuntimeProofSearchContext,
         moduleName: String
     ): PhysicalDatabaseProofSearchContext {
-        if (moduleName !in loadedModules) {
-            throw ModuleNotLoadedException(moduleName)
-        }
+        getLoadedModule(moduleName)
 
         return ProofSearchContext(
             knowledgeBaseCatalog,
@@ -63,8 +59,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         )
     }
 
-    override fun newProofSearchContext(authorization: Authorization): PhysicalDatabaseProofSearchContext {
-        val moduleName = knowledgeBaseCatalog.defaultModule ?: rootModule.name
+    override fun newProofSearchContext(moduleName: String, authorization: Authorization): PhysicalDatabaseProofSearchContext {
         return ProofSearchContext(
             knowledgeBaseCatalog,
             moduleName,
@@ -77,45 +72,49 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
     }
 
     private class ModuleLoader(private val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase) : com.github.prologdb.runtime.module.ModuleLoader {
-        override fun load(reference: ModuleReference): Module {
-            val fromSource = loadSource(reference)
+        override fun initiateLoading(reference: ModuleReference, runtime: PrologRuntimeEnvironment): com.github.prologdb.runtime.module.ModuleLoader.PrimedStage {
+            check(runtime is DatabaseRuntimeEnvironment)
+            val primedStage = loadSource(reference, runtime)
 
             val moduleCatalog = knowledgeBaseCatalog.modulesByName[reference.moduleName]
             if (moduleCatalog == null || moduleCatalog.predicates.isEmpty()) {
-                return fromSource
+                return primedStage
             }
 
-            return OverrideModule(
-                fromSource,
-                moduleCatalog.predicates.associate { predicateCatalog ->
-                    ClauseIndicator.of(predicateCatalog) to PhysicalDynamicPredicate(predicateCatalog)
+            return object : com.github.prologdb.runtime.module.ModuleLoader.PrimedStage {
+                override val declaration = primedStage.declaration
+                override fun proceed(): com.github.prologdb.runtime.module.ModuleLoader.ParsedStage {
+                    val parsedStage = primedStage.proceed()
+                    return object : com.github.prologdb.runtime.module.ModuleLoader.ParsedStage {
+                        override val module = OverrideModule(
+                            parsedStage.module,
+                            moduleCatalog.predicates.associate { predicateCatalog ->
+                                ClauseIndicator.of(predicateCatalog) to PhysicalDynamicPredicate(predicateCatalog)
+                            }
+                        )
+                    }
                 }
-            )
+            }
         }
 
-        private fun loadSource(reference: ModuleReference): Module {
+        private fun loadSource(reference: ModuleReference, runtime: DatabaseRuntimeEnvironment): com.github.prologdb.runtime.module.ModuleLoader.PrimedStage {
             if (reference.pathAlias != DATABASE_MODULE_PATH_ALIAS) {
-                return DatabaseStandardLibraryModuleLoader.load(reference)
+                return DatabaseStandardLibraryModuleLoader.initiateLoading(reference, runtime)
             }
 
             val module = knowledgeBaseCatalog.modulesByName[reference.moduleName]
                 ?: throw ModuleNotFoundException(reference)
 
-            val parseResult = parseModuleSource(reference, module.prologSource)
-            ParseException.failOnError(parseResult.reportings, "Failed to parse stored source for module $reference")
+            val primedStage = parseModuleSource(reference, module.prologSource, runtime)
+            return object : com.github.prologdb.runtime.module.ModuleLoader.PrimedStage {
+                override val declaration = primedStage.declaration
+                override fun proceed(): com.github.prologdb.runtime.module.ModuleLoader.ParsedStage {
+                    val parsedStage = primedStage.proceed()
+                    ParseException.failOnError(parsedStage.reportings, "Failed to parse stored source for module $reference")
 
-            return parseResult.item
-                ?: throw PrologInternalError("Failed to parse stored source for module $reference. Got no errors and no result.")
-        }
-
-        val rootModule: Module = object : Module {
-            override val allDeclaredPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
-            override val exportedPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
-            override val imports: List<ModuleImport> = knowledgeBaseCatalog.modules.map { module ->
-                ModuleImport.Selective(ModuleReference(DATABASE_MODULE_PATH_ALIAS, module.name), emptyMap())
+                    return parsedStage
+                }
             }
-            override val localOperators = ISOOpsOperatorRegistry
-            override val name = "\$root"
         }
     }
 
@@ -123,12 +122,12 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         const val DATABASE_MODULE_PATH_ALIAS = "db"
         private val parser = PrologParser()
 
-        fun parseModuleSource(reference: ModuleReference, source: String): ParseResult<ASTModule> {
+        fun parseModuleSource(reference: ModuleReference, source: String, runtime: DatabaseRuntimeEnvironment): PrologParser.PrimedStage {
             val lexer = Lexer(
                 SourceUnit("module ${reference.moduleName}"),
                 LineEndingNormalizer(source.iterator())
             )
-            return parser.parseSourceFile(lexer, DatabaseModuleSourceFileVisitor(reference.moduleName))
+            return parser.parseSourceFile(lexer, DatabaseModuleSourceFileVisitor(runtime), ModuleDeclaration(reference.moduleName))
         }
     }
 
@@ -190,18 +189,17 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
                 return Triple(fqIndicator, callable, unscopedGoal.arguments)
             }
 
-            val module = runtimeEnvironment.loadedModules[moduleNameTerm.name]
-                ?: throw ModuleNotLoadedException(moduleNameTerm.name)
+            val module = runtimeEnvironment.getLoadedModule(moduleNameTerm.name)
 
             val callable = module.exportedPredicates[simpleIndicator]
                 ?: if (simpleIndicator in module.allDeclaredPredicates) {
-                    throw PredicateNotExportedException(FullyQualifiedClauseIndicator(module.name, simpleIndicator), selfModule)
+                    throw PredicateNotExportedException(FullyQualifiedClauseIndicator(module.declaration.moduleName, simpleIndicator), selfModule)
                 } else {
                     throw PredicateNotDefinedException(simpleIndicator, module)
                 }
 
             return Triple(
-                FullyQualifiedClauseIndicator(module.name, simpleIndicator),
+                FullyQualifiedClauseIndicator(module.declaration.moduleName, simpleIndicator),
                 callable,
                 unscopedGoal.arguments
             )

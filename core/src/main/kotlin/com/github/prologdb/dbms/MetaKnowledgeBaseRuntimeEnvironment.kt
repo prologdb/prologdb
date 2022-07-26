@@ -4,18 +4,13 @@ import com.github.prologdb.dbms.builtin.DatabaseStandardLibraryModuleLoader
 import com.github.prologdb.dbms.builtin.meta.BuiltinCreateDynamicPredicate2
 import com.github.prologdb.dbms.builtin.meta.BuiltinDynamic2
 import com.github.prologdb.dbms.builtin.meta.BuiltinSource1
-import com.github.prologdb.parser.ModuleDeclaration
 import com.github.prologdb.parser.parser.DefaultModuleSourceFileVisitor
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
+import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
-import com.github.prologdb.runtime.module.CascadingModuleLoader
-import com.github.prologdb.runtime.module.Module
-import com.github.prologdb.runtime.module.ModuleImport
-import com.github.prologdb.runtime.module.ModuleNotFoundException
-import com.github.prologdb.runtime.module.ModuleReference
-import com.github.prologdb.runtime.module.ModuleScopeProofSearchContext
+import com.github.prologdb.runtime.module.*
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.stdlib.NativeCodeRule
@@ -26,18 +21,15 @@ import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProo
 class MetaKnowledgeBaseRuntimeEnvironment(
     override val database: PrologDatabase,
     val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase
-) : DatabaseRuntimeEnvironment, DefaultPrologRuntimeEnvironment(
-    rootModuleFor(knowledgeBaseCatalog),
-    META_MODULE_LOADER
-) {
+) : DatabaseRuntimeEnvironment, DefaultPrologRuntimeEnvironment(META_MODULE_LOADER) {
     override val defaultModuleName = ROOT_MODULE_NAME
 
-    override fun newProofSearchContext(authorization: Authorization): DatabaseProofSearchContext {
-        val superContext = super.newProofSearchContext(authorization)
+    override fun newProofSearchContext(moduleName: String, authorization: Authorization): DatabaseProofSearchContext {
+        val superContext = super.newProofSearchContext(moduleName, authorization)
         if (superContext is ModuleScopeProofSearchContext) {
-            return ProofSearchContext(superContext.module.name, superContext)
+            return ProofSearchContext(superContext.module.declaration.moduleName, superContext)
         } else {
-            return deriveProofSearchContextForModule(superContext, rootModule.name)
+            return deriveProofSearchContextForModule(superContext, ROOT_MODULE_NAME)
         }
     }
 
@@ -66,7 +58,7 @@ class MetaKnowledgeBaseRuntimeEnvironment(
 
         private val META_MODULE_LOADER = CascadingModuleLoader(listOf(
             ClasspathPrologSourceModuleLoader(
-                sourceFileVisitorSupplier = { metaModuleSourceFileVisitor(it.moduleName) },
+                sourceFileVisitorSupplier = { _, runtime -> metaModuleSourceFileVisitor(runtime) },
                 classLoader = MetaKnowledgeBaseRuntimeEnvironment::class.java.classLoader,
                 parser = PARSER,
                 moduleReferenceToClasspathPath = { moduleRef ->
@@ -82,10 +74,8 @@ class MetaKnowledgeBaseRuntimeEnvironment(
             DatabaseStandardLibraryModuleLoader
         ))
 
-        private fun metaModuleSourceFileVisitor(moduleName: String) = NativeCodeSourceFileVisitorDecorator(
-            DefaultModuleSourceFileVisitor(
-                ModuleDeclaration(moduleName)
-            ),
+        private fun metaModuleSourceFileVisitor(runtime: PrologRuntimeEnvironment) = NativeCodeSourceFileVisitorDecorator(
+            DefaultModuleSourceFileVisitor(runtime),
             META_MODULE_NATIVE_IMPLEMENTATIONS,
             PARSER
         )
@@ -96,10 +86,10 @@ class MetaKnowledgeBaseRuntimeEnvironment(
             override val imports: List<ModuleImport> = DatabaseModuleSourceFileVisitor.DEFAULT_IMPORTS.toList() + listOf(
                 ModuleImport.Full(ModuleReference("essential", COMMON_META_MODULE_NAME))
             ) + knowledgeBaseCatalog.modules.map { moduleCatalog ->
-                ModuleImport.Selective(ModuleReference(META_MODULE_PATH_ALIAS, moduleCatalog.name), emptyMap())
+                ModuleImport.Selective(ModuleReference(META_MODULE_PATH_ALIAS, moduleCatalog.name), emptyMap(), emptySet())
             }
             override val localOperators = ISOOpsOperatorRegistry
-            override val name = ROOT_MODULE_NAME
+            override val declaration = ModuleDeclaration(ROOT_MODULE_NAME)
         }
     }
 

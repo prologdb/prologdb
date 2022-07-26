@@ -17,14 +17,8 @@ import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.parser.PrologParser.Companion.STOP_AT_EOF
 import com.github.prologdb.parser.source.SourceUnit
-import com.github.prologdb.runtime.ClauseIndicator
-import com.github.prologdb.runtime.PrologException
-import com.github.prologdb.runtime.PrologInternalError
-import com.github.prologdb.runtime.PrologInvocationContractViolationException
-import com.github.prologdb.runtime.PrologUnsupportedOperationException
-import com.github.prologdb.runtime.RandomVariableScope
+import com.github.prologdb.runtime.*
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
-import com.github.prologdb.runtime.module.ModuleNotLoadedException
 import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
@@ -56,10 +50,9 @@ class PrologDatabaseToNetworkAdapter(
         ClauseIndicator.of("module", 1) to { session, args ->
             val moduleName = args.getTyped<Atom>(0).name
             val runtimeEnvironment = session.runtimeEnvironment ?: throw KnowledgeBaseNotSelectedException()
-            val module = runtimeEnvironment.loadedModules[moduleName]
-                ?: throw ModuleNotLoadedException(moduleName)
+            val module = runtimeEnvironment.getLoadedModule(moduleName)
 
-            session.module = module.name
+            session.module = module.declaration.moduleName
 
             LazySequence.of(Unification.TRUE)
         },
@@ -71,9 +64,10 @@ class PrologDatabaseToNetworkAdapter(
                 ?: throw PrologInternalError("Failed to parse query. Got no errors and no result.")
             val runtimeEnvironment = session.runtimeEnvironment as? PhysicalKnowledgeBaseRuntimeEnvironment
                 ?: throw PrologInvocationContractViolationException("In this context, execution plans are not used to execute queries. Cannot show a plan.")
+            val moduleName = session.module ?: throw ModuleNotSelectedException()
 
             val psc = runtimeEnvironment
-                .newProofSearchContext(ReadWriteAuthorization)
+                .newProofSearchContext(moduleName, ReadWriteAuthorization)
                 .deriveForModuleContext(session.moduleCatalog.name)
             val plan = database.executionPlanner.planExecution(query, psc, RandomVariableScope())
             val solutionVars = VariableBucket()
@@ -103,7 +97,8 @@ class PrologDatabaseToNetworkAdapter(
     override fun startQuery(session: Session, query: Query, totalLimit: Long?): LazySequence<Unification> {
         try {
             val runtimeEnvironment = session.runtimeEnvironment ?: throw KnowledgeBaseNotSelectedException()
-            val psc = runtimeEnvironment.newProofSearchContext(ReadWriteAuthorization)
+            val moduleName = session.module ?: throw ModuleNotSelectedException()
+            val psc = runtimeEnvironment.newProofSearchContext(moduleName, ReadWriteAuthorization)
                 .deriveForModuleContext(session.module ?: throw ModuleNotSelectedException())
 
             return buildLazySequence(psc.principal) {
@@ -134,7 +129,7 @@ class PrologDatabaseToNetworkAdapter(
         val operatorsForParsing = context
             ?.runtimeEnvironment
             ?.let { runtime ->
-                context.module?.let { runtime.loadedModules[it] }
+                context.module?.let { runtime.getLoadedModule(it) }
             }
             ?.localOperators
             ?: ISOOpsOperatorRegistry
@@ -147,7 +142,7 @@ class PrologDatabaseToNetworkAdapter(
         val operatorsForParsing = context
             ?.runtimeEnvironment
             ?.let { runtime ->
-                context.module?.let { runtime.loadedModules[it] }
+                context.module?.let { runtime.getLoadedModule(it) }
             }
             ?.localOperators
             ?: ISOOpsOperatorRegistry
