@@ -30,7 +30,7 @@ internal fun parseCLI(args: Array<String>): CLIInput {
     if (args.isEmpty()) return CLIInput(null, emptyMap())
     val configString = args[0].trim()
 
-    val configFile = if (configString == "-") null else Paths.get(configString)
+    val configFile = if (configString == "--") null else Paths.get(configString)
 
     if (args.size <= 1) {
         return CLIInput(configFile, emptyMap())

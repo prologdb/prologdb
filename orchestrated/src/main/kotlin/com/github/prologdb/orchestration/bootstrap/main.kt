@@ -16,7 +16,7 @@ private val log = LoggerFactory.getLogger("prologdb.cli")
 private fun printUsage() {
     println("""
         Usage:
-        prologdb-server [<path to config file>|-] [<<config parameter name>=<override value>>...]
+        prologdb-server [<path to config file>|--] [<<config parameter name>=<override value>>...]
 
         Examples:
 
