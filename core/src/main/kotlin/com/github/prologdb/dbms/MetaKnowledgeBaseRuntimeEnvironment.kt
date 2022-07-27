@@ -21,8 +21,12 @@ import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProo
 class MetaKnowledgeBaseRuntimeEnvironment(
     override val database: PrologDatabase,
     val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase
-) : DatabaseRuntimeEnvironment, DefaultPrologRuntimeEnvironment(META_MODULE_LOADER) {
+) : DatabaseRuntimeEnvironment, DefaultPrologRuntimeEnvironment(metaModuleLoaderFor(knowledgeBaseCatalog)) {
     override val defaultModuleName = ROOT_MODULE_NAME
+
+    init {
+        assureModuleLoaded(ModuleReference("essential", ROOT_MODULE_NAME))
+    }
 
     override fun newProofSearchContext(moduleName: String, authorization: Authorization): DatabaseProofSearchContext {
         val superContext = super.newProofSearchContext(moduleName, authorization)
@@ -46,8 +50,8 @@ class MetaKnowledgeBaseRuntimeEnvironment(
 
     companion object {
         const val KNOWLEDGE_BASE_SPECIFIER_FUNCTOR = "meta"
-        private const val META_MODULE_PATH_ALIAS = "meta"
-        private const val ROOT_MODULE_NAME = "\$root"
+        const val META_MODULE_PATH_ALIAS = "meta"
+        const val ROOT_MODULE_NAME = "\$root"
         private const val COMMON_META_MODULE_NAME = "\$meta_module_common"
         private val META_MODULE_NATIVE_IMPLEMENTATIONS: Map<ClauseIndicator, NativeCodeRule> = listOf(
             BuiltinSource1,
@@ -56,41 +60,46 @@ class MetaKnowledgeBaseRuntimeEnvironment(
         ).associateBy(ClauseIndicator.Companion::of)
         private val PARSER = PrologParser()
 
-        private val META_MODULE_LOADER = CascadingModuleLoader(listOf(
-            ClasspathPrologSourceModuleLoader(
-                sourceFileVisitorSupplier = { _, runtime -> metaModuleSourceFileVisitor(runtime) },
-                classLoader = MetaKnowledgeBaseRuntimeEnvironment::class.java.classLoader,
-                parser = PARSER,
-                moduleReferenceToClasspathPath = { moduleRef ->
-                    if (moduleRef.pathAlias == META_MODULE_PATH_ALIAS) {
-                        "com/github/prologdb/dbms/meta_of_module.pl"
-                    } else if (moduleRef.pathAlias == "essential" && moduleRef.moduleName == COMMON_META_MODULE_NAME) {
-                        "com/github/prologdb/dbms/meta_of_module_common.pl"
-                    } else {
-                        throw ModuleNotFoundException(moduleRef)
-                    }
+        private fun metaModuleLoaderFor(knowledgeBaseCatalog: SystemCatalog.KnowledgeBase) : ModuleLoader {
+            val rootModule = object : Module {
+                override val allDeclaredPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
+                override val exportedPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
+                override val imports: List<ModuleImport> = DatabaseModuleSourceFileVisitor.DEFAULT_IMPORTS.toList() + listOf(
+                    ModuleImport.Full(ModuleReference("essential", COMMON_META_MODULE_NAME))
+                ) + knowledgeBaseCatalog.modules.map { moduleCatalog ->
+                    ModuleImport.Selective(ModuleReference(META_MODULE_PATH_ALIAS, moduleCatalog.name), emptyMap(), emptySet())
                 }
-            ),
-            DatabaseStandardLibraryModuleLoader
-        ))
+                override val localOperators = ISOOpsOperatorRegistry
+                override val declaration = ModuleDeclaration(ROOT_MODULE_NAME)
+            }
+
+            return CascadingModuleLoader(listOf(
+                PredefinedModuleLoader().apply {
+                    registerModule("essential", rootModule)
+                },
+                ClasspathPrologSourceModuleLoader(
+                    sourceFileVisitorSupplier = { _, runtime -> metaModuleSourceFileVisitor(runtime) },
+                    classLoader = MetaKnowledgeBaseRuntimeEnvironment::class.java.classLoader,
+                    parser = PARSER,
+                    moduleReferenceToClasspathPath = { moduleRef ->
+                        if (moduleRef.pathAlias == META_MODULE_PATH_ALIAS) {
+                            "com/github/prologdb/dbms/meta_of_module.pl"
+                        } else if (moduleRef.pathAlias == "essential" && moduleRef.moduleName == COMMON_META_MODULE_NAME) {
+                            "com/github/prologdb/dbms/meta_of_module_common.pl"
+                        } else {
+                            throw ModuleNotFoundException(moduleRef)
+                        }
+                    }
+                ),
+                DatabaseStandardLibraryModuleLoader
+            ))
+        }
 
         private fun metaModuleSourceFileVisitor(runtime: PrologRuntimeEnvironment) = NativeCodeSourceFileVisitorDecorator(
             DefaultModuleSourceFileVisitor(runtime),
             META_MODULE_NATIVE_IMPLEMENTATIONS,
             PARSER
         )
-
-        private fun rootModuleFor(knowledgeBaseCatalog: SystemCatalog.KnowledgeBase): Module = object : Module {
-            override val allDeclaredPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
-            override val exportedPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
-            override val imports: List<ModuleImport> = DatabaseModuleSourceFileVisitor.DEFAULT_IMPORTS.toList() + listOf(
-                ModuleImport.Full(ModuleReference("essential", COMMON_META_MODULE_NAME))
-            ) + knowledgeBaseCatalog.modules.map { moduleCatalog ->
-                ModuleImport.Selective(ModuleReference(META_MODULE_PATH_ALIAS, moduleCatalog.name), emptyMap(), emptySet())
-            }
-            override val localOperators = ISOOpsOperatorRegistry
-            override val declaration = ModuleDeclaration(ROOT_MODULE_NAME)
-        }
     }
 
     private inner class ProofSearchContext(
