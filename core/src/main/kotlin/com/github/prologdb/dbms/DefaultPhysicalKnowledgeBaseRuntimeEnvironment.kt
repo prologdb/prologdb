@@ -23,7 +23,7 @@ import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.runtime.util.OperatorRegistry
 import com.github.prologdb.util.OverrideModule
-import java.util.*
+import java.util.UUID
 import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProofSearchContext
 
 internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructor(
@@ -41,6 +41,12 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
     )
 
     override val defaultModuleName: String? = knowledgeBaseCatalog.defaultModule
+
+    init {
+        knowledgeBaseCatalog.modules.forEach { catalogModule ->
+            assureModuleLoaded(ModuleReference(DATABASE_MODULE_PATH_ALIAS, catalogModule.name))
+        }
+    }
 
     override fun deriveProofSearchContextForModule(
         deriveFrom: RuntimeProofSearchContext,
