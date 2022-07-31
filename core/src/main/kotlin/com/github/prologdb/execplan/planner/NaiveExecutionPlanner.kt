@@ -4,17 +4,8 @@ import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.dbms.builtin.BuiltinDatabaseRetract1
 import com.github.prologdb.dbms.builtin.BuiltinDatabaseRetractAll1
 import com.github.prologdb.dbms.builtin.PhysicalDynamicPredicate
-import com.github.prologdb.execplan.DiscardFunctor
-import com.github.prologdb.execplan.FactDeleteFunctor
-import com.github.prologdb.execplan.FactScanFunctor
-import com.github.prologdb.execplan.FunctorPipe
+import com.github.prologdb.execplan.*
 import com.github.prologdb.execplan.FunctorPipe.Companion.into
-import com.github.prologdb.execplan.InvokeFunctor
-import com.github.prologdb.execplan.NoopFunctor
-import com.github.prologdb.execplan.PlanFunctor
-import com.github.prologdb.execplan.PrologQueryException
-import com.github.prologdb.execplan.UnifyFunctor
-import com.github.prologdb.execplan.UnionFunctor
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.RandomVariableScope
@@ -26,10 +17,10 @@ import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.CompoundTerm
 
 /**
- * An execution planner that does no optimizations at all; behaves like a
- * stupid and simple prolog system; no indices are utilized.
+ * An execution planner that does no optimizations at all; does table
+ * scans for everything, no indexes are utilized.
  */
-class NoOptimizationExecutionPlanner : ExecutionPlanner {
+class NaiveExecutionPlanner : ExecutionPlanner {
     @Suppress("UNCHECKED_CAST")
     override fun planExecution(query: Query, ctxt: PhysicalDatabaseProofSearchContext, randomVariableScope: RandomVariableScope): PlanFunctor<Unit, Any> {
         return when(query) {

@@ -1,7 +1,7 @@
 package com.github.prologdb.dbms
 
 import com.github.prologdb.execplan.planner.ExecutionPlanner
-import com.github.prologdb.execplan.planner.NoOptimizationExecutionPlanner
+import com.github.prologdb.execplan.planner.NaiveExecutionPlanner
 import com.github.prologdb.runtime.PrologUnsupportedOperationException
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
@@ -21,7 +21,7 @@ private val log = LoggerFactory.getLogger("prologdb.master")
 class PrologDatabase(
     dataDirectory: Path,
     private val factStoreLoader: FactStoreLoader = DefaultFactStoreLoader(),
-    val executionPlanner: ExecutionPlanner = NoOptimizationExecutionPlanner()
+    val executionPlanner: ExecutionPlanner = NaiveExecutionPlanner()
 ) {
     val dataDirectory = DataDirectoryManager.open(dataDirectory)
 

@@ -1,7 +1,7 @@
 package com.github.prologdb.orchestration.bootstrap
 
 import com.github.prologdb.dbms.PrologDatabase
-import com.github.prologdb.execplan.planner.NoOptimizationExecutionPlanner
+import com.github.prologdb.execplan.planner.NaiveExecutionPlanner
 import com.github.prologdb.net.ServerInterface
 import com.github.prologdb.net.negotiation.SemanticVersion
 import com.github.prologdb.net.session.SessionInitializer
@@ -24,7 +24,7 @@ fun runServer(config: ServerConf): ServerHandle {
     val engine = PrologDatabaseToNetworkAdapter(PrologDatabase(
         config.dataDirectory!!,
         FactStoreLoader,
-        NoOptimizationExecutionPlanner()
+        NaiveExecutionPlanner()
     ))
     log.info("database loaded")
 
