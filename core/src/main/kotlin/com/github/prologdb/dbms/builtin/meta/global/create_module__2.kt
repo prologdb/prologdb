@@ -23,7 +23,7 @@ val BuiltinCreateModule2 = nativeDatabaseRule("create_module", 2) { args, ctxt -
 
         try {
             ctxt.runtimeEnvironment.getLoadedModule(moduleName)
-            throw ModuleAlreadyExistsException(moduleName, "Module $moduleName in knowledge base $knowledgeBaseName is already defined as a non-physical module.")
+            throw ModuleAlreadyExistsException(moduleName, "Module $moduleName in knowledge base $knowledgeBaseName already exists (though outside the system catalog).")
         }
         catch (_: ModuleNotLoadedException) {}
         catch (_: ModuleNotFoundException) {}

@@ -21,7 +21,7 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
     override val defaultModuleName = SCHEMA_MODULE_NAME
 
     init {
-        // TODO: load root module
+        assureModuleLoaded(ModuleReference(DefaultPhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS, SCHEMA_MODULE_NAME))
     }
 
     override fun newProofSearchContext(moduleName: String, authorization: Authorization): DatabaseProofSearchContext {
