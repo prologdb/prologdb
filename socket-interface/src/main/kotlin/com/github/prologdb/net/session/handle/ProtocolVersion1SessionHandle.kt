@@ -29,7 +29,7 @@ import io.reactivex.subjects.PublishSubject
 import org.slf4j.LoggerFactory
 import java.io.DataOutputStream
 import java.nio.channels.AsynchronousByteChannel
-import java.util.*
+import java.util.Optional
 import java.util.concurrent.Callable
 import java.util.function.Consumer
 
@@ -244,7 +244,6 @@ private fun <SessionState : Any> QueryInitialization.toIndependent(sessionState:
             else -> instantiationsMap.toBucket(sessionState, prologReader)
         },
         kind.toIndependent(),
-        if (hasLimit()) limit else null
     )
 
     return cmd

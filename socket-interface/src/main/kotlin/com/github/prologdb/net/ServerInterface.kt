@@ -1,17 +1,7 @@
 package com.github.prologdb.net
 
 import com.github.prologdb.async.LazySequence
-import com.github.prologdb.net.session.ConnectionCloseEvent
-import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
-import com.github.prologdb.net.session.DatabaseEngine
-import com.github.prologdb.net.session.GeneralError
-import com.github.prologdb.net.session.InitializeQueryCommand
-import com.github.prologdb.net.session.ProtocolMessage
-import com.github.prologdb.net.session.QueryClosedMessage
-import com.github.prologdb.net.session.QueryOpenedMessage
-import com.github.prologdb.net.session.QueryRelatedError
-import com.github.prologdb.net.session.QuerySolutionMessage
-import com.github.prologdb.net.session.SessionInitializer
+import com.github.prologdb.net.session.*
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.net.util.prettyPrintStackTrace
@@ -221,8 +211,8 @@ class ServerInterface<SessionState : Any>(
         }
 
         return when (kind) {
-            InitializeQueryCommand.Kind.QUERY     -> engine.startQuery(sessionState, instruction, totalLimit)
-            InitializeQueryCommand.Kind.DIRECTIVE -> engine.startDirective(sessionState, (instruction as PredicateInvocationQuery).goal, totalLimit)
+            InitializeQueryCommand.Kind.QUERY     -> engine.startQuery(sessionState, instruction)
+            InitializeQueryCommand.Kind.DIRECTIVE -> engine.startDirective(sessionState, (instruction as PredicateInvocationQuery).goal)
         }
     }
 

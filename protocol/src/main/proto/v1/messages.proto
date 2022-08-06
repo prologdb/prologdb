@@ -86,11 +86,6 @@ message QueryInitialization {
      */
     map<string, Term> instantiations = 3;
 
-    /* The server will artificially limit the number of solutions to this number;
-     * If absent, the server assumes that the client will consume all solutions.
-     */
-    optional uint64 limit = 5;
-
     reserved 6 to 15;
 
     /* How the instruction should be interpreted.

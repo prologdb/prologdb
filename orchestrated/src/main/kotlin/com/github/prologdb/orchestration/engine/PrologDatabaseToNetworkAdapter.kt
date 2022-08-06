@@ -94,7 +94,7 @@ class PrologDatabaseToNetworkAdapter(
         // TODO?
     }
 
-    override fun startQuery(session: Session, query: Query, totalLimit: Long?): LazySequence<Unification> {
+    override fun startQuery(session: Session, query: Query): LazySequence<Unification> {
         try {
             val runtimeEnvironment = session.runtimeEnvironment ?: throw KnowledgeBaseNotSelectedException()
             val moduleName = session.module ?: throw ModuleNotSelectedException()
@@ -110,7 +110,7 @@ class PrologDatabaseToNetworkAdapter(
         }
     }
 
-    override fun startDirective(session: Session, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(session: Session, command: CompoundTerm): LazySequence<Unification> {
         val indicator = ClauseIndicator.of(command)
         val directive = globalDirectives[indicator]
             ?: return lazySequenceOfError(PrologUnsupportedOperationException("Directive $indicator is not implemented."))

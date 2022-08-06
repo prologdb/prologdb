@@ -28,7 +28,6 @@ data class InitializeQueryCommand(
     val instruction: Query,
     val preInstantiations: VariableBucket? = null,
     val kind: Kind = Kind.QUERY,
-    val totalLimit: Long?
 ) : ProtocolMessage() {
     enum class Kind {
         /**

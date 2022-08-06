@@ -32,13 +32,11 @@ interface DatabaseEngine<SessionState : Any> : ParserDelegate<SessionState> {
 
     /**
      * @param query the query to run
-     * @param totalLimit If not null, the number of results is limited to this number.
      */
-    fun startQuery(session: SessionState, query: Query, totalLimit: Long?): LazySequence<Unification>
+    fun startQuery(session: SessionState, query: Query): LazySequence<Unification>
 
     /**
      * @param command the directive to run
-     * @param totalLimit If not null, the number of results is limited to this number.
      */
-    fun startDirective(session: SessionState, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification>
+    fun startDirective(session: SessionState, command: CompoundTerm): LazySequence<Unification>
 }
