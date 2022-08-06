@@ -25,15 +25,19 @@ import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
 import com.google.protobuf.ByteString
-import io.kotlintest.*
-import io.kotlintest.extensions.TestListener
-import io.kotlintest.matchers.collections.contain
-import io.kotlintest.specs.FreeSpec
+import io.kotest.core.listeners.TestListener
+import io.kotest.core.spec.Spec
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.core.test.TestCase
+import io.kotest.matchers.collections.contain
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import java.lang.Math.ceil
 import java.net.Socket
 import java.nio.channels.AsynchronousByteChannel
 import java.nio.charset.Charset
-import java.util.*
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import com.github.prologdb.net.negotiation.ToClient as ToClientHS
@@ -44,7 +48,7 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
     private lateinit var interfaceInstance: ServerInterface<Map<String, String>>
 
     override fun listeners(): List<TestListener> = listOf(object : TestListener {
-        override fun beforeSpec(description: Description, spec: Spec) {
+        override suspend fun beforeSpec(spec: Spec) {
             interfaceInstance = ServerInterface(
                 queryHandler,
                 SessionInitializer("prologdb", serverSoftwareVersion, mapOf(
@@ -55,12 +59,12 @@ class ServerInterfaceIntegrationTest : FreeSpec() {
             )
         }
 
-        override fun beforeTest(description: Description) {
+        override suspend fun beforeTest(test: TestCase) {
             queryHandler.errorOnQuery = false
             queryHandler.errorOnDirective = false
         }
 
-        override fun afterSpec(description: Description, spec: Spec) {
+        override suspend fun afterSpec(spec: Spec) {
             interfaceInstance.close()
         }
     })
@@ -461,7 +465,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
 
     }
 
-    override fun startQuery(session: Map<String, String>, query: Query, totalLimit: Long?): LazySequence<Unification> {
+    override fun startQuery(session: Map<String, String>, query: Query): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
             if (errorOnQuery) {
                 throw PrologInternalError("Error :(")
@@ -473,7 +477,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
         }
     }
 
-    override fun startDirective(session: Map<String, String>, command: CompoundTerm, totalLimit: Long?): LazySequence<Unification> {
+    override fun startDirective(session: Map<String, String>, command: CompoundTerm): LazySequence<Unification> {
         return buildLazySequence(UUID.randomUUID()) {
             if (errorOnDirective) {
                 throw PrologInternalError("Error directive :(")

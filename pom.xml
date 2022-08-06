@@ -24,13 +24,13 @@
     </modules>
 
     <properties>
-        <kotlin.version>1.6.10</kotlin.version>
+        <kotlin.version>1.7.10</kotlin.version>
         <kotlin.plugin.version>${kotlin.version}</kotlin.plugin.version>
-        <kotlin.kotlintest.version>2.0.7</kotlin.kotlintest.version>
         <mockito.version>2.0</mockito.version>
         <prolog.runtime.version>1.0.0-SNAPSHOT</prolog.runtime.version>
         <jackson.version>2.9.7</jackson.version>
         <slf4j.version>1.7.4</slf4j.version>
+        <kotest.version>5.4.1</kotest.version>
     </properties>
 
     <dependencyManagement>
@@ -51,10 +51,14 @@
                 <version>${kotlin.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.kotlintest</groupId>
-                <artifactId>kotlintest</artifactId>
-                <version>${kotlin.kotlintest.version}</version>
-                <scope>test</scope>
+                <groupId>io.kotest</groupId>
+                <artifactId>kotest-runner-junit5-jvm</artifactId>
+                <version>${kotest.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.kotest</groupId>
+                <artifactId>kotest-assertions-core-jvm</artifactId>
+                <version>${kotest.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.github.prologdb</groupId>
@@ -117,6 +121,9 @@
                     <groupId>org.jetbrains.kotlin</groupId>
                     <artifactId>kotlin-maven-plugin</artifactId>
                     <version>${kotlin.plugin.version}</version>
+                    <configuration>
+                        <jvmTarget>17</jvmTarget>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <!-- necessary so IntelliJ doesn't complain about @since APIs -->

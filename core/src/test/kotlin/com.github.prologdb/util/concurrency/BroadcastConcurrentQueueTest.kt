@@ -1,10 +1,11 @@
 package com.github.prologdb.util.concurrency
 
-import io.kotlintest.forAll
-import io.kotlintest.matchers.beTheSameInstanceAs
-import io.kotlintest.matchers.should
-import io.kotlintest.matchers.shouldEqual
-import io.kotlintest.specs.FreeSpec
+
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.inspectors.forAll
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.beTheSameInstanceAs
 
 class BroadcastConcurrentQueueTest : FreeSpec({
     "all consumers get all items after registration" {
@@ -22,11 +23,11 @@ class BroadcastConcurrentQueueTest : FreeSpec({
         queueHub.add("Buzz")
 
         // ASSERT
-        forAll(setOf(consumerQueue1, consumerQueue2, consumerQueue3)) { consumerQueue ->
-            consumerQueue.remove() shouldEqual "Foo"
-            consumerQueue.remove() shouldEqual "Bar"
-            consumerQueue.remove() shouldEqual "Fizz"
-            consumerQueue.remove() shouldEqual "Buzz"
+        setOf(consumerQueue1, consumerQueue2, consumerQueue3).forAll { consumerQueue ->
+            consumerQueue.remove() shouldBe "Foo"
+            consumerQueue.remove() shouldBe "Bar"
+            consumerQueue.remove() shouldBe "Fizz"
+            consumerQueue.remove() shouldBe "Buzz"
         }
     }
 
@@ -46,13 +47,13 @@ class BroadcastConcurrentQueueTest : FreeSpec({
         queueHub.add("Buzz")
 
         // ASSERT
-        consumerQueue1.remove() shouldEqual "Foo"
-        consumerQueue1.remove() shouldEqual "Bar"
-        consumerQueue1.remove() shouldEqual "Fizz"
-        consumerQueue1.remove() shouldEqual "Buzz"
+        consumerQueue1.remove() shouldBe "Foo"
+        consumerQueue1.remove() shouldBe "Bar"
+        consumerQueue1.remove() shouldBe "Fizz"
+        consumerQueue1.remove() shouldBe "Buzz"
 
-        consumerQueue2.remove() shouldEqual "Fizz"
-        consumerQueue2.remove() shouldEqual "Buzz"
+        consumerQueue2.remove() shouldBe "Fizz"
+        consumerQueue2.remove() shouldBe "Buzz"
     }
 
     "double registration impossible" {

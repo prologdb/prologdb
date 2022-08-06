@@ -1,9 +1,9 @@
 package com.github.prologdb.util.memory
 
-import io.kotlintest.matchers.beGreaterThanOrEqualTo
-import io.kotlintest.matchers.should
-import io.kotlintest.matchers.shouldBe
-import io.kotlintest.specs.FreeSpec
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.comparables.beGreaterThanOrEqualTo
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
 
 class FirstFitHeapManagerTest : FreeSpec({
     "allocate" - {

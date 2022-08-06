@@ -1,9 +1,9 @@
 package com.github.prologdb.storage
 
-import io.kotlintest.matchers.shouldEqual
-import io.kotlintest.matchers.shouldThrowAny
-import io.kotlintest.mock.mock
-import io.kotlintest.specs.FreeSpec
+import io.kotest.assertions.throwables.shouldThrowAny
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.shouldBe
+import io.mockk.mockk
 import java.io.DataInput
 import java.io.DataOutput
 import java.io.File
@@ -17,14 +17,14 @@ class DataclassIOTest : FreeSpec() { init {
             buffer.writeStruct(TestStruct(0x32211312, 0x355ACCBF))
 
             buffer.position(0)
-            buffer.get() shouldEqual 0x32.toByte()
-            buffer.get() shouldEqual 0x21.toByte()
-            buffer.get() shouldEqual 0x13.toByte()
-            buffer.get() shouldEqual 0x12.toByte()
-            buffer.get() shouldEqual 0x35.toByte()
-            buffer.get() shouldEqual 0x5A.toByte()
-            buffer.get() shouldEqual 0xCC.toByte()
-            buffer.get() shouldEqual 0xBF.toByte()
+            buffer.get() shouldBe 0x32.toByte()
+            buffer.get() shouldBe 0x21.toByte()
+            buffer.get() shouldBe 0x13.toByte()
+            buffer.get() shouldBe 0x12.toByte()
+            buffer.get() shouldBe 0x35.toByte()
+            buffer.get() shouldBe 0x5A.toByte()
+            buffer.get() shouldBe 0xCC.toByte()
+            buffer.get() shouldBe 0xBF.toByte()
         }
 
         "read struct" {
@@ -43,7 +43,7 @@ class DataclassIOTest : FreeSpec() { init {
 
             val struct = buffer.readStruct(TestStruct::class)
 
-            struct shouldEqual TestStruct(0x32211312, 0x355ACCBF)
+            struct shouldBe TestStruct(0x32211312, 0x355ACCBF)
         }
 
         "write non-struct" {
@@ -66,14 +66,14 @@ class DataclassIOTest : FreeSpec() { init {
             raf.writeStruct(TestStruct(0x32211312, 0x355ACCBF))
 
             raf.seek(0)
-            raf.readByte() shouldEqual 0x32.toByte()
-            raf.readByte() shouldEqual 0x21.toByte()
-            raf.readByte() shouldEqual 0x13.toByte()
-            raf.readByte() shouldEqual 0x12.toByte()
-            raf.readByte() shouldEqual 0x35.toByte()
-            raf.readByte() shouldEqual 0x5A.toByte()
-            raf.readByte() shouldEqual 0xCC.toByte()
-            raf.readByte() shouldEqual 0xBF.toByte()
+            raf.readByte() shouldBe 0x32.toByte()
+            raf.readByte() shouldBe 0x21.toByte()
+            raf.readByte() shouldBe 0x13.toByte()
+            raf.readByte() shouldBe 0x12.toByte()
+            raf.readByte() shouldBe 0x35.toByte()
+            raf.readByte() shouldBe 0x5A.toByte()
+            raf.readByte() shouldBe 0xCC.toByte()
+            raf.readByte() shouldBe 0xBF.toByte()
         }
 
         "read struct" {
@@ -93,18 +93,18 @@ class DataclassIOTest : FreeSpec() { init {
 
             val struct = raf.readStruct(TestStruct::class)
 
-            struct shouldEqual TestStruct(0x32211312, 0x355ACCBF)
+            struct shouldBe TestStruct(0x32211312, 0x355ACCBF)
         }
 
         "write non-struct" {
             shouldThrowAny {
-                mock<DataOutput>().writeStruct(NotAStruct(1, "foobar"))
+                mockk<DataOutput>().writeStruct(NotAStruct(1, "foobar"))
             }
         }
 
         "read non-struct" {
             shouldThrowAny {
-                mock<DataInput>().readStruct(NotAStruct::class)
+                mockk<DataInput>().readStruct(NotAStruct::class)
             }
         }
     }

@@ -6,10 +6,11 @@ import com.github.prologdb.net.v1.messages.Query
 import com.github.prologdb.net.v1.messages.QueryInitialization
 import com.github.prologdb.net.v1.messages.ToServer
 import com.google.protobuf.ByteString
-import io.kotlintest.matchers.beGreaterThan
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.specs.FreeSpec
+import io.kotest.core.spec.IsolationMode
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.comparables.beGreaterThan
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockkClass
 import java.nio.ByteBuffer
@@ -121,5 +122,5 @@ class AsyncByteChannelDelimitedProtobufReaderTest : FreeSpec({
         readMessage shouldBe message
     }
 }) {
-    override fun isInstancePerTest(): Boolean = true
+    override fun isolationMode() = IsolationMode.InstancePerTest
 }

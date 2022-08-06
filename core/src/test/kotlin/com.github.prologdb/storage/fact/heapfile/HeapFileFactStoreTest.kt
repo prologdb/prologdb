@@ -3,13 +3,12 @@ package com.github.prologdb.storage.fact.heapfile
 import com.github.prologdb.async.IrrelevantPrincipal
 import com.github.prologdb.io.binaryprolog.BinaryPrologReader
 import com.github.prologdb.io.binaryprolog.BinaryPrologWriter
-import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.term.Atom
-import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.storage.heapfile.HeapFile
-import io.kotlintest.matchers.shouldBe
-import io.kotlintest.matchers.shouldThrow
-import io.kotlintest.specs.FreeSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.IsolationMode
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.shouldBe
 import java.io.File
 
 class HeapFileFactStoreTest : FreeSpec({
@@ -55,5 +54,5 @@ class HeapFileFactStoreTest : FreeSpec({
         loaded shouldBe original
     }
 }) {
-    override val oneInstancePerTest = true
+    override fun isolationMode() = IsolationMode.InstancePerTest
 }

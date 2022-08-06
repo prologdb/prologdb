@@ -1,8 +1,8 @@
 package com.github.prologdb.util.concurrency
 
 import com.github.prologdb.util.concurrency.locks.RegionReadWriteLockManager
-import io.kotlintest.matchers.shouldThrow
-import io.kotlintest.specs.FreeSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FreeSpec
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 

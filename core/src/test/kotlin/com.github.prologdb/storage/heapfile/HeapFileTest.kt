@@ -7,15 +7,22 @@ import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.fact.PersistenceID
 import com.github.prologdb.storage.rootDeviceProperties
-import io.kotlintest.matchers.shouldBe
-import io.kotlintest.matchers.shouldThrow
-import io.kotlintest.specs.FreeSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.comparables.beLessThanOrEqualTo
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Assertions.assertFalse
 import java.io.File
+import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.file.Paths
-import java.util.*
+import java.util.Arrays
+import java.util.Random
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
-import kotlin.test.assertFalse
+import kotlin.math.max
+import kotlin.math.min
 
 class HeapFileTest : FreeSpec({
     "write and read back - smaller than pagesize" {
@@ -166,12 +173,11 @@ class HeapFileTest : FreeSpec({
     }
 
     "loadtest" - {
-        "single thread writes" {
+        "single thread writes".config(tags = setOf(Performance)) {
             // disabled: heapfile page size has been reduced to 256 bytes, which make the performance go to crap
             // this should be enabled again when HeapFile has gotten the feature to do I/O in chunk sizes suitable
             // for the underlying device.
 
-            /*
             val mib500 =  1024L * 1024L * 500L
             val tmpFile = newTmpFileOnHDD("heapfile-loadtest", mib500 + 8096)
             val tmpFileOptimalBufferSize = tmpFile.toPath().rootDeviceProperties!!.optimalIOSize ?: 8192
@@ -230,8 +236,7 @@ class HeapFileTest : FreeSpec({
                 // if the heapfile is more than 4x slower than flat out writing, something is seriously wrong
                 throughputRatio should beLessThanOrEqualTo(4.0)
             }
-            */
-        }.config(tags = setOf(Performance))
+        }
     }
 })
 

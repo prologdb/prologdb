@@ -1,8 +1,8 @@
 package com.github.prologdb.net.async
 
 import com.google.protobuf.CodedOutputStream
-import io.kotlintest.matchers.shouldBe
-import io.kotlintest.specs.BehaviorSpec
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousByteChannel
 import java.nio.channels.CompletionHandler
@@ -10,7 +10,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
 import kotlin.random.Random
 
-class AsyncProtobufTest : BehaviorSpec ({
+class AsyncProtobufTest : BehaviorSpec({
     Given("a varuint32 below 128") {
         val buffer = ByteBuffer.allocate(100)
         val int = Random.nextInt(0, 127)

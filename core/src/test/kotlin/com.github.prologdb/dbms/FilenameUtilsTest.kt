@@ -1,8 +1,8 @@
 package com.github.prologdb.dbms
 
-import io.kotlintest.matchers.shouldBe
-import io.kotlintest.matchers.shouldThrow
-import io.kotlintest.specs.FreeSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.shouldBe
 
 class FilenameUtilsTest : FreeSpec({
     "toSaveFilename" - {

@@ -3,17 +3,9 @@ package com.github.prologdb.io.binaryprolog
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
-import com.github.prologdb.runtime.term.AnonymousVariable
-import com.github.prologdb.runtime.term.Atom
-import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.term.PrologDecimal
-import com.github.prologdb.runtime.term.PrologDictionary
-import com.github.prologdb.runtime.term.PrologInteger
-import com.github.prologdb.runtime.term.PrologList
-import com.github.prologdb.runtime.term.PrologString
-import com.github.prologdb.runtime.term.Variable
-import io.kotlintest.shouldBe
-import io.kotlintest.specs.FreeSpec
+import com.github.prologdb.runtime.term.*
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.shouldBe
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 

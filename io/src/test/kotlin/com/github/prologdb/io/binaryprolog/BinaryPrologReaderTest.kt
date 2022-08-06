@@ -4,12 +4,12 @@ import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.term.*
-import io.kotlintest.forOne
-import io.kotlintest.matchers.beInstanceOf
-import io.kotlintest.matchers.plusOrMinus
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.specs.FreeSpec
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.inspectors.forOne
+import io.kotest.matchers.doubles.plusOrMinus
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.beInstanceOf
 import java.nio.ByteBuffer
 
 class BinaryPrologReaderTest : FreeSpec({
@@ -253,21 +253,21 @@ class BinaryPrologReaderTest : FreeSpec({
 
             result as AndQuery
             result.goals.size shouldBe 2
-            forOne(result.goals) {
+            result.goals.forOne {
                 it should beInstanceOf(PredicateInvocationQuery::class)
                 it as PredicateInvocationQuery
                 it.goal shouldBe CompoundTerm("fuzz", arrayOf(Variable("Y")))
             }
-            forOne(result.goals) { outer ->
+            result.goals.forOne { outer ->
                 outer should beInstanceOf(OrQuery::class)
                 outer as OrQuery
                 outer.goals.size shouldBe 2
-                forOne(outer.goals) {
+                outer.goals.forOne {
                     it should beInstanceOf(PredicateInvocationQuery::class)
                     it as PredicateInvocationQuery
                     it.goal shouldBe CompoundTerm("foo", arrayOf(Variable("X")))
                 }
-                forOne(outer.goals) {
+                outer.goals.forOne {
                     it should beInstanceOf(PredicateInvocationQuery::class)
                     it as PredicateInvocationQuery
                     it.goal shouldBe CompoundTerm("bar", arrayOf(Variable("X")))

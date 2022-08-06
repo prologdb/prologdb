@@ -1,6 +1,6 @@
 package com.github.prologdb
 
-import io.kotlintest.Tag
+import io.kotest.core.Tag
 
 object Performance : Tag()
 object RequiresSSD: Tag()

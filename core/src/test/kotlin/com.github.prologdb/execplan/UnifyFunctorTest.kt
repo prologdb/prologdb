@@ -7,11 +7,11 @@ import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.term.*
 import com.github.prologdb.runtime.unification.VariableBucket
-import io.kotlintest.matchers.shouldEqual
-import io.kotlintest.specs.FreeSpec
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import java.util.*
+import java.util.UUID
 
 class UnifyFunctorTest : FreeSpec({
     val principal = UUID.randomUUID()
@@ -30,7 +30,7 @@ class UnifyFunctorTest : FreeSpec({
         
         val results = functor.invoke(ctxt, inputsWithVars).remainingToList()
         
-        results shouldEqual listOf(
+        results shouldBe listOf(
             Pair(varsBucket("A" to PrologInteger(0)), 0L),
             Pair(varsBucket("A" to PrologInteger(1)), 1L),
             Pair(varsBucket("A" to PrologInteger(2)), 2L),
@@ -52,7 +52,7 @@ class UnifyFunctorTest : FreeSpec({
 
         val results = functor.invoke(ctxt, inputsWithVars).remainingToList()
 
-        results shouldEqual listOf(
+        results shouldBe listOf(
             Pair(varsBucket("A" to PrologInteger(0)), 0L),
             Pair(varsBucket("A" to PrologInteger(2)), 2L)
         )
