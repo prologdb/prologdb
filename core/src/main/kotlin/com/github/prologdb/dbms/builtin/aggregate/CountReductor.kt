@@ -15,23 +15,23 @@ import com.github.prologdb.runtime.unification.VariableBucket
 import java.util.concurrent.atomic.AtomicLong
 
 class CountReductor : Reductor<Unit, AtomicLong, AtomicLong> {
-    override fun parseSpecification(specification: Term): ParseResult<Unit> {
+    override fun parseSpecification(specification: Term): WorkableFuture<ParseResult<Unit>> {
         if (specification is Atom && specification.name == NAME) {
-            return ParseResult.of(Unit)
+            return WorkableFuture.completed(ParseResult.of(Unit))
         }
 
         if (specification is CompoundTerm && specification.functor == NAME) {
             if (specification.arity == 0) {
-                return ParseResult.of(Unit)
+                return WorkableFuture.completed(ParseResult.of(Unit))
             }
 
-            return ParseResult(Unit, ParseResultCertainty.MATCHED, setOf(SyntaxError(
+            return WorkableFuture.completed(ParseResult(Unit, ParseResultCertainty.MATCHED, setOf(SyntaxError(
                 "The $NAME reductor does not take any arguments",
                 specification.sourceInformation as? SourceLocation ?: SourceLocation.EOF,
-            )))
+            ))))
         }
 
-        return ParseResult(null, ParseResultCertainty.NOT_RECOGNIZED, emptySet())
+        return WorkableFuture.completed(ParseResult(null, ParseResultCertainty.NOT_RECOGNIZED, emptySet()))
     }
 
     override fun initialize(ctxt: ProofSearchContext, specification: Unit) = WorkableFuture.completed(AtomicLong(0))
