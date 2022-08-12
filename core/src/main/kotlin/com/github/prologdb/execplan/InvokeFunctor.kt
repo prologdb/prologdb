@@ -41,7 +41,7 @@ class InvokeFunctor(
                             Pair(vars, Unit)
                         } else {
                             val combinedVars = vars.copy()
-                            combinedVars.incorporate(unification.variableValues)
+                            combinedVars.incorporate(unification.variableValues, ctxt.randomVariableScope)
                             Pair(combinedVars, Unit)
                         }
                     }

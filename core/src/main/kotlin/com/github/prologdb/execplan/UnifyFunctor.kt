@@ -30,7 +30,7 @@ class UnifyFunctor(
                     val resolvedBucket = unification.variableValues.withVariablesResolvedFrom(rhsMapping)
                     resolvedBucket.retainAll(rhsVariables)
                     try {
-                        resolvedBucket.incorporate(variableCarry)
+                        resolvedBucket.incorporate(variableCarry, ctxt.randomVariableScope)
                         if (instantiate) Pair(resolvedBucket, persistenceID) else Pair(variableCarry, persistenceID)
                     } catch (ex: VariableDiscrepancyException) {
                         // mismatch, do not yield (equals to prolog false)
