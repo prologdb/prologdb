@@ -15,7 +15,7 @@ import com.github.prologdb.runtime.unification.VariableBucket
 import java.util.concurrent.atomic.AtomicLong
 
 class CountReductor : Reductor<Unit, AtomicLong, AtomicLong> {
-    override fun parseSpecification(specification: Term): WorkableFuture<ParseResult<Unit>> {
+    override fun parseSpecification(ctxt: ProofSearchContext, specification: Term): WorkableFuture<ParseResult<Unit>> {
         if (specification is Atom && specification.name == NAME) {
             return WorkableFuture.completed(ParseResult.of(Unit))
         }
