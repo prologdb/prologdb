@@ -5,7 +5,6 @@ import com.github.prologdb.net.session.*
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.net.util.prettyPrintStackTrace
-import com.github.prologdb.net.util.sortForSubstitution
 import com.github.prologdb.net.util.unsingedIntHexString
 import com.github.prologdb.parser.ParseException
 import com.github.prologdb.parser.SyntaxError
