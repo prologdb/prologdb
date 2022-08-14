@@ -34,14 +34,14 @@ class DiscardFunctorTest : FreeSpec({
             ): LazySequence<Pair<VariableBucket, Unit>> {
                 return inputs.flatMapRemaining { (inputBucket, _) ->
                     var modifiedBucket = VariableBucket()
-                    modifiedBucket.incorporate(inputBucket)
+                    modifiedBucket.incorporate(inputBucket, ctxt.randomVariableScope)
                     modifiedBucket.instantiate(Variable("D"), PrologInteger(1))
 
                     nSideEffects++
                     yield(Pair(modifiedBucket, Unit))
 
                     modifiedBucket = VariableBucket()
-                    modifiedBucket.incorporate(inputBucket)
+                    modifiedBucket.incorporate(inputBucket, ctxt.randomVariableScope)
                     modifiedBucket.instantiate(Variable("D"), PrologInteger(2))
                     nSideEffects++
                     Pair(modifiedBucket, Unit)
