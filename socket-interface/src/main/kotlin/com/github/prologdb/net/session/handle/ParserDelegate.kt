@@ -6,7 +6,8 @@ import com.github.prologdb.parser.lexer.OperatorToken
 import com.github.prologdb.parser.lexer.Token
 import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
-import com.github.prologdb.parser.parser.PrologParser.Companion.STOP_AT_EOF
+import com.github.prologdb.parser.parser.StopCondition
+import com.github.prologdb.parser.parser.StopCondition.Companion.peek
 import com.github.prologdb.parser.sequence.TransactionalSequence
 import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
@@ -37,18 +38,6 @@ interface ParserDelegate<in SessionState : Any> {
 }
 
 /**
- * To be used as a parameter to the parse methods of [PrologParser].
- */
-val STOP_AT_EOF_OR_FULL_STOP: (TransactionalSequence<Token>) -> Boolean = {
-    if (!it.hasNext()) true else {
-        it.mark()
-        val next = it.next()
-        it.rollback()
-        next is OperatorToken && next.operator == Operator.FULL_STOP
-    }
-}
-
-/**
  * A [ParserDelegate] that is **NOT** context-dependent and provides only
  * the ISO operators (see [ISOOpsOperatorRegistry]).
  */
@@ -57,11 +46,23 @@ object IsoOpsStatelessParserDelegate : ParserDelegate<Any> {
 
     override fun parseTerm(context: Any?, codeToParse: String, origin: SourceUnit): ParseResult<Term> {
         val lexer = Lexer(origin, codeToParse.iterator())
-        return parser.parseTerm(lexer, ISOOpsOperatorRegistry, STOP_AT_EOF)
+        return parser.parseTerm(lexer, ISOOpsOperatorRegistry, StopCondition.STOP_AT_EOF)
     }
 
     override fun parseQuery(context: Any?, codeToParse: String, origin: SourceUnit): ParseResult<Query> {
         val lexer = Lexer(origin, codeToParse.iterator())
-        return parser.parseQuery(lexer, ISOOpsOperatorRegistry, STOP_AT_EOF_OR_FULL_STOP)
+        return parser.parseQuery(lexer, ISOOpsOperatorRegistry, StopAtEofOrFullStop)
     }
+}
+
+object StopAtEofOrFullStop : StopCondition {
+    override fun shouldStop(tokens: TransactionalSequence<Token>): Boolean {
+        if (!tokens.hasNext()) {
+            return true
+        }
+        val next = tokens.peek()
+        return next is OperatorToken && next.operator == Operator.FULL_STOP
+    }
+
+    override val description = "EOF or operator ."
 }

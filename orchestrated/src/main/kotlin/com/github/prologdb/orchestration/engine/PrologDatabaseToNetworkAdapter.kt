@@ -7,7 +7,7 @@ import com.github.prologdb.dbms.PhysicalKnowledgeBaseRuntimeEnvironment
 import com.github.prologdb.dbms.PrologDatabase
 import com.github.prologdb.dbms.SystemCatalog
 import com.github.prologdb.net.session.DatabaseEngine
-import com.github.prologdb.net.session.handle.STOP_AT_EOF_OR_FULL_STOP
+import com.github.prologdb.net.session.handle.StopAtEofOrFullStop
 import com.github.prologdb.orchestration.KnowledgeBaseNotSelectedException
 import com.github.prologdb.orchestration.ModuleNotSelectedException
 import com.github.prologdb.orchestration.Session
@@ -15,7 +15,7 @@ import com.github.prologdb.parser.ParseException
 import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
-import com.github.prologdb.parser.parser.PrologParser.Companion.STOP_AT_EOF
+import com.github.prologdb.parser.parser.StopCondition
 import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.*
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
@@ -135,7 +135,7 @@ class PrologDatabaseToNetworkAdapter(
             ?: ISOOpsOperatorRegistry
 
         val lexer = Lexer(origin, codeToParse.iterator())
-        return parser.parseTerm(lexer, operatorsForParsing, STOP_AT_EOF)
+        return parser.parseTerm(lexer, operatorsForParsing, StopCondition.STOP_AT_EOF)
     }
 
     override fun parseQuery(context: Session?, codeToParse: String, origin: SourceUnit): ParseResult<Query> {
@@ -148,7 +148,7 @@ class PrologDatabaseToNetworkAdapter(
             ?: ISOOpsOperatorRegistry
 
         val lexer = Lexer(origin, codeToParse.iterator())
-        return parser.parseQuery(lexer, operatorsForParsing, STOP_AT_EOF_OR_FULL_STOP)
+        return parser.parseQuery(lexer, operatorsForParsing, StopAtEofOrFullStop)
     }
 
     fun close() {
