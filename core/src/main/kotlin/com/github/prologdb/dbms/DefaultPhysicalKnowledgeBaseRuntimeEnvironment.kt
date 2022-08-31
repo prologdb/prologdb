@@ -11,13 +11,21 @@ import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.lexer.LineEndingNormalizer
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.source.SourceUnit
-import com.github.prologdb.runtime.*
+import com.github.prologdb.runtime.Clause
+import com.github.prologdb.runtime.ClauseIndicator
+import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
+import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
+import com.github.prologdb.runtime.PredicateNotDefinedException
+import com.github.prologdb.runtime.PredicateNotExportedException
+import com.github.prologdb.runtime.PrologRuntimeEnvironment
+import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.module.*
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.MathContext
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.unification.VariableBucket
@@ -157,6 +165,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         }
 
         override val operators: OperatorRegistry = selfModule.localOperators
+        override val mathContext: MathContext = MathContext.DEFAULT
 
         override fun resolveCallable(simpleIndicator: ClauseIndicator): Pair<FullyQualifiedClauseIndicator, PrologCallable> {
             selfModule.allDeclaredPredicates[simpleIndicator]?.let { callable ->

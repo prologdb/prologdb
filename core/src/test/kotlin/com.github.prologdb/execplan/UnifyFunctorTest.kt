@@ -5,7 +5,11 @@ import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.async.remainingToList
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.RandomVariableScope
-import com.github.prologdb.runtime.term.*
+import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.PrologNumber
+import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.VariableBucket
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
@@ -18,10 +22,10 @@ class UnifyFunctorTest : FreeSpec({
     
     "multiple inputs - all can be unified" {
         val inputs = buildLazySequence<Pair<Long, CompoundTerm>>(principal) {
-            yield(Pair(0L, CompoundTerm("foo", arrayOf(PrologInteger(0)))))
-            yield(Pair(1L, CompoundTerm("foo", arrayOf(PrologInteger(1)))))
-            yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologInteger(2)))))
-            Pair(3L, CompoundTerm("foo", arrayOf(PrologInteger(3))))
+            yield(Pair(0L, CompoundTerm("foo", arrayOf(PrologNumber(0)))))
+            yield(Pair(1L, CompoundTerm("foo", arrayOf(PrologNumber(1)))))
+            yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologNumber(2)))))
+            Pair(3L, CompoundTerm("foo", arrayOf(PrologNumber(3))))
         }
         val inputsWithVars = inputs.mapRemaining { Pair(VariableBucket(), it) }
         val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
@@ -31,19 +35,19 @@ class UnifyFunctorTest : FreeSpec({
         val results = functor.invoke(ctxt, inputsWithVars).remainingToList()
         
         results shouldBe listOf(
-            Pair(varsBucket("A" to PrologInteger(0)), 0L),
-            Pair(varsBucket("A" to PrologInteger(1)), 1L),
-            Pair(varsBucket("A" to PrologInteger(2)), 2L),
-            Pair(varsBucket("A" to PrologInteger(3)), 3L)
+            Pair(varsBucket("A" to PrologNumber(0)), 0L),
+            Pair(varsBucket("A" to PrologNumber(1)), 1L),
+            Pair(varsBucket("A" to PrologNumber(2)), 2L),
+            Pair(varsBucket("A" to PrologNumber(3)), 3L)
         )
     }
 
     "multiple inputs - some do not unify" {
         val inputs = buildLazySequence<Pair<Long, CompoundTerm>>(principal) {
-            yield(Pair(0L, CompoundTerm("foo", arrayOf(PrologInteger(0)))))
-            yield(Pair(1L, CompoundTerm("foo", arrayOf(PrologInteger(1), Atom("x")))))
-            yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologInteger(2)))))
-            Pair(3L, CompoundTerm("foo", arrayOf(PrologInteger(3), Atom("y"))))
+            yield(Pair(0L, CompoundTerm("foo", arrayOf(PrologNumber(0)))))
+            yield(Pair(1L, CompoundTerm("foo", arrayOf(PrologNumber(1), Atom("x")))))
+            yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologNumber(2)))))
+            Pair(3L, CompoundTerm("foo", arrayOf(PrologNumber(3), Atom("y"))))
         }
         val inputsWithVars = inputs.mapRemaining { Pair(VariableBucket(), it) }
         val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
@@ -53,8 +57,8 @@ class UnifyFunctorTest : FreeSpec({
         val results = functor.invoke(ctxt, inputsWithVars).remainingToList()
 
         results shouldBe listOf(
-            Pair(varsBucket("A" to PrologInteger(0)), 0L),
-            Pair(varsBucket("A" to PrologInteger(2)), 2L)
+            Pair(varsBucket("A" to PrologNumber(0)), 0L),
+            Pair(varsBucket("A" to PrologNumber(2)), 2L)
         )
     }
 })

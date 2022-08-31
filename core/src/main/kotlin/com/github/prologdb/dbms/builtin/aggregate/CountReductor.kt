@@ -9,7 +9,7 @@ import com.github.prologdb.runtime.proofsearch.ProofSearchContext
 import com.github.prologdb.runtime.stdlib.aggregate.Reductor
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.term.PrologInteger
+import com.github.prologdb.runtime.term.PrologNumber
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.unification.VariableBucket
 import java.util.concurrent.atomic.AtomicLong
@@ -40,7 +40,7 @@ class CountReductor : Reductor<Unit, AtomicLong, AtomicLong> {
         return WorkableFuture.completed(accumulator)
     }
     override fun finalize(ctxt: ProofSearchContext, accumulator: AtomicLong) = WorkableFuture.completed(accumulator)
-    override fun resultToTerm(ctxt: ProofSearchContext, result: AtomicLong) = PrologInteger(result.getAcquire())
+    override fun resultToTerm(ctxt: ProofSearchContext, result: AtomicLong) = PrologNumber(result.getAcquire())
 
     companion object {
         const val NAME = "count"

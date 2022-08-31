@@ -6,7 +6,6 @@ import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.async.remainingToList
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.term.PrologInteger
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.VariableBucket
 import io.kotest.core.spec.style.FreeSpec
@@ -20,9 +19,9 @@ class DiscardFunctorTest : FreeSpec({
             every { principal } returns IrrelevantPrincipal
         }
         val bucketA = VariableBucket()
-        bucketA.instantiate(Variable("N"), PrologInteger(1))
+        bucketA.instantiate(Variable("N"), PrologNumber(1))
         val bucketB = VariableBucket()
-        bucketB.instantiate(Variable("N"), PrologInteger(2))
+        bucketB.instantiate(Variable("N"), PrologNumber(2))
 
         val source = listOf(Pair(bucketA, Unit), Pair(bucketB, Unit))
         var nSideEffects = 0
@@ -35,14 +34,14 @@ class DiscardFunctorTest : FreeSpec({
                 return inputs.flatMapRemaining { (inputBucket, _) ->
                     var modifiedBucket = VariableBucket()
                     modifiedBucket.incorporate(inputBucket, ctxt.randomVariableScope)
-                    modifiedBucket.instantiate(Variable("D"), PrologInteger(1))
+                    modifiedBucket.instantiate(Variable("D"), PrologNumber(1))
 
                     nSideEffects++
                     yield(Pair(modifiedBucket, Unit))
 
                     modifiedBucket = VariableBucket()
                     modifiedBucket.incorporate(inputBucket, ctxt.randomVariableScope)
-                    modifiedBucket.instantiate(Variable("D"), PrologInteger(2))
+                    modifiedBucket.instantiate(Variable("D"), PrologNumber(2))
                     nSideEffects++
                     Pair(modifiedBucket, Unit)
                 }

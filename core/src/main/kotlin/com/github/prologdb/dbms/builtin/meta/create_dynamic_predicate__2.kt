@@ -10,10 +10,16 @@ import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.PrologInvocationContractViolationException
 import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
-import com.github.prologdb.runtime.term.*
+import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.PrologList
+import com.github.prologdb.runtime.term.PrologNumber
+import com.github.prologdb.runtime.term.PrologString
+import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.storage.fact.FactStoreFeature
-import java.util.*
+import java.util.UUID
 
 val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicate", 2) { args, ctxt ->
     val runtime = ctxt.runtimeEnvironment as? MetaKnowledgeBaseRuntimeEnvironment
@@ -29,9 +35,11 @@ val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicat
         ?: throw ArgumentError(0, "must specify the module as an atom")
     val functor = inputs["Functor"] as? Atom
         ?: throw ArgumentError(0, "must specify the functor as an atom")
-    val arityTerm = inputs["Arity"] as? PrologInteger
+    val arityTerm = inputs["Arity"] as? PrologNumber
         ?: throw ArgumentError(0, "must specify the arity as an integer")
-    val arity = arityTerm.value.takeIf { it > 0 && it <= Int.MAX_VALUE }
+    val arity = arityTerm
+        .takeIf { it > PrologNumber(0) && it <= PrologNumber(Int.MAX_VALUE) }
+        ?.toInteger()
         ?.toInt()
         ?: throw ArgumentError(0, "must specify an arity beteen 1 and ${Int.MAX_VALUE}")
     val options = Options.parse(args, 1)
