@@ -7,11 +7,10 @@ import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.AnonymousVariable
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.term.PrologDecimal
+import com.github.prologdb.runtime.term.PrologBigNumber
 import com.github.prologdb.runtime.term.PrologDictionary
-import com.github.prologdb.runtime.term.PrologInteger
 import com.github.prologdb.runtime.term.PrologList
-import com.github.prologdb.runtime.term.PrologNumber
+import com.github.prologdb.runtime.term.PrologLongInteger
 import com.github.prologdb.runtime.term.PrologString
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
@@ -57,8 +56,6 @@ class BinaryPrologWriter {
     }
 
     interface TermWriter<in T : Term> {
-        val prologTypeName: String
-
         /**
          * Writes the given term to the given [DataOutput], including the type byte.
          * @param writerRef To be used for nested terms of unknown type
@@ -73,9 +70,8 @@ class BinaryPrologWriter {
         fun getDefaultInstance(): BinaryPrologWriter {
             val writer = BinaryPrologWriter()
 
-            writer.registerWriter(PrologInteger::class.java, IntegerWriter)
-            writer.registerWriter(PrologDecimal::class.java, DecimalWriter)
-            writer.registerWriter(PrologNumber::class.java, NumberWriter)
+            writer.registerWriter(PrologLongInteger::class.java, LongIntegerWriter)
+            writer.registerWriter(PrologBigNumber::class.java, BigNumberWriter)
             writer.registerWriter(Variable::class.java, VariableWriter)
             writer.registerWriter(PrologString::class.java, StringWriter)
             writer.registerWriter(Atom::class.java, AtomWriter)
@@ -88,80 +84,59 @@ class BinaryPrologWriter {
     }
 }
 
-fun DataOutput.writeIntEncoded(payload: Int) {
-    if (payload <= 0b0111_1111) {
-        writeByte(0b1000_0000 or payload)
-    }
-    else if (payload <= 0x3FFF) {
-        writeByte((payload ushr 7) and 0b0111_1111)
-        writeByte((payload and 0b0111_1111) or 0b1000_0000)
-    }
-    else if (payload <= 0x1F_FFFF) {
-        writeByte((payload ushr 14) and 0b0111_1111)
-        writeByte((payload ushr 7)  and 0b0111_1111)
-        writeByte((payload and 0b0111_1111) or 0b1000_0000)
-    }
-    else if (payload <= 0xFFF_FFFF) {
-        writeByte((payload ushr 21) and 0b0111_1111)
-        writeByte((payload ushr 14) and 0b0111_1111)
-        writeByte((payload ushr 7)  and 0b0111_1111)
-        writeByte((payload and 0b0111_111) or 0b1000_0000)
-    }
-    else {
+fun DataOutput.writeIntEncoded(payload: Int, shrink: Boolean = true, markLastByteFinal: Boolean = true) {
+    val endMask: Int = if (markLastByteFinal) 0b1000_0000 else 0
+
+    if (!shrink || payload < 0 || payload > 0xFFF_FFFF) {
         writeByte((payload ushr 28) and 0b0000_1111)
         writeByte((payload ushr 21) and 0b0111_1111)
         writeByte((payload ushr 14) and 0b0111_1111)
-        writeByte((payload ushr 7)  and 0b0111_1111)
-        writeByte((payload and 0b0111_111) or 0b1000_0000)
+        writeByte((payload ushr 7) and 0b0111_1111)
+        writeByte((payload and 0b0111_1111) or endMask)
+        return
+    }
+
+    if (payload <= 0b0111_1111) {
+        writeByte(0b1000_0000 or payload)
+    } else if (payload <= 0x3FFF) {
+        writeByte((payload ushr 7) and 0b0111_1111)
+        writeByte((payload and 0b0111_1111) or endMask)
+    } else if (payload <= 0x1F_FFFF) {
+        writeByte((payload ushr 14) and 0b0111_1111)
+        writeByte((payload ushr 7) and 0b0111_1111)
+        writeByte((payload and 0b0111_1111) or endMask)
+    } else {
+        writeByte((payload ushr 21) and 0b0111_1111)
+        writeByte((payload ushr 14) and 0b0111_1111)
+        writeByte((payload ushr 7) and 0b0111_1111)
+        writeByte((payload and 0b0111_1111) or endMask)
     }
 }
 
-object IntegerWriter : BinaryPrologWriter.TermWriter<PrologInteger> {
-    override val prologTypeName = "integer"
-
+object LongIntegerWriter : BinaryPrologWriter.TermWriter<PrologLongInteger> {
     private val TYPE_BYTE: Int = 0x10
 
-    override fun writeTermTo(term: PrologInteger, out: DataOutput, writerRef: BinaryPrologWriter) {
+    override fun writeTermTo(term: PrologLongInteger, out: DataOutput, writerRef: BinaryPrologWriter) {
         out.writeByte(TYPE_BYTE)
         out.writeIntEncoded(8)
         out.writeLong(term.value)
     }
 }
 
-object DecimalWriter : BinaryPrologWriter.TermWriter<PrologDecimal> {
-    override val prologTypeName = "decimal"
-
+object BigNumberWriter : BinaryPrologWriter.TermWriter<PrologBigNumber> {
     private val TYPE_BYTE: Int = 0x11
 
-    override fun writeTermTo(term: PrologDecimal, out: DataOutput, writerRef: BinaryPrologWriter) {
+    override fun writeTermTo(term: PrologBigNumber, out: DataOutput, writerRef: BinaryPrologWriter) {
+        val (mantissa, signum, scale) = term.serialize()
         out.writeByte(TYPE_BYTE)
-        out.writeIntEncoded(64)
-        out.writeDouble(term.value)
-    }
-}
-
-object NumberWriter : BinaryPrologWriter.TermWriter<PrologNumber> {
-    override val prologTypeName = "number"
-
-    private val TYPE_BYTE_INTEGER = 0x10
-    private val TYPE_BYTE_DECIMAL = 0x11
-
-    override fun writeTermTo(term: PrologNumber, out: DataOutput, writerRef: BinaryPrologWriter) {
-        if (term.isInteger) {
-            out.writeByte(TYPE_BYTE_INTEGER)
-            out.writeIntEncoded(8)
-            out.writeLong(term.toInteger())
-        } else {
-            out.writeByte(TYPE_BYTE_DECIMAL)
-            out.writeIntEncoded(64)
-            out.writeDouble(term.toDecimal())
-        }
+        out.writeByte(if (signum < 0) 0 else 1)
+        out.writeLong(scale)
+        out.writeIntEncoded(mantissa.size)
+        out.write(mantissa)
     }
 }
 
 object VariableWriter : BinaryPrologWriter.TermWriter<Variable> {
-    override val prologTypeName = "variable"
-
     private val TYPE_BYTE_REGULAR = 0x20
     private val TYPE_BYTE_ANONYMOUS = 0x21
 
@@ -182,8 +157,6 @@ object VariableWriter : BinaryPrologWriter.TermWriter<Variable> {
 }
 
 object StringWriter : BinaryPrologWriter.TermWriter<PrologString> {
-    override val prologTypeName = "string"
-
     private val TYPE_BYTE = 0x24
 
     override fun writeTermTo(term: PrologString, out: DataOutput, writerRef: BinaryPrologWriter) {
@@ -195,8 +168,6 @@ object StringWriter : BinaryPrologWriter.TermWriter<PrologString> {
 }
 
 object AtomWriter : BinaryPrologWriter.TermWriter<Atom> {
-    override val prologTypeName = "atom"
-
     private val TYPE_BYTE = 0x22
 
     override fun writeTermTo(term: Atom, out: DataOutput, writerRef: BinaryPrologWriter) {
@@ -212,8 +183,6 @@ object AtomWriter : BinaryPrologWriter.TermWriter<Atom> {
 }
 
 object PredicateWriter : BinaryPrologWriter.TermWriter<CompoundTerm> {
-    override val prologTypeName = "predicate"
-
     private val TYPE_BYTE = 0x30
 
     override fun writeTermTo(term: CompoundTerm, out: DataOutput, writerRef: BinaryPrologWriter) {
@@ -231,8 +200,6 @@ object PredicateWriter : BinaryPrologWriter.TermWriter<CompoundTerm> {
 }
 
 object ListWriter : BinaryPrologWriter.TermWriter<PrologList> {
-    override val prologTypeName = "list"
-
     private val TYPE_BYTE_WITH_TAIL = 0x31
     private val TYPE_BYTE_WITHOUT_TAIL = 0x32
 
@@ -264,8 +231,6 @@ object ListWriter : BinaryPrologWriter.TermWriter<PrologList> {
 }
 
 object DictionaryWriter : BinaryPrologWriter.TermWriter<PrologDictionary> {
-    override val prologTypeName = "dictionary"
-
     private val TYPE_BYTE_WITH_TAIL = 0x40
     private val TYPE_BYTE_WITHOUT_TAIL = 0x41
 

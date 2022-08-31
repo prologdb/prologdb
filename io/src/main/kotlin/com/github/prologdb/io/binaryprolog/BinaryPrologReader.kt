@@ -4,7 +4,16 @@ import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.query.Query
-import com.github.prologdb.runtime.term.*
+import com.github.prologdb.runtime.term.AnonymousVariable
+import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.PrologBigNumber
+import com.github.prologdb.runtime.term.PrologDictionary
+import com.github.prologdb.runtime.term.PrologList
+import com.github.prologdb.runtime.term.PrologLongInteger
+import com.github.prologdb.runtime.term.PrologString
+import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.term.Variable
 import java.nio.ByteBuffer
 
 class BinaryPrologReader {
@@ -74,8 +83,8 @@ class BinaryPrologReader {
         fun getDefaultInstance(): BinaryPrologReader {
             val reader = BinaryPrologReader()
 
-            reader.setTermTypeReader(0x10, IntegerReader)
-            reader.setTermTypeReader(0x11, DecimalReader)
+            reader.setTermTypeReader(0x10, LongIntegerReader)
+            reader.setTermTypeReader(0x11, BigNumberReader)
             reader.setTermTypeReader(0x20, VariableReader)
             reader.setTermTypeReader(0x21, AnonymousVariableReader)
             reader.setTermTypeReader(0x22, AtomReader)
@@ -113,13 +122,35 @@ fun ByteBuffer.readEncodedIntegerAsInt(): Int {
     return value
 }
 
-object IntegerReader : BinaryPrologReader.TermReader<PrologInteger> {
-    override val prologTypeName = "integer"
+fun ByteBuffer.readEncodedIntegerAsLong(): Long {
+    var value: Long = 0
 
-    override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): PrologInteger {
+    var nBytesFound = 0
+    var hasNext: Boolean
+    do {
+        val rawByte = get()
+        hasNext = rawByte > 0 // MSB is the sign bit on the JVM
+        val significantBitsAsLong = rawByte.toLong() and 0b01111111
+        value = value shl 7
+        value += significantBitsAsLong
+        nBytesFound++
+    } while (hasNext && nBytesFound < 8)
+
+    if (hasNext) {
+        // too large
+        throw BinaryPrologDeserializationException("Encoded integer is larger than expected maximum of 56 bit")
+    }
+
+    return value
+}
+
+object LongIntegerReader : BinaryPrologReader.TermReader<PrologLongInteger> {
+    override val prologTypeName = "number"
+
+    override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): PrologLongInteger {
         val sizeInBytes = buffer.readEncodedIntegerAsInt()
         if (sizeInBytes > 8) {
-            throw BinaryPrologDeserializationException("Integers of more than 8 bytes are not supported.")
+            throw BinaryPrologDeserializationException("Integers of more than 8 bytes are not supported. Encode as an arbitrary-size number instead")
         }
 
         var value: Long = 0
@@ -128,23 +159,26 @@ object IntegerReader : BinaryPrologReader.TermReader<PrologInteger> {
             value += byteAsInt shl (lshiftFactor * 8)
         }
 
-        return PrologInteger.createUsingStringOptimizerCache(value)
+        return PrologLongInteger(value)
     }
 }
 
-object DecimalReader : BinaryPrologReader.TermReader<PrologDecimal> {
-    override val prologTypeName = "decimal"
+object BigNumberReader : BinaryPrologReader.TermReader<PrologBigNumber> {
+    override val prologTypeName = "number"
 
-    override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): PrologDecimal {
-        val sizeInBits = buffer.readEncodedIntegerAsInt()
+    override fun readTermFrom(buffer: ByteBuffer, readerRef: BinaryPrologReader): PrologBigNumber {
+        val isPositiveOrZero = buffer.get().toInt() and 0x01 == 0x01
+        val scale = buffer.getLong()
+        val mantissaSize = buffer.readEncodedIntegerAsInt()
+        val mantissa = ByteArray(mantissaSize)
+        buffer.get(mantissa)
 
-        val value: Double = when(sizeInBits) {
-            32 -> buffer.float.toDouble()
-            64 -> buffer.double
-            else -> throw BinaryPrologDeserializationException("Decimals are only supported in IEEE-754 32bit and 64 bit format, found ${sizeInBits}bit decimal")
+        val signum = when {
+            isPositiveOrZero -> if (mantissa.isEmpty() || mantissa.all { it == 0.toByte() }) 0 else 1
+            else -> -1
         }
 
-        return PrologDecimal(value)
+        return PrologBigNumber(mantissa, 0, mantissa.size, signum, scale)
     }
 }
 

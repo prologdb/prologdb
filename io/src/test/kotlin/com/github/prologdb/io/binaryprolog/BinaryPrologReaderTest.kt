@@ -3,10 +3,18 @@ package com.github.prologdb.io.binaryprolog
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
-import com.github.prologdb.runtime.term.*
+import com.github.prologdb.runtime.term.AnonymousVariable
+import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.PrologBigNumber
+import com.github.prologdb.runtime.term.PrologDictionary
+import com.github.prologdb.runtime.term.PrologList
+import com.github.prologdb.runtime.term.PrologLongInteger
+import com.github.prologdb.runtime.term.PrologNumber
+import com.github.prologdb.runtime.term.PrologString
+import com.github.prologdb.runtime.term.Variable
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.inspectors.forOne
-import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.beInstanceOf
@@ -20,7 +28,7 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
             buffer.position() shouldBe 5
-            result as PrologInteger
+            result as PrologLongInteger
             result.value shouldBe 975692L
         }
 
@@ -30,7 +38,7 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
             buffer.position() shouldBe 6
-            result as PrologInteger
+            result as PrologLongInteger
             result.value shouldBe 975692L
         }
 
@@ -40,7 +48,7 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
             buffer.position() shouldBe 7
-            result as PrologInteger
+            result as PrologLongInteger
             result.value shouldBe 975692L
         }
 
@@ -50,31 +58,55 @@ class BinaryPrologReaderTest : FreeSpec({
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
             buffer.position() shouldBe 10
-            result as PrologInteger
+            result as PrologLongInteger
             result.value shouldBe 975692L
         }
     }
 
-    "decimal" - {
-        "ieee-754 32" {
-            val buffer = ByteBuffer.wrap(byteArrayOf(0x11, 0xA0.toByte(), 0x40, 0x49, 0x0F, 0xDB.toByte()))
+    "arbitrary-sized number" - {
+        "314.15928" {
+            val buffer = ByteBuffer.wrap(byteArrayOf(0x11, 0x01, 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(),
+                0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFB.toByte(), 0x84.toByte(), 0x01,
+                0xDF.toByte(), 0x5E, 0x78))
 
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
-            buffer.position() shouldBe 6
-            result as PrologDecimal
-            result.value shouldBe (3.14159 plusOrMinus 1e-5)
+            buffer.position() shouldBe 15
+            result as PrologBigNumber
+            result shouldBe PrologBigNumber("314.15928")
         }
 
-        "ieee-754 64" {
-            val buffer = ByteBuffer.wrap(byteArrayOf(0x11, 0xC0.toByte(), 0x3C, 0xA7.toByte(), 0x0E, 0xF5.toByte(),
-                0x46, 0x46, 0xD4.toByte(), 0x97.toByte()))
+        "-1.6e-16" {
+            val buffer = ByteBuffer.wrap(byteArrayOf(0x11, 0x00, 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(),
+                0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xEF.toByte(), 0x81.toByte(), 0x10))
 
             val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
 
-            buffer.position() shouldBe 10
-            result as PrologDecimal
-            result.value shouldBe (1.6e-16 plusOrMinus 1e-18)
+            buffer.position() shouldBe 12
+            result as PrologBigNumber
+            result shouldBe PrologBigNumber("-1.6e-16")
+        }
+
+        "1e21" {
+            val buffer = ByteBuffer.wrap(byteArrayOf(0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x15,
+                0x81.toByte(), 0x01))
+
+            val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
+
+            buffer.position() shouldBe 12
+            result as PrologBigNumber
+            result shouldBe PrologBigNumber("1e21")
+        }
+
+        "0" {
+            val buffer = ByteBuffer.wrap(byteArrayOf(0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x80.toByte()))
+
+            val result = BinaryPrologReader.getDefaultInstance().readTermFrom(buffer)
+
+            buffer.position() shouldBe 11
+            result as PrologBigNumber
+            result shouldBe PrologBigNumber("0")
         }
     }
 
@@ -155,7 +187,7 @@ class BinaryPrologReaderTest : FreeSpec({
             buffer.position() shouldBe 17
             result as CompoundTerm
             result.arity shouldBe 3
-            result.arguments[0] shouldBe PrologInteger(1)
+            result.arguments[0] shouldBe PrologNumber(1)
             result.arguments[1] shouldBe PrologString("bar")
             result.arguments[2] shouldBe Atom("z")
         }
@@ -172,7 +204,7 @@ class BinaryPrologReaderTest : FreeSpec({
             result as PrologList
             result.elements.size shouldBe 2
             result.elements[0] shouldBe Atom("a")
-            result.elements[1] shouldBe PrologInteger(2)
+            result.elements[1] shouldBe PrologNumber(2)
             result.tail shouldBe Variable("T")
         }
 
@@ -186,7 +218,7 @@ class BinaryPrologReaderTest : FreeSpec({
             result as PrologList
             result.elements.size shouldBe 2
             result.elements[0] shouldBe Atom("a")
-            result.elements[1] shouldBe PrologInteger(2)
+            result.elements[1] shouldBe PrologNumber(2)
             result.tail shouldBe null
         }
     }
@@ -221,7 +253,7 @@ class BinaryPrologReaderTest : FreeSpec({
             result.pairs[Atom("f")] shouldBe PrologString("b")
 
             assert(Atom("x") in result.pairs.keys)
-            result.pairs[Atom("x")] shouldBe PrologInteger(2)
+            result.pairs[Atom("x")] shouldBe PrologNumber(2)
 
             result.tail shouldBe null
         }
@@ -237,7 +269,7 @@ class BinaryPrologReaderTest : FreeSpec({
             buffer.position() shouldBe 9
             result as PredicateInvocationQuery
 
-            result.goal shouldBe CompoundTerm("foo", arrayOf(PrologInteger(5)))
+            result.goal shouldBe CompoundTerm("foo", arrayOf(PrologNumber(5)))
         }
 
         "B" {

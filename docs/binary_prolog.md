@@ -1,4 +1,4 @@
-# Binary Prolog (Version 1.0)
+# Binary Prolog (Version 2.0)
 
 PrologDB uses a binary representation of prolog for storage and transport
 over the network. These benefits are to be gained:
@@ -57,35 +57,33 @@ And this is 287<sub>10</sub> = 100011111<sub>2</sub> encoded:
 The first byte of each term defines its type. Everything that follows is specific
 to that term type.
 
-|First byte value | Term Type               |
-|-----------------|-------------------------|
-|            0x10 | integer                 |
-|            0x11 | decimal                 |
-|            0x12 | *reserved*              |
-|            0x20 | variable                |
-|            0x21 | the anonymous variable  |
-|            0x22 | atom                    |
-|            0x23 | *reserved*              |
-|            0x24 | string                  |
-|            0x25 | *reserved*              |
-|            0x26 | *reserved*              |
-|            0x27 | *reserved*              |
-|            0x30 | predicate               |
-|            0x31 | list with tail          |
-|            0x32 | list without tail       |
-|            0x40 | dict with tail          |
-|            0x41 | dict without tail       |
-|            0x60 | *reserved (see queries)*|
-|            0x61 | *reserved (see queries)*|
-|            0x62 | *reserved (see queries)*|
-|            0x63 | *reserved (see queries)*|
+| First byte value | Term Type                  |
+|------------------|----------------------------|
+| 0x10             | fixed-size integer         |
+| 0x11             | arbitrary-precision number |
+| 0x12             | *reserved*                 |
+| 0x20             | variable                   |
+| 0x21             | the anonymous variable     |
+| 0x22             | atom                       |
+| 0x23             | *reserved*                 |
+| 0x24             | string                     |
+| 0x25             | *reserved*                 |
+| 0x26             | *reserved*                 |
+| 0x27             | *reserved*                 |
+| 0x30             | predicate                  |
+| 0x31             | list with tail             |
+| 0x32             | list without tail          |
+| 0x40             | dict with tail             |
+| 0x41             | dict without tail          |
+| 0x60             | *reserved (see queries)*   |
+| 0x61             | *reserved (see queries)*   |
+| 0x62             | *reserved (see queries)*   |
+| 0x63             | *reserved (see queries)*   |
 
-### Integers
+### Fixed-Size Signed Integers
 
 Following the type byte is the size of the number in bytes encoded with
-the integer encoding. Currently, PrologDB supports only integers up to 8 bytes
-in size but future versions might include arbitrary integer math code and thus
-support arbitrarily large integers.
+the integer encoding. Fixed-size integers can have a maximum of 64 bits.
 
 Example: `975692`: `0x10 0x83 0x0E 0xE3 0x4C`  
 975692<sub>10</sub> = EE34C<sub>16</sub>
@@ -96,24 +94,58 @@ Note that these are also valid binary representations for the same number:
 * `0x10 0x85 0x00 0x00 0x0E 0xE3 0x4C`
 * `0x10 0x88 0x00 0x00 0x00 0x00 0x00 0x0E 0xE3 0x4C`
 
-### Decimals
+Example: `9223372036854775807`: `0x10 0x88 0x7F 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF`  
+9223372036854775807<sub>10</sub> = 7FFFFFFFFFFFFFFF<sub>16</sub>
 
-Following the type byte is the number of bits that make up the decimal encoded
-with the integer encoding. Decimals are encoded using the IEEE-754 format.
+### Arbitrary Precision Numbers
 
-The number of bytes required for a number is always the least in order to
-fit the IEEE-754 encoded bits.
+Decimal numbers and integers larger than 64bit are stored in this format.
+Semantically, three values are stored
 
-Currently, PrologDB uses only 64bit decimals. It can also read 32bit decimals
-but those will be instantly converted to 64 bit for internal use.
+| Element   | Description                                                                        |
+|-----------|------------------------------------------------------------------------------------|
+| signum    | -1 for negative numbers, 0 for zero and 1 for positive numbers                     |
+| mantissa  | Actual information content of the number, as a byte array in big-endian byte-order | 
+| exponent  | The scale/exponent of the mantissa **for base 10**                                 |
 
-**Examples:**
+Layout:
 
-`3.1415928` as a 32bit decimal: `0x11 0xA0 0x40 0x49 0x0F 0xDB`
-3.1415928 as IEEE-754 32bit float: `0x40490FDB`
+| Order # | Element                                                                                                                                        |
+|---------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1       | Type-Byte                                                                                                                                      |
+| 2       | 1 byte of flags. The least significant bit is the signum (1 = positive/zero, 0 = negative), all other bits are reserved and should be set to 0 |
+| 3       | The exponent/scale as an IEEE fixed-size 64bit/8byte integer with sign                                                                         |
+| 4       | Number of bytes/size of the encoded mantissa in integer encoding                                                                               |
+| 5       | The bytes of the mantissa                                                                                                                      | 
 
-`0.00000000000000016` as a 64bit decimal: `0x11 0xC0 0x3C 0xA7 0x0E 0xF5 0x46 0x46 0xD4 0x97`  
-0.00000000000000016 as IEEE-754 64bit float: `0x3CA70EF54646D497`
+The exponent is written with fixed 8 bytes because it will be negative in a lot of cases. For negative numbers,
+the integer encoding is less efficient.
+
+#### Examples:
+
+##### `314.15928`
+31415928<sub>10</sub> = 1DF5E78</sub>16</sub>  
+The last 5 digits are fractional, so the scale is `-5`.  
+The number is positive so the signum is `1`.  
+This yields in full (with type byte):  
+`0x11 0x01 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFA 0x84 0x01 0xDF 0x5E 0x78`
+
+##### `-0.00000000000000016` / `-1.6e-16`
+16<sub>10</sub> = A0<sub>16</sub>  
+The scale is `-17` (`16 * 10 ^ (-17) = 1.6 * 10 ^ (-16)`)  
+The number is negative, so the signum is `0`.  
+This yields in full (with type byte):  
+`0x11 0x00 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xEF 0x81 0xA0`
+
+##### `1000000000000000000000` / `1e21`
+1<sub>10</sub> = 1<sub>16</sub>  
+The scale is `21`.  
+The number is positive, so the signum is `1`.  
+This yields in full (with type byte):
+`0x11 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x15 0x81 0x01`
+
+##### `0`
+`0x11 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x80`
 
 ### Variables, Atoms and Strings
 
@@ -146,10 +178,10 @@ Layout:
  
 **Examples:**
 
-| Term                  | Binary                                            |
-|-----------------------|---------------------------------------------------|
-|`a(x)`                 | `0x30 0x81 0x81 0x61 0x22 0x81 0x78`              |
-|`foo(1, "bar", z)`     | `0x30 0x83 0x83 0x66 0x6F 0x6F 0x10 0x81 0x01 0x24 0x83 0x62 0x61 0x72 0x22 0x81 0x7A` |
+| Term               | Binary                                                                                 |
+|--------------------|----------------------------------------------------------------------------------------|
+| `a(x)`             | `0x30 0x81 0x81 0x61 0x22 0x81 0x78`                                                   |
+| `foo(1, "bar", z)` | `0x30 0x83 0x83 0x66 0x6F 0x6F 0x10 0x81 0x01 0x24 0x83 0x62 0x61 0x72 0x22 0x81 0x7A` |
 
 ### Lists with tail
 
@@ -166,9 +198,9 @@ Layout:
 
 **Examples:**
 
-| Term                        | Binary                                       |
-|-----------------------------|----------------------------------------------|
-|<code>[a, 2 &#124; T]</code> | `0x31 0x81 0x54 0x82 0x22 0x81 0x61 0x10 0x81 0x02` |
+| Term                         | Binary                                              |
+|------------------------------|-----------------------------------------------------|
+| <code>[a, 2 &#124; T]</code> | `0x31 0x81 0x54 0x82 0x22 0x81 0x61 0x10 0x81 0x02` |
 
 ### Lists without tail
 
@@ -182,9 +214,9 @@ Layout:
 
 **Examples:**
 
-| Term                 | Binary                                              |
-|----------------------|-----------------------------------------------------|
-|`[a, 2]`              | `0x32 0x82 0x22 0x81 0x61 0x10 0x81 0x02`           |
+| Term     | Binary                                    |
+|----------|-------------------------------------------|
+| `[a, 2]` | `0x32 0x82 0x22 0x81 0x61 0x10 0x81 0x02` |
 
 ### Dictionaries
 
@@ -216,10 +248,10 @@ Layout:
 
 **Examples:**
 
-| Term                      | Binary                                         |
-|---------------------------|------------------------------------------------|
-|`{f:"b", x:2}`             |`0x41 0x82 0x81 0x66 0x24 0x81 0x62 0x81 0x78 0x10 0x81 0x02`|
-|<code>{a:b &#124; X}</code>|`0x40 0x81 0x58 0x81 0x81 0x61 0x22 0x81 0x62`  |
+| Term                        | Binary                                                        |
+|-----------------------------|---------------------------------------------------------------|
+| `{f:"b", x:2}`              | `0x41 0x82 0x81 0x66 0x24 0x81 0x62 0x81 0x78 0x10 0x81 0x02` |
+| <code>{a:b &#124; X}</code> | `0x40 0x81 0x58 0x81 0x81 0x61 0x22 0x81 0x62`                |
 
 ## Query Encoding
 
@@ -228,27 +260,27 @@ Combined queries are have a logical operator attached to them.
 
 ### Predicate Query
 
-| Order # | Element                                                          |
-|---------|------------------------------------------------------------------|
-|1        | literal byte `0x60`                                                     |
-|2        | Predicate of the query. Encoded predicate without type byte.     |
+| Order # | Element                                                      |
+|---------|--------------------------------------------------------------|
+| 1       | literal byte `0x60`                                          |
+| 2       | Predicate of the query. Encoded predicate without type byte. |
 
 ### Combined Query
 
-| Order # | Element                                                          |
-|---------|------------------------------------------------------------------|
-|1        | literal byte `0x61`                                              |
-|2        | logical operator (single byte, see below)                        |
-|3        | Number of nested queries encoded with the integer encoding       |
-|4        | The queries, as many as specified in 3                           |
+| Order # | Element                                                    |
+|---------|------------------------------------------------------------|
+| 1       | literal byte `0x61`                                        |
+| 2       | logical operator (single byte, see below)                  |
+| 3       | Number of nested queries encoded with the integer encoding |
+| 4       | The queries, as many as specified in 3                     |
 
 #### Logical Operators
 
-| Value                | Operator            |
-|----------------------|---------------------|
-|`0x00`                | `AND`               |
-|`0x01`                | `OR`                |
-|`0x02` through `0xFF` | currently undefined |
+| Value                 | Operator            |
+|-----------------------|---------------------|
+| `0x00`                | `AND`               |
+| `0x01`                | `OR`                |
+| `0x02` through `0xFF` | currently undefined |
 
 ### Examples
 

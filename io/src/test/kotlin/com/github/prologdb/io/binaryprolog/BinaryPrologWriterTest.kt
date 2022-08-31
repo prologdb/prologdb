@@ -3,7 +3,15 @@ package com.github.prologdb.io.binaryprolog
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
-import com.github.prologdb.runtime.term.*
+import com.github.prologdb.runtime.term.AnonymousVariable
+import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.PrologBigNumber
+import com.github.prologdb.runtime.term.PrologDictionary
+import com.github.prologdb.runtime.term.PrologList
+import com.github.prologdb.runtime.term.PrologNumber
+import com.github.prologdb.runtime.term.PrologString
+import com.github.prologdb.runtime.term.Variable
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import java.io.ByteArrayOutputStream
@@ -62,6 +70,36 @@ class BinaryPrologWriterTest : FreeSpec({
             bufferData[3].toInt() and 0xFF shouldBe 0xB9
         }
 
+        "five bytes" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            out.writeIntEncoded(Int.MAX_VALUE)
+
+            val bufferData = buffer.toByteArray()
+            bufferData.size shouldBe 5
+            bufferData[0].toInt() and 0xFF shouldBe 0x07
+            bufferData[1].toInt() and 0xFF shouldBe 0x7F
+            bufferData[2].toInt() and 0xFF shouldBe 0x7F
+            bufferData[3].toInt() and 0xFF shouldBe 0x7F
+            bufferData[4].toInt() and 0xFF shouldBe 0xFF
+        }
+
+        "negative" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            out.writeIntEncoded(-25)
+
+            val bufferData = buffer.toByteArray()
+            bufferData.size shouldBe 5
+            bufferData[0].toInt() and 0xFF shouldBe 0x0F
+            bufferData[1].toInt() and 0xFF shouldBe 0x7F
+            bufferData[2].toInt() and 0xFF shouldBe 0x7F
+            bufferData[3].toInt() and 0xFF shouldBe 0x7F
+            bufferData[4].toInt() and 0xFF shouldBe 0xE7
+        }
+
         "example A from spec" {
             val buffer = ByteArrayOutputStream()
             val out = DataOutputStream(buffer)
@@ -91,7 +129,7 @@ class BinaryPrologWriterTest : FreeSpec({
         val out = DataOutputStream(buffer)
 
         BinaryPrologWriter.getDefaultInstance().writeTermTo(
-            PrologInteger(4687792L),
+            PrologNumber(4687792L),
             out
         )
 
@@ -100,18 +138,68 @@ class BinaryPrologWriterTest : FreeSpec({
             0x00, 0x47, 0x87.toByte(), 0xB0.toByte())
     }
 
-    "decimal" {
-        val buffer = ByteArrayOutputStream()
-        val out = DataOutputStream(buffer)
+    "arbitrary-sized number" - {
+        "314.15928" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
 
-        BinaryPrologWriter.getDefaultInstance().writeTermTo(
-            PrologDecimal(1.6e-16),
-            out
-        )
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                PrologBigNumber("314.15928"),
+                out
+            )
 
-        val bufferData = buffer.toByteArray()
-        bufferData shouldBe byteArrayOf(0x11, 0xC0.toByte(), 0x3C, 0xA7.toByte(), 0x0E,
-            0xF5.toByte(), 0x46, 0x46, 0xD4.toByte(), 0x97.toByte())
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(
+                0x11, 0x01, 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(),
+                0xFF.toByte(), 0xFB.toByte(), 0x84.toByte(), 0x01, 0xDF.toByte(), 0x5E, 0x78
+            )
+        }
+
+        "-1.6e-16" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                PrologBigNumber("-1.6e-16"),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(
+                0x11, 0x00, 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(),
+                0xFF.toByte(), 0xEF.toByte(), 0x81.toByte(), 0x10
+            )
+        }
+
+        "1e21" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                PrologBigNumber("1e21"),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(
+                0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x15, 0x81.toByte(), 0x01
+            )
+        }
+
+        "0" {
+            val buffer = ByteArrayOutputStream()
+            val out = DataOutputStream(buffer)
+
+            BinaryPrologWriter.getDefaultInstance().writeTermTo(
+                PrologBigNumber("0"),
+                out
+            )
+
+            val bufferData = buffer.toByteArray()
+            bufferData shouldBe byteArrayOf(
+                0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80.toByte()
+            )
+        }
     }
 
     "string" {
@@ -193,7 +281,7 @@ class BinaryPrologWriterTest : FreeSpec({
 
             BinaryPrologWriter.getDefaultInstance().writeTermTo(
                 CompoundTerm("foo", arrayOf(
-                    PrologInteger(1),
+                    PrologNumber(1),
                     PrologString("bar"),
                     Atom("z")
                 )),
@@ -217,7 +305,7 @@ class BinaryPrologWriterTest : FreeSpec({
                 PrologList(
                     listOf(
                         Atom("a"),
-                        PrologInteger(2)
+                        PrologNumber(2)
                     ),
                     Variable("T")
                 ),
@@ -238,7 +326,7 @@ class BinaryPrologWriterTest : FreeSpec({
                 PrologList(
                     listOf(
                         Atom("a"),
-                        PrologInteger(2)
+                        PrologNumber(2)
                     )
                 ),
                 out
@@ -279,7 +367,7 @@ class BinaryPrologWriterTest : FreeSpec({
                 PrologDictionary(
                     mapOf(
                         Atom("f") to PrologString("b"),
-                        Atom("x") to PrologInteger(2)
+                        Atom("x") to PrologNumber(2)
                     )
                 ),
                 out
@@ -298,7 +386,7 @@ class BinaryPrologWriterTest : FreeSpec({
             val out = DataOutputStream(buffer)
 
             BinaryPrologWriter.getDefaultInstance().writeQueryTo(
-                PredicateInvocationQuery(CompoundTerm("foo", arrayOf(PrologInteger(5)))),
+                PredicateInvocationQuery(CompoundTerm("foo", arrayOf(PrologNumber(5)))),
                 out
             )
 
