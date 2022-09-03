@@ -77,6 +77,11 @@ class CLIFrontend(private val connection: Connection) {
                     print("true")
                 }
                 print(" ")
+                if (solutions.state == LazySequence.State.DEPLETED) {
+                    print(".")
+                    println()
+                    break@showSolutions
+                }
 
                 while (true) {
                     val action = (readLine() ?: "").trim()
