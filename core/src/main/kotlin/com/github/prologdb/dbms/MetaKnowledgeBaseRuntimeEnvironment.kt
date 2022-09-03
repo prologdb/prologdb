@@ -30,10 +30,10 @@ class MetaKnowledgeBaseRuntimeEnvironment(
 
     override fun newProofSearchContext(moduleName: String, authorization: Authorization): DatabaseProofSearchContext {
         val superContext = super.newProofSearchContext(moduleName, authorization)
-        if (superContext is ModuleScopeProofSearchContext) {
-            return ProofSearchContext(superContext.module.declaration.moduleName, superContext)
+        return if (superContext is ProofSearchContext) {
+            superContext
         } else {
-            return deriveProofSearchContextForModule(superContext, ROOT_MODULE_NAME)
+            deriveProofSearchContextForModule(superContext, ROOT_MODULE_NAME)
         }
     }
 

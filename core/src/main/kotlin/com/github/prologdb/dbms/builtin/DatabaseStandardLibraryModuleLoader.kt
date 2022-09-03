@@ -24,11 +24,7 @@ object DatabaseStandardLibraryModuleLoader : ModuleLoader {
         }
     }
 
-    // TODO: override retract, retractAll to refuse any call, because there are plan functors for deleting
     private val overrides: Map<ModuleReference, Map<ClauseIndicator, PrologCallable>> = mapOf(
-        ModuleReference("essential", "\$dynamic") to listOf(
-            BuiltinDatabaseCurrentModule1,
-        ),
         ModuleReference("essential", "\$clauses") to listOf(
             BuiltinDatabaseAssert1,
             BuiltinDatabaseRetract1,

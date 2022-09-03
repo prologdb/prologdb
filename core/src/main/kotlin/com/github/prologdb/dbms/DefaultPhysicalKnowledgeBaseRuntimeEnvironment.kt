@@ -11,14 +11,7 @@ import com.github.prologdb.parser.lexer.Lexer
 import com.github.prologdb.parser.lexer.LineEndingNormalizer
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.source.SourceUnit
-import com.github.prologdb.runtime.Clause
-import com.github.prologdb.runtime.ClauseIndicator
-import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
-import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
-import com.github.prologdb.runtime.PredicateNotDefinedException
-import com.github.prologdb.runtime.PredicateNotExportedException
-import com.github.prologdb.runtime.PrologRuntimeEnvironment
-import com.github.prologdb.runtime.RandomVariableScope
+import com.github.prologdb.runtime.*
 import com.github.prologdb.runtime.module.*
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
@@ -154,7 +147,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         override val authorization: Authorization,
         override val randomVariableScope: RandomVariableScope
     ) : PhysicalDatabaseProofSearchContext {
-        private val selfModule = runtimeEnvironment.getLoadedModule(moduleName)
+        override val module = runtimeEnvironment.getLoadedModule(moduleName)
         override val fulfillAttach: suspend LazySequenceBuilder<Unification>.(Query, initialVariables: VariableBucket) -> Unification? = { q, variables ->
             val executionPlan = runtimeEnvironment.database.executionPlanner.planExecution(q, this@ProofSearchContext, randomVariableScope)
             yieldAllFinal(
@@ -164,11 +157,11 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
             )
         }
 
-        override val operators: OperatorRegistry = selfModule.localOperators
+        override val operators: OperatorRegistry = module.localOperators
         override val mathContext: MathContext = MathContext.DEFAULT
 
         override fun resolveCallable(simpleIndicator: ClauseIndicator): Pair<FullyQualifiedClauseIndicator, PrologCallable> {
-            selfModule.allDeclaredPredicates[simpleIndicator]?.let { callable ->
+            module.allDeclaredPredicates[simpleIndicator]?.let { callable ->
                 val fqIndicator = FullyQualifiedClauseIndicator(moduleName, simpleIndicator)
                 return Pair(fqIndicator, callable)
             }
@@ -179,7 +172,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
                 return Pair(fqIndicator, callable)
             }
 
-            throw PredicateNotDefinedException(simpleIndicator, this.selfModule)
+            throw PredicateNotDefinedException(simpleIndicator, this.module)
         }
 
         override fun resolveModuleScopedCallable(goal: Clause): Triple<FullyQualifiedClauseIndicator, PrologCallable, Array<out Term>>? {
@@ -197,8 +190,8 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
             val simpleIndicator = ClauseIndicator.of(unscopedGoal)
 
             if (moduleNameTerm.name == this.moduleName) {
-                val callable = selfModule.allDeclaredPredicates[simpleIndicator]
-                    ?: throw PredicateNotDefinedException(simpleIndicator, selfModule)
+                val callable = module.allDeclaredPredicates[simpleIndicator]
+                    ?: throw PredicateNotDefinedException(simpleIndicator, module)
 
                 val fqIndicator = FullyQualifiedClauseIndicator(this.moduleName, simpleIndicator)
                 return Triple(fqIndicator, callable, unscopedGoal.arguments)
@@ -208,7 +201,9 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
 
             val callable = module.exportedPredicates[simpleIndicator]
                 ?: if (simpleIndicator in module.allDeclaredPredicates) {
-                    throw PredicateNotExportedException(FullyQualifiedClauseIndicator(module.declaration.moduleName, simpleIndicator), selfModule)
+                    throw PredicateNotExportedException(FullyQualifiedClauseIndicator(module.declaration.moduleName, simpleIndicator),
+                        this.module
+                    )
                 } else {
                     throw PredicateNotDefinedException(simpleIndicator, module)
                 }

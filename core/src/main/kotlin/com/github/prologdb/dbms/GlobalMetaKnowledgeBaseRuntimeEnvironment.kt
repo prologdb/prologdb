@@ -26,8 +26,8 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
 
     override fun newProofSearchContext(moduleName: String, authorization: Authorization): DatabaseProofSearchContext {
         val superContext = super.newProofSearchContext(moduleName, authorization)
-        return if (superContext is ModuleScopeProofSearchContext) {
-            ProofSearchContext(superContext.module.declaration.moduleName, superContext)
+        return if (superContext is ProofSearchContext) {
+            superContext
         } else {
             deriveProofSearchContextForModule(superContext, RootModule.declaration.moduleName)
         }
