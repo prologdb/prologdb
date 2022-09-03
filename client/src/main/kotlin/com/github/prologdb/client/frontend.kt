@@ -7,7 +7,7 @@ import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.term.Atom
-import com.github.prologdb.runtime.term.PrologInteger
+import com.github.prologdb.runtime.term.PrologNumber
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.util.DefaultOperatorRegistry
@@ -112,7 +112,7 @@ class CLIFrontend(private val connection: Connection) {
         val registry = DefaultOperatorRegistry()
         operatorSolutions
             .mapRemaining { solution -> OperatorDefinition(
-                (solution.variableValues[Variable("Precedence")] as PrologInteger).value.toShort(),
+                (solution.variableValues[Variable("Precedence")] as PrologNumber).toInteger().toShort(),
                 OperatorType.valueOf((solution.variableValues[Variable("Associativity")] as Atom).name.uppercase()),
                 (solution.variableValues[Variable("Name")] as Atom).name
             ) }

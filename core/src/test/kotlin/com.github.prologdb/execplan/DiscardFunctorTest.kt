@@ -6,6 +6,7 @@ import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.async.remainingToList
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.PrologNumber
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.VariableBucket
 import io.kotest.core.spec.style.FreeSpec
