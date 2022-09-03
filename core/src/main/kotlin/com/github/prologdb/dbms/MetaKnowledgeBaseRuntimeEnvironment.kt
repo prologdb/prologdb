@@ -13,10 +13,10 @@ import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.module.*
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
+import com.github.prologdb.runtime.proofsearch.ProofSearchContext
 import com.github.prologdb.runtime.stdlib.NativeCodeRule
 import com.github.prologdb.runtime.stdlib.loader.ClasspathPrologSourceModuleLoader
 import com.github.prologdb.runtime.stdlib.loader.NativeCodeSourceFileVisitorDecorator
-import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProofSearchContext
 
 class MetaKnowledgeBaseRuntimeEnvironment(
     override val database: PrologDatabase,
@@ -30,7 +30,7 @@ class MetaKnowledgeBaseRuntimeEnvironment(
 
     override fun newProofSearchContext(moduleName: String, authorization: Authorization): DatabaseProofSearchContext {
         val superContext = super.newProofSearchContext(moduleName, authorization)
-        return if (superContext is ProofSearchContext) {
+        return if (superContext is DatabaseProofSearchContextWrapper) {
             superContext
         } else {
             deriveProofSearchContextForModule(superContext, ROOT_MODULE_NAME)
@@ -38,13 +38,13 @@ class MetaKnowledgeBaseRuntimeEnvironment(
     }
 
     override fun deriveProofSearchContextForModule(
-        deriveFrom: RuntimeProofSearchContext,
+        deriveFrom: ProofSearchContext,
         moduleName: String
     ): DatabaseProofSearchContext {
-        return if (deriveFrom is ProofSearchContext) {
+        return if (deriveFrom is DatabaseProofSearchContextWrapper) {
             deriveFrom.deriveForModuleContext(moduleName)
         } else {
-            ProofSearchContext(moduleName, super.deriveProofSearchContextForModule(deriveFrom, moduleName))
+            DatabaseProofSearchContextWrapper(super.deriveProofSearchContextForModule(deriveFrom, moduleName))
         }
     }
 
@@ -102,13 +102,12 @@ class MetaKnowledgeBaseRuntimeEnvironment(
         )
     }
 
-    private inner class ProofSearchContext(
-        override val moduleName: String,
-        private val delegate: RuntimeProofSearchContext
-    ) : RuntimeProofSearchContext by delegate, DatabaseProofSearchContext {
+    private inner class DatabaseProofSearchContextWrapper(
+        private val delegate: ProofSearchContext
+    ) : ProofSearchContext by delegate, DatabaseProofSearchContext {
         override val runtimeEnvironment = this@MetaKnowledgeBaseRuntimeEnvironment
         override fun deriveForModuleContext(moduleName: String): DatabaseProofSearchContext {
-            return ProofSearchContext(moduleName, delegate.deriveForModuleContext(moduleName))
+            return DatabaseProofSearchContextWrapper(delegate.deriveForModuleContext(moduleName))
         }
     }
 }

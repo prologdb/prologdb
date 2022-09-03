@@ -18,18 +18,18 @@ val BuiltinSource1 = nativeDatabaseRule("source", 1) { args, ctxt ->
         throw PrologInvocationContractViolationException("${args.indicator} can only be invoked in a meta knowledge-base")
     }
 
-    val moduleReference = ModuleReference(DefaultPhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS, ctxt.moduleName)
+    val moduleReference = ModuleReference(DefaultPhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS, ctxt.module.declaration.moduleName)
 
     val arg = args[0]
     if (arg is Variable) {
-        val moduleCatalog = runtime.knowledgeBaseCatalog.modulesByName[ctxt.moduleName] ?: throw ModuleNotFoundException(moduleReference)
+        val moduleCatalog = runtime.knowledgeBaseCatalog.modulesByName[ctxt.module.declaration.moduleName] ?: throw ModuleNotFoundException(moduleReference)
         return@nativeDatabaseRule arg.unify(PrologString(moduleCatalog.prologSource), ctxt.randomVariableScope)
     }
 
     if (arg is PrologString) {
         ctxt.runtimeEnvironment.database.dataDirectory.modifySystemCatalog { systemCatalog ->
             val knowledgeBaseCatalog = systemCatalog.knowledgeBases.single { it.name == runtime.knowledgeBaseCatalog.name }
-            val moduleCatalog = knowledgeBaseCatalog.modulesByName[ctxt.moduleName] ?: throw ModuleNotFoundException(moduleReference)
+            val moduleCatalog = knowledgeBaseCatalog.modulesByName[ctxt.module.declaration.moduleName] ?: throw ModuleNotFoundException(moduleReference)
 
             val newSource = arg.toKotlinString()
             val primedStage = DefaultPhysicalKnowledgeBaseRuntimeEnvironment.parseModuleSource(moduleReference, newSource, ctxt.runtimeEnvironment)

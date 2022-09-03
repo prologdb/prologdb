@@ -7,11 +7,7 @@ import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.runtime.ArgumentTypeError
 import com.github.prologdb.runtime.PrologInternalError
 import com.github.prologdb.runtime.PrologInvocationContractViolationException
-import com.github.prologdb.runtime.term.Atom
-import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.term.PrologList
-import com.github.prologdb.runtime.term.Variable
-import com.github.prologdb.runtime.term.unify
+import com.github.prologdb.runtime.term.*
 
 private val PARSER = PrologParser()
 
@@ -22,7 +18,7 @@ val BuiltinDynamic2 = nativeDatabaseRule("dynamic", 2) { args, ctxt ->
     var predicates = ctxt.runtimeEnvironment.database.dataDirectory.systemCatalog.knowledgeBases
         .asSequence()
         .filter { kb -> kb.name == runtime.knowledgeBaseCatalog.name }
-        .map { kb -> kb.modulesByName.getValue(ctxt.moduleName) }
+        .map { kb -> kb.modulesByName.getValue(ctxt.module.declaration.moduleName) }
         .flatMap { module -> module.predicates }
 
     when (args[0]) {

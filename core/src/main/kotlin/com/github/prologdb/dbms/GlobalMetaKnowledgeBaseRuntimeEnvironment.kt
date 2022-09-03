@@ -7,15 +7,13 @@ import com.github.prologdb.parser.parser.SourceFileVisitor
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
 import com.github.prologdb.runtime.PrologRuntimeEnvironment
-import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.module.*
 import com.github.prologdb.runtime.proofsearch.Authorization
-import com.github.prologdb.runtime.proofsearch.PrologCallable
+import com.github.prologdb.runtime.proofsearch.ProofSearchContext
 import com.github.prologdb.runtime.stdlib.NativeCodeRule
 import com.github.prologdb.runtime.stdlib.loader.ClasspathPrologSourceModuleLoader
 import com.github.prologdb.runtime.stdlib.loader.NativeCodeSourceFileVisitorDecorator
 import com.github.prologdb.runtime.stdlib.loader.StandardLibraryModuleLoader
-import com.github.prologdb.runtime.proofsearch.ProofSearchContext as RuntimeProofSearchContext
 
 class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDatabase) : DefaultPrologRuntimeEnvironment(ModuleLoader), DatabaseRuntimeEnvironment {
     override val defaultModuleName = SCHEMA_MODULE_NAME
@@ -25,38 +23,23 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
     }
 
     override fun newProofSearchContext(moduleName: String, authorization: Authorization): DatabaseProofSearchContext {
-        val superContext = super.newProofSearchContext(moduleName, authorization)
-        return if (superContext is ProofSearchContext) {
-            superContext
-        } else {
-            deriveProofSearchContextForModule(superContext, RootModule.declaration.moduleName)
-        }
+        return DatabaseProofSearchContextWrapper(super.newProofSearchContext(moduleName, authorization))
     }
 
     override fun deriveProofSearchContextForModule(
-        deriveFrom: RuntimeProofSearchContext,
+        deriveFrom: ProofSearchContext,
         moduleName: String
     ): DatabaseProofSearchContext {
-        return if (deriveFrom is ProofSearchContext) {
+        return if (deriveFrom is DatabaseProofSearchContextWrapper) {
             deriveFrom.deriveForModuleContext(moduleName)
         } else {
-            ProofSearchContext(moduleName, super.deriveProofSearchContextForModule(deriveFrom, moduleName))
+            DatabaseProofSearchContextWrapper(super.deriveProofSearchContextForModule(deriveFrom, moduleName))
         }
     }
 
     companion object {
         const val KNOWLEDGE_BASE_NAME = "\$meta"
         const val SCHEMA_MODULE_NAME = "schema"
-
-        internal object RootModule : Module {
-            override val allDeclaredPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
-            override val exportedPredicates: Map<ClauseIndicator, PrologCallable> = emptyMap()
-            override val imports: List<ModuleImport> = listOf(
-                ModuleImport.Full(ModuleReference(DefaultPhysicalKnowledgeBaseRuntimeEnvironment.DATABASE_MODULE_PATH_ALIAS, SCHEMA_MODULE_NAME))
-            )
-            override val localOperators = ISOOpsOperatorRegistry
-            override val declaration = ModuleDeclaration("\$root")
-        }
 
         object ModuleLoader : com.github.prologdb.runtime.module.ModuleLoader {
             private val PARSER = PrologParser()
@@ -102,25 +85,24 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
         }
     }
 
-    private inner class ProofSearchContext(
-        override val moduleName: String,
-        private val delegate: RuntimeProofSearchContext
-    ) : RuntimeProofSearchContext by delegate, DatabaseProofSearchContext {
+    private inner class DatabaseProofSearchContextWrapper(
+        private val delegate: ProofSearchContext
+    ) : ProofSearchContext by delegate, DatabaseProofSearchContext {
 
         override val runtimeEnvironment = this@GlobalMetaKnowledgeBaseRuntimeEnvironment
 
         init {
-            if (moduleName != SCHEMA_MODULE_NAME && moduleName != RootModule.declaration.moduleName) {
-                throw ModuleNotLoadedException(moduleName)
+            if (delegate.module.declaration.moduleName != SCHEMA_MODULE_NAME) {
+                throw ModuleNotLoadedException(delegate.module.declaration.moduleName)
             }
         }
 
-        override fun deriveForModuleContext(moduleName: String): ProofSearchContext {
-            if (this.moduleName == moduleName) {
+        override fun deriveForModuleContext(moduleName: String): DatabaseProofSearchContextWrapper {
+            if (delegate.module.declaration.moduleName == moduleName) {
                 return this
             }
 
-            return ProofSearchContext(moduleName, delegate.deriveForModuleContext(moduleName))
+            return DatabaseProofSearchContextWrapper(delegate.deriveForModuleContext(moduleName))
         }
     }
 }
