@@ -4,7 +4,6 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.handle.ParserDelegate
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.unification.Unification
 
 /**
  * To be implemented by applications implementing the prologdb network

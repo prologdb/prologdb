@@ -7,7 +7,6 @@ import com.github.prologdb.net.negotiation.SemanticVersion
 import com.github.prologdb.net.v1.messages.*
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
-import com.github.prologdb.runtime.unification.VariableBucket
 import com.google.protobuf.ByteString
 import java.net.Socket
 import kotlin.concurrent.thread
@@ -154,7 +153,7 @@ class Connection(val host: String, val port: Int) {
                 when (toClient.eventCase) {
                     ToClient.EventCase.SOLUTION -> {
                         val localSequence = openQueries[toClient.solution.queryId] ?: continue@readMessage
-                        val vars = VariableBucket()
+                        val vars = Unification()
                         for ((varName, value) in toClient.solution.instantiationsMap) {
                             vars.instantiate(Variable(varName), value.toRuntimeTerm())
                         }

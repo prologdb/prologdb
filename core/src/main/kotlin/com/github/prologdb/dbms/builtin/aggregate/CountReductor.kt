@@ -11,7 +11,7 @@ import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.PrologNumber
 import com.github.prologdb.runtime.term.Term
-import com.github.prologdb.runtime.unification.VariableBucket
+import com.github.prologdb.runtime.unification.Unification
 import java.util.concurrent.atomic.AtomicLong
 
 class CountReductor : Reductor<Unit, AtomicLong, AtomicLong> {
@@ -35,7 +35,7 @@ class CountReductor : Reductor<Unit, AtomicLong, AtomicLong> {
     }
 
     override fun initialize(ctxt: ProofSearchContext, specification: Unit) = WorkableFuture.completed(AtomicLong(0))
-    override fun accumulate(ctxt: ProofSearchContext, accumulator: AtomicLong, element: VariableBucket): WorkableFuture<AtomicLong> {
+    override fun accumulate(ctxt: ProofSearchContext, accumulator: AtomicLong, element: Unification): WorkableFuture<AtomicLong> {
         accumulator.incrementAndGet()
         return WorkableFuture.completed(accumulator)
     }

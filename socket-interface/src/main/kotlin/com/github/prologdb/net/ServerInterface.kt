@@ -11,7 +11,6 @@ import com.github.prologdb.parser.SyntaxError
 import com.github.prologdb.parser.source.SourceLocation
 import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
-import com.github.prologdb.runtime.unification.Unification
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.subjects.SingleSubject
@@ -189,7 +188,7 @@ class ServerInterface<SessionState : Any>(
         val instruction = if (preInstantiations == null || preInstantiations.isEmpty) instruction else {
             var _instruction = this.instruction
             val sortedSubstitutions = try {
-                preInstantiations.sortForSubstitution()
+                preInstantiations.sortedForSubstitution()
             }
             catch (ex: PrologException) {
                 throw QueryRelatedException(

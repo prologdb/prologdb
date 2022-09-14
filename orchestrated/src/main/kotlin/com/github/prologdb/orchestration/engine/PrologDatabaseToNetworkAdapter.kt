@@ -27,7 +27,6 @@ import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
-import com.github.prologdb.runtime.unification.VariableBucket
 import org.slf4j.LoggerFactory
 
 internal val log = LoggerFactory.getLogger("prologdb.network-adapter")
@@ -70,7 +69,7 @@ class PrologDatabaseToNetworkAdapter(
                 .newProofSearchContext(moduleName, ReadWriteAuthorization)
                 .deriveForModuleContext(session.moduleCatalog.name)
             val plan = database.executionPlanner.planExecution(query, psc, RandomVariableScope())
-            val solutionVars = VariableBucket()
+            val solutionVars = Unification()
             solutionVars.instantiate(Variable("Plan"), plan.explanation)
             LazySequence.of(Unification(solutionVars))
         },
@@ -102,7 +101,7 @@ class PrologDatabaseToNetworkAdapter(
                 .deriveForModuleContext(session.module ?: throw ModuleNotSelectedException())
 
             return buildLazySequence(psc.principal) {
-                psc.fulfillAttach(this, query, VariableBucket())
+                psc.fulfillAttach(this, query, Unification())
             }
         }
         catch (ex: PrologException) {

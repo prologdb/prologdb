@@ -5,7 +5,7 @@ import com.github.prologdb.async.flatMapRemaining
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.dbms.SystemCatalog
 import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.unification.VariableBucket
+import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.PersistenceID
 import java.util.concurrent.Future
@@ -16,7 +16,7 @@ import java.util.concurrent.Future
 class FactDeleteFunctor(
     val predicate: SystemCatalog.Predicate
 ) : PlanFunctor<PersistenceID, Unit> {
-    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, PersistenceID>>): LazySequence<Pair<VariableBucket, Unit>> {
+    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<Unification, PersistenceID>>): LazySequence<Pair<Unification, Unit>> {
         val factStore = ctxt.getFactStore(predicate)
         
         return inputs.flatMapRemaining { (variableCarry, persistenceID) ->
@@ -36,7 +36,7 @@ class FactDeleteFunctorOverload0(
     private val predicate: SystemCatalog.Predicate
 ) : PlanFunctor<Pair<PersistenceID, CompoundTerm>, Unit> {
     
-    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Pair<PersistenceID, CompoundTerm>>>): LazySequence<Pair<VariableBucket, Unit>> {
+    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<Unification, Pair<PersistenceID, CompoundTerm>>>): LazySequence<Pair<Unification, Unit>> {
         val factStore = ctxt.getFactStore(predicate)
         
         return inputs.flatMapRemaining { (variableCarry, pidAndFact) ->

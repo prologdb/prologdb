@@ -21,7 +21,7 @@ import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
-import com.github.prologdb.runtime.unification.VariableBucket
+import com.github.prologdb.runtime.unification.Unification
 import com.google.protobuf.ByteString
 import com.google.protobuf.GeneratedMessageV3
 import io.reactivex.Observable
@@ -249,8 +249,8 @@ private fun <SessionState : Any> QueryInitialization.toIndependent(sessionState:
     return cmd
 }
 
-private fun <SessionState : Any> Map<String, com.github.prologdb.net.v1.messages.Term>.toBucket(sessionState: SessionState?, prologReader: ProtocolVersion1PrologReader<SessionState>): VariableBucket {
-    val bucket = VariableBucket()
+private fun <SessionState : Any> Map<String, com.github.prologdb.net.v1.messages.Term>.toBucket(sessionState: SessionState?, prologReader: ProtocolVersion1PrologReader<SessionState>): Unification {
+    val bucket = Unification()
     for ((variableName, term) in this) {
         bucket.instantiate(Variable(variableName), prologReader.toRuntimeTerm(sessionState, term, SourceUnit("parameter $variableName")))
     }

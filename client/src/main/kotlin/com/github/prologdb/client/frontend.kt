@@ -9,7 +9,6 @@ import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.PrologNumber
 import com.github.prologdb.runtime.term.Variable
-import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.runtime.util.DefaultOperatorRegistry
 import com.github.prologdb.runtime.util.OperatorDefinition
 import com.github.prologdb.runtime.util.OperatorRegistry

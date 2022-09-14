@@ -17,7 +17,6 @@ import com.github.prologdb.runtime.term.PrologNumber
 import com.github.prologdb.runtime.term.PrologString
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
-import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.storage.fact.FactStoreFeature
 import java.util.UUID
 

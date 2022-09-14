@@ -8,7 +8,7 @@ import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.PrologNumber
 import com.github.prologdb.runtime.term.Variable
-import com.github.prologdb.runtime.unification.VariableBucket
+import com.github.prologdb.runtime.unification.Unification
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -19,9 +19,9 @@ class DiscardFunctorTest : FreeSpec({
         val psc = mockk<PhysicalDatabaseProofSearchContext> {
             every { principal } returns IrrelevantPrincipal
         }
-        val bucketA = VariableBucket()
+        val bucketA = Unification()
         bucketA.instantiate(Variable("N"), PrologNumber(1))
-        val bucketB = VariableBucket()
+        val bucketB = Unification()
         bucketB.instantiate(Variable("N"), PrologNumber(2))
 
         val source = listOf(Pair(bucketA, Unit), Pair(bucketB, Unit))
@@ -30,17 +30,17 @@ class DiscardFunctorTest : FreeSpec({
         val discardedStep = object : PlanFunctor<Unit, Unit> {
             override fun invoke(
                 ctxt: PhysicalDatabaseProofSearchContext,
-                inputs: LazySequence<Pair<VariableBucket, Unit>>
-            ): LazySequence<Pair<VariableBucket, Unit>> {
+                inputs: LazySequence<Pair<Unification, Unit>>
+            ): LazySequence<Pair<Unification, Unit>> {
                 return inputs.flatMapRemaining { (inputBucket, _) ->
-                    var modifiedBucket = VariableBucket()
+                    var modifiedBucket = Unification()
                     modifiedBucket.incorporate(inputBucket, ctxt.randomVariableScope)
                     modifiedBucket.instantiate(Variable("D"), PrologNumber(1))
 
                     nSideEffects++
                     yield(Pair(modifiedBucket, Unit))
 
-                    modifiedBucket = VariableBucket()
+                    modifiedBucket = Unification()
                     modifiedBucket.incorporate(inputBucket, ctxt.randomVariableScope)
                     modifiedBucket.instantiate(Variable("D"), PrologNumber(2))
                     nSideEffects++

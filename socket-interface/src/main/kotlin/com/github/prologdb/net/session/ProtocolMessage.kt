@@ -2,7 +2,6 @@ package com.github.prologdb.net.session
 
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.unification.Unification
-import com.github.prologdb.runtime.unification.VariableBucket
 
 annotation class ToServer
 annotation class ToClient
@@ -26,7 +25,7 @@ data class GeneralError(
 data class InitializeQueryCommand(
     val desiredQueryId: Int,
     val instruction: Query,
-    val preInstantiations: VariableBucket? = null,
+    val preInstantiations: Unification? = null,
     val kind: Kind = Kind.QUERY,
 ) : ProtocolMessage() {
     enum class Kind {

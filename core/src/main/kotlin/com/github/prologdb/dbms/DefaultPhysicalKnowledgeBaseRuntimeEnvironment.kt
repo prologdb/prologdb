@@ -20,7 +20,6 @@ import com.github.prologdb.runtime.proofsearch.ProofSearchContext
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.MathContext
 import com.github.prologdb.runtime.unification.Unification
-import com.github.prologdb.runtime.unification.VariableBucket
 import com.github.prologdb.util.OverrideModule
 import java.util.UUID
 
@@ -145,7 +144,7 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         override val knowledgeBaseCatalog: SystemCatalog.KnowledgeBase,
         override val runtimeEnvironment: DefaultPhysicalKnowledgeBaseRuntimeEnvironment,
     ) : ProofSearchContext by delegate, PhysicalDatabaseProofSearchContext {
-        override val fulfillAttach: suspend LazySequenceBuilder<Unification>.(Query, VariableBucket) -> Unification? = { q, variables ->
+        override val fulfillAttach: suspend LazySequenceBuilder<Unification>.(Query, Unification) -> Unification? = { q, variables ->
             val executionPlan = runtimeEnvironment.database.executionPlanner.planExecution(q, this@DatabaseProofSearchContextWrapper, randomVariableScope)
             yieldAllFinal(
                 executionPlan

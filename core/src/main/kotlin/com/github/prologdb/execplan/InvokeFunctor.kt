@@ -13,7 +13,6 @@ import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.Unification
-import com.github.prologdb.runtime.unification.VariableBucket
 
 class InvokeFunctor(
     val moduleName: String,
@@ -27,7 +26,7 @@ class InvokeFunctor(
     ))
     val fqi = FullyQualifiedClauseIndicator(moduleName, ClauseIndicator.of(invocation))
 
-    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Any?>>): LazySequence<Pair<VariableBucket, Unit>> {
+    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<Unification, Any?>>): LazySequence<Pair<Unification, Unit>> {
         return inputs.flatMapRemaining { (vars, _) ->
             val replacedInvocation = invocation.substituteVariables(vars.asSubstitutionMapper())
             yieldAllFinal(
@@ -40,7 +39,7 @@ class InvokeFunctor(
                         if (unification.variableValues.isEmpty) {
                             Pair(vars, Unit)
                         } else {
-                            val combinedVars = vars.copy()
+                            val combinedVars = vars.createMutableCopy()
                             combinedVars.incorporate(unification.variableValues, ctxt.randomVariableScope)
                             Pair(combinedVars, Unit)
                         }

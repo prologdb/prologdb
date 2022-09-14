@@ -6,7 +6,7 @@ import com.github.prologdb.async.launchWorkableFuture
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.unification.VariableBucket
+import com.github.prologdb.runtime.unification.Unification
 
 class DiscardFunctor<Input>(
     private val discarded: PlanFunctor<Input, *>
@@ -14,8 +14,8 @@ class DiscardFunctor<Input>(
 
     override fun invoke(
         ctxt: PhysicalDatabaseProofSearchContext,
-        inputs: LazySequence<Pair<VariableBucket, Input>>
-    ): LazySequence<Pair<VariableBucket, Input>> {
+        inputs: LazySequence<Pair<Unification, Input>>
+    ): LazySequence<Pair<Unification, Input>> {
         return inputs.flatMapRemaining { input ->
             await(launchWorkableFuture(ctxt.principal) {
                 foldRemaining(discarded.invoke(ctxt, LazySequence.of(input)), Unit) { _, unit -> unit }

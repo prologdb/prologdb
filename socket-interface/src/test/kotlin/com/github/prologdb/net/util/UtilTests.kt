@@ -4,7 +4,7 @@ import com.github.prologdb.runtime.CircularTermException
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Variable
-import com.github.prologdb.runtime.unification.VariableBucket
+import com.github.prologdb.runtime.unification.Unification
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
@@ -15,7 +15,7 @@ class UtilTests : FreeSpec({
         "variable bucket topological sort" - {
             "happy path" {
                 // SETUP
-                val bucket = VariableBucket()
+                val bucket = Unification()
                 bucket.instantiate(Variable("C"), Atom("a"))
                 bucket.instantiate(Variable("B"), Variable("C"))
                 bucket.instantiate(Variable("A"), Variable("B"))
@@ -25,7 +25,7 @@ class UtilTests : FreeSpec({
                 bucket.values.first() shouldNotBe Pair(Variable("A"), Variable("B"))
 
                 // ACT
-                val sorted = bucket.sortForSubstitution()
+                val sorted = bucket.sortedForSubstitution()
 
                 var value = CompoundTerm("foo", arrayOf(Variable("A")))
                 sorted.forEach { replacement ->
@@ -37,13 +37,13 @@ class UtilTests : FreeSpec({
 
             "circular dependency should error" {
                 // SETUP
-                val bucket = VariableBucket()
+                val bucket = Unification()
                 bucket.instantiate(Variable("A"), CompoundTerm("foo", arrayOf(Variable("B"))))
                 bucket.instantiate(Variable("B"), CompoundTerm("bar", arrayOf(Variable("A"))))
 
                 // ACT & ASSERT
                 shouldThrow<CircularTermException> {
-                    bucket.sortForSubstitution()
+                    bucket.sortedForSubstitution()
                 }
             }
         }

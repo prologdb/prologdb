@@ -23,7 +23,6 @@ import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.PrologString
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
-import com.github.prologdb.runtime.unification.VariableBucket
 import com.google.protobuf.ByteString
 import io.kotest.core.listeners.TestListener
 import io.kotest.core.spec.Spec
@@ -470,7 +469,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
             if (errorOnQuery) {
                 throw PrologInternalError("Error :(")
             } else {
-                val vars = VariableBucket()
+                val vars = Unification()
                 vars.instantiate(Variable("A"), CompoundTerm("?-", arrayOf(PrologString(query.toString()))))
                 Unification(vars)
             }
@@ -482,7 +481,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
             if (errorOnDirective) {
                 throw PrologInternalError("Error directive :(")
             } else {
-                val vars = VariableBucket()
+                val vars = Unification()
                 vars.instantiate(Variable("A"), CompoundTerm(":-", arrayOf(command)))
                 Unification(vars)
             }

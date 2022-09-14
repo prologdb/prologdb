@@ -5,7 +5,6 @@ import com.github.prologdb.dbms.KnowledgeBaseNotFoundException
 import com.github.prologdb.dbms.builtin.nativeDatabaseRule
 import com.github.prologdb.runtime.module.ModuleNotFoundException
 import com.github.prologdb.runtime.term.Atom
-import com.github.prologdb.runtime.unification.Unification
 
 val BuiltinDropModule2 = nativeDatabaseRule("drop_module", 2) { args, ctxt ->
     val knowledgeBaseName = args.getTyped<Atom>(0).name

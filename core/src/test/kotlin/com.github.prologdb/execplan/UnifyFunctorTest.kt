@@ -10,7 +10,7 @@ import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.PrologNumber
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
-import com.github.prologdb.runtime.unification.VariableBucket
+import com.github.prologdb.runtime.unification.Unification
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -27,7 +27,7 @@ class UnifyFunctorTest : FreeSpec({
             yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologNumber(2)))))
             Pair(3L, CompoundTerm("foo", arrayOf(PrologNumber(3))))
         }
-        val inputsWithVars = inputs.mapRemaining { Pair(VariableBucket(), it) }
+        val inputsWithVars = inputs.mapRemaining { Pair(Unification(), it) }
         val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
         val ctxt = mockk<PhysicalDatabaseProofSearchContext>()
         every { ctxt.randomVariableScope } returns RandomVariableScope()
@@ -49,7 +49,7 @@ class UnifyFunctorTest : FreeSpec({
             yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologNumber(2)))))
             Pair(3L, CompoundTerm("foo", arrayOf(PrologNumber(3), Atom("y"))))
         }
-        val inputsWithVars = inputs.mapRemaining { Pair(VariableBucket(), it) }
+        val inputsWithVars = inputs.mapRemaining { Pair(Unification(), it) }
         val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
         val ctxt = mockk<PhysicalDatabaseProofSearchContext>()
         every { ctxt.randomVariableScope } returns RandomVariableScope()
@@ -63,8 +63,8 @@ class UnifyFunctorTest : FreeSpec({
     }
 })
 
-private fun varsBucket(vararg of: Pair<String, Term>): VariableBucket {
-    val bucket = VariableBucket()
+private fun varsBucket(vararg of: Pair<String, Term>): Unification {
+    val bucket = Unification()
     for ((varName, term) in of) {
         bucket.instantiate(Variable(varName), term)
     }

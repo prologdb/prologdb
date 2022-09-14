@@ -4,7 +4,7 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.unification.VariableBucket
+import com.github.prologdb.runtime.unification.Unification
 
 /**
  * Concatenates the output of multiple steps. This is the equivalent of a prolog `;` or SQL UNION
@@ -18,7 +18,7 @@ class UnionFunctor<Input, Output>(
         }
     }
 
-    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<VariableBucket, Input>>): LazySequence<Pair<VariableBucket, Output>> {
+    override fun invoke(ctxt: PhysicalDatabaseProofSearchContext, inputs: LazySequence<Pair<Unification, Input>>): LazySequence<Pair<Unification, Output>> {
         if (steps.size == 1) {
             return steps.single().invoke(ctxt, inputs)
         }
