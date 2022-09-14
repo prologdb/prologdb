@@ -36,13 +36,7 @@ class InvokeFunctor(
                     }
                 }
                     .mapRemaining { unification ->
-                        if (unification.variableValues.isEmpty) {
-                            Pair(vars, Unit)
-                        } else {
-                            val combinedVars = vars.createMutableCopy()
-                            combinedVars.incorporate(unification.variableValues, ctxt.randomVariableScope)
-                            Pair(combinedVars, Unit)
-                        }
+                        Pair(unification.combinedWith(vars, ctxt.randomVariableScope), Unit)
                     }
             )
         }

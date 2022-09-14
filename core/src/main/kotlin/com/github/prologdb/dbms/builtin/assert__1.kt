@@ -1,6 +1,7 @@
 package com.github.prologdb.dbms.builtin
 
 import com.github.prologdb.runtime.PrologInvocationContractViolationException
+import com.github.prologdb.runtime.unification.Unification
 
 val BuiltinDatabaseAssert1 = nativeDatabaseRule("assert", 1) { args, ctxt ->
     val (fqi, callable, resolvedHead) = ctxt.resolveHead(args.getTyped(0))

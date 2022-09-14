@@ -17,6 +17,7 @@ import com.github.prologdb.runtime.term.PrologNumber
 import com.github.prologdb.runtime.term.PrologString
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
+import com.github.prologdb.runtime.unification.Unification
 import com.github.prologdb.storage.fact.FactStoreFeature
 import java.util.UUID
 
@@ -25,7 +26,6 @@ val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicat
         ?: throw PrologInvocationContractViolationException("${args.indicator} must be invoked within a meta knowledge base.")
 
     val inputs = FQI_INDICATOR_TEMPLATE.unify(args[0], ctxt.randomVariableScope)
-        ?.variableValues
         ?.values
         ?.associate { it.first.name to it.second }
         ?: throw ArgumentError(0, "must be a fully qualified indicator of this structure: $FQI_INDICATOR_TEMPLATE")

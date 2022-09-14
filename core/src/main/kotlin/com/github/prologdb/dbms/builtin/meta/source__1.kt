@@ -10,6 +10,7 @@ import com.github.prologdb.runtime.module.ModuleNotFoundException
 import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.term.PrologString
 import com.github.prologdb.runtime.term.Variable
+import com.github.prologdb.runtime.unification.Unification
 
 val BuiltinSource1 = nativeDatabaseRule("source", 1) { args, ctxt ->
     val runtime = ctxt.runtimeEnvironment

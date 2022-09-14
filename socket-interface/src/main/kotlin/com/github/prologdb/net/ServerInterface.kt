@@ -1,7 +1,17 @@
 package com.github.prologdb.net
 
 import com.github.prologdb.async.LazySequence
-import com.github.prologdb.net.session.*
+import com.github.prologdb.net.session.ConnectionCloseEvent
+import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
+import com.github.prologdb.net.session.DatabaseEngine
+import com.github.prologdb.net.session.GeneralError
+import com.github.prologdb.net.session.InitializeQueryCommand
+import com.github.prologdb.net.session.ProtocolMessage
+import com.github.prologdb.net.session.QueryClosedMessage
+import com.github.prologdb.net.session.QueryOpenedMessage
+import com.github.prologdb.net.session.QueryRelatedError
+import com.github.prologdb.net.session.QuerySolutionMessage
+import com.github.prologdb.net.session.SessionInitializer
 import com.github.prologdb.net.session.handle.SessionHandle
 import com.github.prologdb.net.util.prettyPrint
 import com.github.prologdb.net.util.prettyPrintStackTrace
@@ -11,6 +21,7 @@ import com.github.prologdb.parser.SyntaxError
 import com.github.prologdb.parser.source.SourceLocation
 import com.github.prologdb.runtime.PrologException
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
+import com.github.prologdb.runtime.unification.Unification
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.subjects.SingleSubject
@@ -272,13 +283,10 @@ class ServerInterface<SessionState : Any>(
         override fun onReturnSolution(queryId: Int, solution: Unification) {
             // remove variables starting with an underscore that were present in the original query
             val original = queryContexts[currentSessionHandle]!![queryId]!!.originalQuery
-            if (original.variables.any { it.name.startsWith('_') }) {
-                val varsToRetain = solution.variableValues.variables
-                    .filter { it !in original.variables || (it in original.variables && !it.name.startsWith('_')) }
-                solution.variableValues.retainAll(varsToRetain)
-            }
-
-            currentSessionHandle!!.queueMessage(QuerySolutionMessage(queryId, solution))
+            val filteredSolution = solution.createMutableCopy()
+            val varsToRetain = original.variables.filterNot { it.name.startsWith('_') }
+            filteredSolution.retainAll(varsToRetain)
+            currentSessionHandle!!.queueMessage(QuerySolutionMessage(queryId, filteredSolution))
         }
 
         override fun onSolutionsDepleted(queryId: Int) {

@@ -15,7 +15,7 @@ class UtilTests : FreeSpec({
         "variable bucket topological sort" - {
             "happy path" {
                 // SETUP
-                val bucket = Unification()
+                val bucket = Unification.TRUE
                 bucket.instantiate(Variable("C"), Atom("a"))
                 bucket.instantiate(Variable("B"), Variable("C"))
                 bucket.instantiate(Variable("A"), Variable("B"))
@@ -37,7 +37,7 @@ class UtilTests : FreeSpec({
 
             "circular dependency should error" {
                 // SETUP
-                val bucket = Unification()
+                val bucket = Unification.TRUE
                 bucket.instantiate(Variable("A"), CompoundTerm("foo", arrayOf(Variable("B"))))
                 bucket.instantiate(Variable("B"), CompoundTerm("bar", arrayOf(Variable("A"))))
 

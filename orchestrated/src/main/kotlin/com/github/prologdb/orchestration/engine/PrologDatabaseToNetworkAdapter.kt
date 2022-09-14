@@ -17,7 +17,11 @@ import com.github.prologdb.parser.parser.ParseResult
 import com.github.prologdb.parser.parser.PrologParser
 import com.github.prologdb.parser.parser.StopCondition
 import com.github.prologdb.parser.source.SourceUnit
-import com.github.prologdb.runtime.*
+import com.github.prologdb.runtime.ClauseIndicator
+import com.github.prologdb.runtime.PrologException
+import com.github.prologdb.runtime.PrologInternalError
+import com.github.prologdb.runtime.PrologInvocationContractViolationException
+import com.github.prologdb.runtime.PrologUnsupportedOperationException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
 import com.github.prologdb.runtime.query.Query
@@ -68,10 +72,9 @@ class PrologDatabaseToNetworkAdapter(
             val psc = runtimeEnvironment
                 .newProofSearchContext(moduleName, ReadWriteAuthorization)
                 .deriveForModuleContext(session.moduleCatalog.name)
-            val plan = database.executionPlanner.planExecution(query, psc, RandomVariableScope())
-            val solutionVars = Unification()
-            solutionVars.instantiate(Variable("Plan"), plan.explanation)
-            LazySequence.of(Unification(solutionVars))
+            val plan = database.executionPlanner.planExecution(query, psc)
+            val solutionVars = Variable("Plan").unify(plan.explanation, psc.randomVariableScope)
+            LazySequence.of(solutionVars)
         },
         ClauseIndicator.of("rename_knowledge_base", 2) to { session, args ->
             if (session.runtimeEnvironment !is GlobalMetaKnowledgeBaseRuntimeEnvironment) {
@@ -101,7 +104,7 @@ class PrologDatabaseToNetworkAdapter(
                 .deriveForModuleContext(session.module ?: throw ModuleNotSelectedException())
 
             return buildLazySequence(psc.principal) {
-                psc.fulfillAttach(this, query, Unification())
+                psc.fulfillAttach(this, query, Unification.TRUE)
             }
         }
         catch (ex: PrologException) {

@@ -153,7 +153,7 @@ class Connection(val host: String, val port: Int) {
                 when (toClient.eventCase) {
                     ToClient.EventCase.SOLUTION -> {
                         val localSequence = openQueries[toClient.solution.queryId] ?: continue@readMessage
-                        val vars = Unification()
+                        val vars = Unification.TRUE
                         for ((varName, value) in toClient.solution.instantiationsMap) {
                             vars.instantiate(Variable(varName), value.toRuntimeTerm())
                         }

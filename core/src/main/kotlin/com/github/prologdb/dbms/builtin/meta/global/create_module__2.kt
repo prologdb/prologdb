@@ -7,6 +7,7 @@ import com.github.prologdb.dbms.builtin.nativeDatabaseRule
 import com.github.prologdb.runtime.module.ModuleNotFoundException
 import com.github.prologdb.runtime.module.ModuleNotLoadedException
 import com.github.prologdb.runtime.term.Atom
+import com.github.prologdb.runtime.unification.Unification
 
 val BuiltinCreateModule2 = nativeDatabaseRule("create_module", 2) { args, ctxt ->
     val knowledgeBaseName = args.getTyped<Atom>(0).name

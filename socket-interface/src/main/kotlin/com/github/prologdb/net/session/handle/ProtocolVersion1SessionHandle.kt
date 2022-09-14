@@ -11,16 +11,28 @@ import com.github.prologdb.net.async.AsyncByteChannelDelimitedProtobufReader
 import com.github.prologdb.net.async.AsyncChannelProtobufOutgoingQueue
 import com.github.prologdb.net.async.PipeClosedException
 import com.github.prologdb.net.async.writeDelimitedTo
-import com.github.prologdb.net.session.*
-import com.github.prologdb.net.v1.messages.*
+import com.github.prologdb.net.session.ConnectionCloseEvent
+import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
+import com.github.prologdb.net.session.InitializeQueryCommand
+import com.github.prologdb.net.session.ProtocolMessage
+import com.github.prologdb.net.session.QueryClosedMessage
+import com.github.prologdb.net.session.QueryOpenedMessage
+import com.github.prologdb.net.session.QuerySolutionMessage
 import com.github.prologdb.net.v1.messages.GeneralError
+import com.github.prologdb.net.v1.messages.Goodbye
+import com.github.prologdb.net.v1.messages.QueryClosedEvent
+import com.github.prologdb.net.v1.messages.QueryInitialization
+import com.github.prologdb.net.v1.messages.QueryOpenedEvent
 import com.github.prologdb.net.v1.messages.QueryRelatedError
+import com.github.prologdb.net.v1.messages.QuerySolution
+import com.github.prologdb.net.v1.messages.QuerySolutionConsumption
 import com.github.prologdb.net.v1.messages.ToClient
 import com.github.prologdb.net.v1.messages.ToServer
 import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
+import com.github.prologdb.runtime.unification.MutableUnification
 import com.github.prologdb.runtime.unification.Unification
 import com.google.protobuf.ByteString
 import com.google.protobuf.GeneratedMessageV3
@@ -250,7 +262,7 @@ private fun <SessionState : Any> QueryInitialization.toIndependent(sessionState:
 }
 
 private fun <SessionState : Any> Map<String, com.github.prologdb.net.v1.messages.Term>.toBucket(sessionState: SessionState?, prologReader: ProtocolVersion1PrologReader<SessionState>): Unification {
-    val bucket = Unification()
+    val bucket = MutableUnification.createTrue()
     for ((variableName, term) in this) {
         bucket.instantiate(Variable(variableName), prologReader.toRuntimeTerm(sessionState, term, SourceUnit("parameter $variableName")))
     }
@@ -345,11 +357,8 @@ private fun QuerySolutionMessage.toProtocol(prologWriter: ProtocolVersion1Prolog
     val builder = QuerySolution.newBuilder()
         .setQueryId(queryId)
 
-    solution.variableValues.values.forEach {
-        val term = it.second
-        if (term != null) {
-            builder.putInstantiations(it.first.name, prologWriter.write(term))
-        }
+    solution.values.forEach {
+        builder.putInstantiations(it.first.name, prologWriter.write(it.second))
     }
 
     return ToClient.newBuilder()

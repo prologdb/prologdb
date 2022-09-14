@@ -19,9 +19,9 @@ class DiscardFunctorTest : FreeSpec({
         val psc = mockk<PhysicalDatabaseProofSearchContext> {
             every { principal } returns IrrelevantPrincipal
         }
-        val bucketA = Unification()
+        val bucketA = Unification.TRUE
         bucketA.instantiate(Variable("N"), PrologNumber(1))
-        val bucketB = Unification()
+        val bucketB = Unification.TRUE
         bucketB.instantiate(Variable("N"), PrologNumber(2))
 
         val source = listOf(Pair(bucketA, Unit), Pair(bucketB, Unit))
@@ -33,14 +33,14 @@ class DiscardFunctorTest : FreeSpec({
                 inputs: LazySequence<Pair<Unification, Unit>>
             ): LazySequence<Pair<Unification, Unit>> {
                 return inputs.flatMapRemaining { (inputBucket, _) ->
-                    var modifiedBucket = Unification()
+                    var modifiedBucket = Unification.TRUE
                     modifiedBucket.incorporate(inputBucket, ctxt.randomVariableScope)
                     modifiedBucket.instantiate(Variable("D"), PrologNumber(1))
 
                     nSideEffects++
                     yield(Pair(modifiedBucket, Unit))
 
-                    modifiedBucket = Unification()
+                    modifiedBucket = Unification.TRUE
                     modifiedBucket.incorporate(inputBucket, ctxt.randomVariableScope)
                     modifiedBucket.instantiate(Variable("D"), PrologNumber(2))
                     nSideEffects++

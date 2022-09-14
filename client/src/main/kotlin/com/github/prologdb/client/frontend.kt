@@ -67,12 +67,12 @@ class CLIFrontend(private val connection: Connection) {
                 }
 
                 print(
-                    solution.variableValues.values.joinToString(
+                    solution.values.joinToString(
                         separator = " ,\n",
                         transform = { "${it.first} = ${it.second?.toStringUsingOperatorNotations(operators)}"}
                     )
                 )
-                if (solution.variableValues.isEmpty) {
+                if (solution.isEmpty) {
                     print("true")
                 }
                 print(" ")
@@ -116,9 +116,9 @@ class CLIFrontend(private val connection: Connection) {
         val registry = DefaultOperatorRegistry()
         operatorSolutions
             .mapRemaining { solution -> OperatorDefinition(
-                (solution.variableValues[Variable("Precedence")] as PrologNumber).toInteger().toShort(),
-                OperatorType.valueOf((solution.variableValues[Variable("Associativity")] as Atom).name.uppercase()),
-                (solution.variableValues[Variable("Name")] as Atom).name
+                (solution[Variable("Precedence")] as PrologNumber).toInteger().toShort(),
+                OperatorType.valueOf((solution[Variable("Associativity")] as Atom).name.uppercase()),
+                (solution[Variable("Name")] as Atom).name
             ) }
             .forEachRemaining(registry::defineOperator)
 

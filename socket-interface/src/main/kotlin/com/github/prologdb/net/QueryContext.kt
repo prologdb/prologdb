@@ -3,6 +3,7 @@ package com.github.prologdb.net
 import com.github.prologdb.async.LazySequence
 import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
 import com.github.prologdb.runtime.query.Query
+import com.github.prologdb.runtime.unification.Unification
 import org.slf4j.LoggerFactory
 import java.util.ArrayDeque
 import java.util.concurrent.locks.Lock

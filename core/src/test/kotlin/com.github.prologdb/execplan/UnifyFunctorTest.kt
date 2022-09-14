@@ -27,7 +27,7 @@ class UnifyFunctorTest : FreeSpec({
             yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologNumber(2)))))
             Pair(3L, CompoundTerm("foo", arrayOf(PrologNumber(3))))
         }
-        val inputsWithVars = inputs.mapRemaining { Pair(Unification(), it) }
+        val inputsWithVars = inputs.mapRemaining { Pair(Unification.TRUE, it) }
         val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
         val ctxt = mockk<PhysicalDatabaseProofSearchContext>()
         every { ctxt.randomVariableScope } returns RandomVariableScope()
@@ -49,7 +49,7 @@ class UnifyFunctorTest : FreeSpec({
             yield(Pair(2L, CompoundTerm("foo", arrayOf(PrologNumber(2)))))
             Pair(3L, CompoundTerm("foo", arrayOf(PrologNumber(3), Atom("y"))))
         }
-        val inputsWithVars = inputs.mapRemaining { Pair(Unification(), it) }
+        val inputsWithVars = inputs.mapRemaining { Pair(Unification.TRUE, it) }
         val functor = UnifyFunctor(CompoundTerm("foo", arrayOf(Variable("A"))))
         val ctxt = mockk<PhysicalDatabaseProofSearchContext>()
         every { ctxt.randomVariableScope } returns RandomVariableScope()
@@ -64,7 +64,7 @@ class UnifyFunctorTest : FreeSpec({
 })
 
 private fun varsBucket(vararg of: Pair<String, Term>): Unification {
-    val bucket = Unification()
+    val bucket = Unification.TRUE
     for ((varName, term) in of) {
         bucket.instantiate(Variable(varName), term)
     }

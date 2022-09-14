@@ -145,11 +145,11 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         override val runtimeEnvironment: DefaultPhysicalKnowledgeBaseRuntimeEnvironment,
     ) : ProofSearchContext by delegate, PhysicalDatabaseProofSearchContext {
         override val fulfillAttach: suspend LazySequenceBuilder<Unification>.(Query, Unification) -> Unification? = { q, variables ->
-            val executionPlan = runtimeEnvironment.database.executionPlanner.planExecution(q, this@DatabaseProofSearchContextWrapper, randomVariableScope)
+            val executionPlan = runtimeEnvironment.database.executionPlanner.planExecution(q, this@DatabaseProofSearchContextWrapper)
             yieldAllFinal(
                 executionPlan
                     .invoke(this@DatabaseProofSearchContextWrapper, LazySequence.of(Pair(variables, Unit)))
-                    .mapRemaining { (variables, _) -> Unification(variables) }
+                    .mapRemaining { (variables, _) -> variables }
             )
         }
 

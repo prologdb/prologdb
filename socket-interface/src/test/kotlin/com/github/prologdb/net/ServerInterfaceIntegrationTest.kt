@@ -469,7 +469,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
             if (errorOnQuery) {
                 throw PrologInternalError("Error :(")
             } else {
-                val vars = Unification()
+                val vars = Unification.TRUE
                 vars.instantiate(Variable("A"), CompoundTerm("?-", arrayOf(PrologString(query.toString()))))
                 Unification(vars)
             }
@@ -481,7 +481,7 @@ private val queryHandler = object : DatabaseEngine<Map<String, String>> {
             if (errorOnDirective) {
                 throw PrologInternalError("Error directive :(")
             } else {
-                val vars = Unification()
+                val vars = Unification.TRUE
                 vars.instantiate(Variable("A"), CompoundTerm(":-", arrayOf(command)))
                 Unification(vars)
             }
