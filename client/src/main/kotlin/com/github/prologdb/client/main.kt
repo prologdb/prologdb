@@ -1,10 +1,10 @@
 package com.github.prologdb.client
 
 import com.github.prologdb.net.async.format
-import com.github.prologdb.net.negotiation.SemanticVersion
 import com.tmarsteel.jcli.Environment
 import com.tmarsteel.jcli.Input
 import kotlin.concurrent.thread
+import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
     val input = Input(Environment.UNIX, args)
@@ -24,4 +24,5 @@ fun main(args: Array<String>) {
 
     val frontend = CLIFrontend(connection)
     frontend.run()
+    exitProcess(0)
 }

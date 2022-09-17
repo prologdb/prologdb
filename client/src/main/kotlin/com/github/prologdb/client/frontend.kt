@@ -22,7 +22,7 @@ class CLIFrontend(private val connection: Connection) {
 
         repl@while (true) {
             print("${mode.operator} ")
-            var instruction = (readLine() ?: "") .trim()
+            var instruction = (readLine() ?: break).trim()
 
             var singleMode = mode
             findMode@for (availableMode in InstructionMode.values()) {
@@ -84,7 +84,7 @@ class CLIFrontend(private val connection: Connection) {
                 }
 
                 while (true) {
-                    val action = (readLine() ?: "").trim()
+                    val action = (readLine() ?: break@repl).trim()
                     when (action) {
                         ";" -> { continue@showSolutions }
                         "." -> { break@showSolutions }
