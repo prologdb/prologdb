@@ -26,7 +26,7 @@ val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicat
         ?: throw PrologInvocationContractViolationException("${args.indicator} must be invoked within a meta knowledge base.")
 
     val inputs = FQI_INDICATOR_TEMPLATE.unify(args[0], ctxt.randomVariableScope)
-        ?.values
+        ?.entries
         ?.associate { it.first.name to it.second }
         ?: throw ArgumentError(0, "must be a fully qualified indicator of this structure: $FQI_INDICATOR_TEMPLATE")
 

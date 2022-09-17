@@ -6,7 +6,6 @@ import com.github.prologdb.dbms.PhysicalDatabaseProofSearchContext
 import com.github.prologdb.runtime.VariableMapping
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.unification.Unification
-import com.github.prologdb.runtime.unification.VariableDiscrepancyException
 import com.github.prologdb.storage.fact.PersistenceID
 
 /**
@@ -26,17 +25,16 @@ class UnifyFunctor(
             .flatMapRemaining { (variableCarry, pidAndFact) ->
                 val (persistenceID, fact) = pidAndFact
                 val randomFact = ctxt.randomVariableScope.withRandomVariables(fact, VariableMapping())
-                randomRHS.unify(randomFact, ctxt.randomVariableScope)?.let { unification ->
-                    val resolvedBucket = unification.withVariablesResolvedFrom(rhsMapping)
-                    resolvedBucket.retainAll(rhsVariables)
-                    try {
-                        resolvedBucket.incorporate(variableCarry, ctxt.randomVariableScope)
-                        if (instantiate) Pair(resolvedBucket, persistenceID) else Pair(variableCarry, persistenceID)
-                    } catch (ex: VariableDiscrepancyException) {
-                        // mismatch, do not yield (equals to prolog false)
-                        null
-                    }
-                }
+                val unification = randomRHS.unify(randomFact, ctxt.randomVariableScope)
+                    ?: return@flatMapRemaining null
+
+                val resolvedUnification = unification
+                    .withVariablesResolvedFrom(rhsMapping, ctxt.randomVariableScope)
+                    .subset(rhsVariables)
+                    .combinedWith(variableCarry, ctxt.randomVariableScope)
+                    ?: return@flatMapRemaining null
+
+                if (instantiate) Pair(resolvedUnification, persistenceID) else Pair(variableCarry, persistenceID)
             }
     }
     

@@ -36,7 +36,7 @@ class InvokeFunctor(
                     }
                 }
                     .mapRemaining { unification ->
-                        Pair(unification.combinedWith(vars, ctxt.randomVariableScope), Unit)
+                        Pair(unification.combinedWith(vars, ctxt.randomVariableScope)!!, Unit)
                     }
             )
         }

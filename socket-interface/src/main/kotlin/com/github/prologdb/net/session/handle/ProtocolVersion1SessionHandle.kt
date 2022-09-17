@@ -32,7 +32,6 @@ import com.github.prologdb.parser.source.SourceUnit
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
-import com.github.prologdb.runtime.unification.MutableUnification
 import com.github.prologdb.runtime.unification.Unification
 import com.google.protobuf.ByteString
 import com.google.protobuf.GeneratedMessageV3
@@ -253,7 +252,7 @@ private fun <SessionState : Any> QueryInitialization.toIndependent(sessionState:
         ),
         when(instantiationsCount) {
             0 -> null
-            else -> instantiationsMap.toBucket(sessionState, prologReader)
+            else -> instantiationsMap.toUnification(sessionState, prologReader)
         },
         kind.toIndependent(),
     )
@@ -261,13 +260,14 @@ private fun <SessionState : Any> QueryInitialization.toIndependent(sessionState:
     return cmd
 }
 
-private fun <SessionState : Any> Map<String, com.github.prologdb.net.v1.messages.Term>.toBucket(sessionState: SessionState?, prologReader: ProtocolVersion1PrologReader<SessionState>): Unification {
-    val bucket = MutableUnification.createTrue()
-    for ((variableName, term) in this) {
-        bucket.instantiate(Variable(variableName), prologReader.toRuntimeTerm(sessionState, term, SourceUnit("parameter $variableName")))
-    }
-
-    return bucket
+private fun <SessionState : Any> Map<String, com.github.prologdb.net.v1.messages.Term>.toUnification(sessionState: SessionState?, prologReader: ProtocolVersion1PrologReader<SessionState>): Unification {
+    return Unification.fromMap(
+        this
+            .entries
+            .associate { (variableName, term) ->
+                Variable(variableName) to prologReader.toRuntimeTerm(sessionState, term, SourceUnit("parameter $variableName"))
+            }
+    )
 }
 
 private fun QueryInitialization.Kind.toIndependent() = when(this) {
@@ -357,7 +357,7 @@ private fun QuerySolutionMessage.toProtocol(prologWriter: ProtocolVersion1Prolog
     val builder = QuerySolution.newBuilder()
         .setQueryId(queryId)
 
-    solution.values.forEach {
+    solution.entries.forEach {
         builder.putInstantiations(it.first.name, prologWriter.write(it.second))
     }
 

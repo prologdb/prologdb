@@ -283,9 +283,8 @@ class ServerInterface<SessionState : Any>(
         override fun onReturnSolution(queryId: Int, solution: Unification) {
             // remove variables starting with an underscore that were present in the original query
             val original = queryContexts[currentSessionHandle]!![queryId]!!.originalQuery
-            val filteredSolution = solution.createMutableCopy()
-            val varsToRetain = original.variables.filterNot { it.name.startsWith('_') }
-            filteredSolution.retainAll(varsToRetain)
+            val varsToRetain = original.variables.filterNot { it.name.startsWith('_') }.toSet()
+            val filteredSolution = solution.subset(varsToRetain)
             currentSessionHandle!!.queueMessage(QuerySolutionMessage(queryId, filteredSolution))
         }
 
