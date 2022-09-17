@@ -2,6 +2,7 @@ package com.github.prologdb.client
 
 import com.github.prologdb.net.v1.messages.QueryClosedEvent
 import com.github.prologdb.net.v1.messages.QueryRelatedError
+import com.github.prologdb.runtime.unification.Unification
 
 sealed class QueryEvent
 data class QuerySolutionEvent(val solution: Unification): QueryEvent()

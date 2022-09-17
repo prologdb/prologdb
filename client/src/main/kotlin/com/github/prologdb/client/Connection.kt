@@ -153,11 +153,10 @@ class Connection(val host: String, val port: Int) {
                 when (toClient.eventCase) {
                     ToClient.EventCase.SOLUTION -> {
                         val localSequence = openQueries[toClient.solution.queryId] ?: continue@readMessage
-                        val vars = Unification.TRUE
-                        for ((varName, value) in toClient.solution.instantiationsMap) {
-                            vars.instantiate(Variable(varName), value.toRuntimeTerm())
-                        }
-                        localSequence.onQueryEvent(QuerySolutionEvent(Unification(vars)))
+                        val unification = Unification.fromMap(toClient.solution.instantiationsMap.entries.associate { (variableName, protocolTerm) ->
+                            Variable(variableName) to protocolTerm.toRuntimeTerm()
+                        })
+                        localSequence.onQueryEvent(QuerySolutionEvent(unification))
                     }
                     ToClient.EventCase.QUERY_OPENED -> {
                         // nothing to do
