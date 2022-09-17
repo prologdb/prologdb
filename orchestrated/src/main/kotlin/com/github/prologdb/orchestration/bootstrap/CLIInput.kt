@@ -1,6 +1,10 @@
 package com.github.prologdb.orchestration.bootstrap
 
-import com.github.prologdb.orchestration.config.*
+import com.github.prologdb.orchestration.config.ObjectPath
+import com.github.prologdb.orchestration.config.ServerConf
+import com.github.prologdb.orchestration.config.parseAsConfig
+import com.github.prologdb.orchestration.config.parseAsOverrides
+import com.github.prologdb.orchestration.config.plusOverrides
 import com.github.prologdb.orchestration.config.validation.FilePermission
 import com.github.prologdb.orchestration.config.validation.FileType
 import com.github.prologdb.orchestration.config.validation.ValidatedPath
@@ -8,7 +12,10 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 internal fun CLIInput.buildConfig(): ServerConf {
-    val configText = configFile?.let { it.toFile().readText(Charsets.UTF_8) } ?: "{}"
+    val configText = configFile
+        ?.let { it.toFile().readText(Charsets.UTF_8) }
+        ?.takeIf { it.isNotBlank() }
+        ?: "{}"
     val configurationFromFile = configText.parseAsConfig<ServerConf>(configFile?.parent ?: Paths.get(".").toAbsolutePath())
 
     return configurationFromFile.plusOverrides(overrides)
