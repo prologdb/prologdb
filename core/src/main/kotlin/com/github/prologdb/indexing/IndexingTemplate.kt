@@ -2,15 +2,16 @@ package com.github.prologdb.indexing
 
 import com.github.prologdb.runtime.RandomVariableScope
 import com.github.prologdb.runtime.VariableMapping
-import com.github.prologdb.runtime.query.PredicateQuery
-import com.github.prologdb.runtime.term.*
+import com.github.prologdb.runtime.term.CompoundTerm
+import com.github.prologdb.runtime.term.Term
+import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.VariableBucket
-import java.util.*
+import java.util.Collections
 import kotlin.reflect.KClass
 
 typealias IndexKey = VariableBucket
 fun IndexKey.indexKeyToString(): String {
-    return values.joinToString(", ") { (variable, value) -> "$variable = ${value ?: Variable.ANONYMOUS}" }
+    return values.joinToString(", ") { (variable, value) -> "$variable = $value" }
 }
 
 /**
@@ -20,8 +21,8 @@ fun IndexKey.indexKeyToString(): String {
  * result is an [IndexKey]. [FactIndex]es can then associate those keys with [PersistenceID]s.
  */
 class IndexingTemplate(
-    val templateFact: Predicate,
-    typeRestrictions: Map<Variable, KClass<out Term>>   
+    val templateFact: CompoundTerm,
+    typeRestrictions: Map<Variable, KClass<out Term>>
 ) {
     init {
         // type restrictions must relate to the template fact
@@ -36,12 +37,12 @@ class IndexingTemplate(
     /**
      * @return the corresponding index key if the given fact can be stored / used for lookup, null otherwise.
      */
-    fun unify(with: Predicate, randomVariableScope: RandomVariableScope = RandomVariableScope()): IndexKey? {
+    fun unify(with: CompoundTerm, randomVariableScope: RandomVariableScope): IndexKey? {
         val templateMapping = VariableMapping()
         val withRandom = randomVariableScope.withRandomVariables(with, VariableMapping())
         val templateWithRandom = randomVariableScope.withRandomVariables(templateFact, templateMapping)
         
-        val randomUnification = withRandom.unify(templateWithRandom) ?: return null
+        val randomUnification = withRandom.unify(templateWithRandom, randomVariableScope) ?: return null
         
         val resolvedVars = randomUnification.variableValues.withVariablesResolvedFrom(templateMapping)
         resolvedVars.retainAll(templateFact.variables)
