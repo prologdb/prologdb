@@ -11,21 +11,10 @@ import com.github.prologdb.net.async.AsyncByteChannelDelimitedProtobufReader
 import com.github.prologdb.net.async.AsyncChannelProtobufOutgoingQueue
 import com.github.prologdb.net.async.PipeClosedException
 import com.github.prologdb.net.async.writeDelimitedTo
-import com.github.prologdb.net.session.ConnectionCloseEvent
-import com.github.prologdb.net.session.ConsumeQuerySolutionsCommand
-import com.github.prologdb.net.session.InitializeQueryCommand
-import com.github.prologdb.net.session.ProtocolMessage
-import com.github.prologdb.net.session.QueryClosedMessage
-import com.github.prologdb.net.session.QueryOpenedMessage
-import com.github.prologdb.net.session.QuerySolutionMessage
+import com.github.prologdb.net.session.*
+import com.github.prologdb.net.v1.messages.*
 import com.github.prologdb.net.v1.messages.GeneralError
-import com.github.prologdb.net.v1.messages.Goodbye
-import com.github.prologdb.net.v1.messages.QueryClosedEvent
-import com.github.prologdb.net.v1.messages.QueryInitialization
-import com.github.prologdb.net.v1.messages.QueryOpenedEvent
 import com.github.prologdb.net.v1.messages.QueryRelatedError
-import com.github.prologdb.net.v1.messages.QuerySolution
-import com.github.prologdb.net.v1.messages.QuerySolutionConsumption
 import com.github.prologdb.net.v1.messages.ToClient
 import com.github.prologdb.net.v1.messages.ToServer
 import com.github.prologdb.parser.source.SourceUnit
@@ -41,8 +30,6 @@ import org.slf4j.LoggerFactory
 import java.io.DataOutputStream
 import java.nio.channels.AsynchronousByteChannel
 import java.util.Optional
-import java.util.concurrent.Callable
-import java.util.function.Consumer
 
 private val log = LoggerFactory.getLogger("prologdb.network")
 
@@ -69,9 +56,9 @@ internal class ProtocolVersion1SessionHandle<SessionState : Any>(
         AsyncByteChannelDelimitedProtobufReader(
             ToServer::class.java,
             channel,
-            Consumer { incomingVersionMessages.onNext(it) },
-            Consumer { incomingVersionMessages.onError(it) },
-            Callable<Unit> { incomingVersionMessages.onComplete() }
+            incomingVersionMessages::onNext,
+            incomingVersionMessages::onError,
+            incomingVersionMessages::onComplete,
         )
 
         incomingMessages = incomingVersionMessages
