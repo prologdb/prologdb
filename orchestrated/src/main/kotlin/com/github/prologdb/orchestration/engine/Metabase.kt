@@ -4,7 +4,6 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.dbms.PersistentKnowledgeBase
 import com.github.prologdb.indexing.IndexDefinition
 import com.github.prologdb.indexing.IndexFeature
-import com.github.prologdb.indexing.IndexingTemplate
 import com.github.prologdb.runtime.PrologRuntimeException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
 import com.github.prologdb.runtime.knowledge.library.ClauseIndicator

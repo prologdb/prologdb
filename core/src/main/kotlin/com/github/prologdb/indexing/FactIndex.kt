@@ -11,7 +11,7 @@ import com.github.prologdb.storage.fact.PersistenceID
  */
 interface FactIndex {
     
-    val template: IndexingTemplate
+    val definition: IndexDefinition
     
     /**
      * @param key The result of isolatedly unifying the query predicate with the template,
@@ -23,22 +23,21 @@ interface FactIndex {
      * the given [key].
      */
     @Throws(InvalidIndexKeyException::class)
-    fun find(key: IndexKey): PersistenceIDSet
+    fun find(key: IndexKey): IndexLookupResult
 
     /**
      * To be called when a fact is [FactStore.store]d into the relating [FactStore]. Updates the index accordingly.
      *
-     * @param key the key to index. keys can be duplicated.
-     * @param atPersistenceID Index in the source list of predicates where the new predicate is being inserted to.
+     * Behaviour of duplicate keys is implementation-defined.
      */
-    fun onInserted(key: IndexKey, atPersistenceID: PersistenceID)
+    fun onInserted(entry: IndexEntry)
 
     /**
      * To be called when a fact is removed from the underlying list. Updates the index accordingly.
      *
      * @param persistenceID Index in the source list of predicates from which the term is being removed.
      */
-    fun onRemoved(persistenceID: PersistenceID)
+    fun onRemoved(persistenceID: PersistenceID, key: IndexKey)
 }
 
 /**
@@ -54,5 +53,5 @@ interface RangeQueryFactIndex : FactIndex {
      * @return the [PersistenceID]s of the facts whichs keys are within the given bound
      * @throws IllegalArgumentException If both `lowerBound` and `upperBound` are `null`
      */
-    fun findBetween(lowerBound: IndexKey?, lowerInclusive: Boolean, upperBound: IndexKey?, upperInclusive: Boolean): PersistenceIDSet
+    fun findBetween(lowerBound: IndexKey?, lowerInclusive: Boolean, upperBound: IndexKey?, upperInclusive: Boolean): IndexLookupResult
 }

@@ -2,6 +2,8 @@ package com.github.prologdb.dbms
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.github.prologdb.dbms.catalog.SystemCatalogJacksonModule
+import com.github.prologdb.indexing.IndexDefinition
 import com.github.prologdb.util.concurrency.locks.PIDLockFile
 import com.github.prologdb.util.filesystem.setOwnerReadWriteEverybodyElseNoAccess
 import org.slf4j.LoggerFactory
@@ -30,7 +32,9 @@ class DataDirectoryManager private constructor(
     }
 
     private val catalogDirectory = dataDirectory.resolve(CATALOG_SUBDIR)
-    private val catalogMapper = jacksonObjectMapper()
+    private val catalogMapper = jacksonObjectMapper().also {
+        it.registerModule(SystemCatalogJacksonModule)
+    }
     private val catalogWriter = catalogMapper.writerWithDefaultPrettyPrinter()
 
     @Volatile
@@ -167,6 +171,16 @@ class DataDirectoryManager private constructor(
         return PredicateScope(uuid, predicateDirectory)
     }
 
+    fun scopedForIndex(uuid: UUID): IndexScope {
+        requireOpen()
+
+        val indexDirectory = dataDirectory.resolve("indices").resolve(uuid.toString())
+        Files.createDirectories(indexDirectory)
+        indexDirectory.setOwnerReadWriteEverybodyElseNoAccess()
+
+        return IndexScope(uuid, indexDirectory)
+    }
+
     fun close() {
         closed = true
         lock.release()
@@ -179,18 +193,30 @@ class DataDirectoryManager private constructor(
 
         fun modifyPredicateCatalog(action: (SystemCatalog.Predicate) -> SystemCatalog.Predicate): SystemCatalog.Predicate {
             val newSystemCatalog = modifySystemCatalog { systemCatalog ->
-                val currentPredicateCatalog = systemCatalog.allPredicates.getValue(uuid)
-                val newPredicateCatalog = action(currentPredicateCatalog)
-                val currentModuleCatalog = currentPredicateCatalog.module
-                val currentKnowledgeBaseCatalog = currentModuleCatalog.knowledgeBase
-                systemCatalog.copy(knowledgeBases = (systemCatalog.knowledgeBases - currentKnowledgeBaseCatalog) + currentKnowledgeBaseCatalog.copy(
-                    modules = (currentKnowledgeBaseCatalog.modules - currentModuleCatalog) + currentModuleCatalog.copy(
-                        predicates = (currentModuleCatalog.predicates - currentPredicateCatalog) + newPredicateCatalog
-                    )
-                ))
+                systemCatalog.withModifiedPredicate(uuid, action)
             }
 
             return newSystemCatalog.allPredicates.getValue(uuid)
+        }
+    }
+
+    inner class IndexScope internal constructor(val uuid: UUID, val directory: Path) {
+        val catalogEntry: SystemCatalog.Index
+            get() = systemCatalog.allIndices.getValue(uuid)
+
+        val indexDefinition: IndexDefinition = catalogEntry.let { IndexDefinition(
+            it.name,
+            it.templateGoal,
+            it.key,
+            it.storeAdditionally,
+        )}
+
+        fun modifyIndexCatalog(action: (SystemCatalog.Index) -> SystemCatalog.Index): SystemCatalog.Index {
+            val newSystemCatalog = modifySystemCatalog { systemCatalog ->
+                systemCatalog.withModifiedIndex(uuid, action)
+            }
+
+            return newSystemCatalog.allIndices.getValue(uuid)
         }
     }
 

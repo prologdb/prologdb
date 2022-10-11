@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.HasFunctorAndArity
+import com.github.prologdb.runtime.query.Query
+import com.github.prologdb.runtime.term.Variable
 import java.util.UUID
 
 data class SystemCatalog(
@@ -19,11 +21,19 @@ data class SystemCatalog(
             .associateBy { it.uuid }
     }
 
+    @get:JsonIgnore
+    val allIndices: Map<UUID, Index> by lazy {
+        allPredicates.values
+            .flatMap { it.indices }
+            .associateBy { it.uuid }
+    }
+
     init {
         setBackwardsReferences()
     }
 
     fun withModifiedPredicate(uuid: UUID, modifier: (Predicate) -> Predicate): SystemCatalog {
+        check(uuid in allPredicates) { "A predicate with UUID $uuid does not exist" }
         return copy(
             knowledgeBases = knowledgeBases
                 .map { kb -> KnowledgeBase(
@@ -41,6 +51,18 @@ data class SystemCatalog(
                 )}
                 .toSet()
         )
+    }
+
+    fun withModifiedIndex(uuid: UUID, modifier: (Index) -> Index): SystemCatalog {
+        val indexBefore = allIndices[uuid]
+            ?: throw IllegalStateException("An index with UUID $uuid does not exist")
+        return withModifiedPredicate(indexBefore.predicate.uuid) { predicate ->
+            predicate.copy(
+                indices = predicate.indices.map { index ->
+                    if (index.uuid == predicate.uuid) modifier(index) else index
+                }.toSet()
+            )
+        }
     }
 
     // TODO: identify by uuid
@@ -80,7 +102,8 @@ data class SystemCatalog(
         /**
          * @see com.github.prologdb.storage.fact.FactStoreImplementationLoader.implementationId
          */
-        val factStoreImplementationId: String?
+        val factStoreImplementationId: String?,
+        val indices: Set<Index> = emptySet(),
     ) : HasFunctorAndArity {
         @get:JsonIgnore
         lateinit var module: Module
@@ -107,6 +130,34 @@ data class SystemCatalog(
         }
     }
 
+    data class Index(
+        val name: String,
+        val uuid: UUID,
+        val templateGoal: Query,
+        val key: Set<Variable>,
+        val storeAdditionally: Set<Variable>,
+        val factIndexImplementationId: String?,
+    ) {
+        @get:JsonIgnore
+        lateinit var predicate: Predicate
+            internal set
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as Index
+
+            if (uuid != other.uuid) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            return uuid.hashCode()
+        }
+    }
+
     fun nextRevisionNumber(): Long {
         var new = revision + 1
         if (new < 0) {
@@ -121,6 +172,9 @@ data class SystemCatalog(
                 module.knowledgeBase = kb
                 module.predicates.forEach { predicate ->
                     predicate.module = module
+                    predicate.indices.forEach { index ->
+                        index.predicate = predicate
+                    }
                 }
             }
         }

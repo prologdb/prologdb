@@ -1,28 +1,25 @@
 package com.github.prologdb.indexing
 
+import com.github.prologdb.runtime.query.Query
+import com.github.prologdb.runtime.term.Variable
+
 /**
- * Definition/requirements to an index as given in the meta knowledge base,
- * e.g.
- *     
- *     assert(index(
- *         foo_pk,
- *         foo(PK, _, _, _),
- *         [persistent, constant_time_read],
- *         []
- *     ))
+ * Definition of an index, excluding features for implementation selection.
  */
 data class IndexDefinition(
     /** Name of the index, unique per [ClauseIndicator] of the template fact */
     val name: String,
-    val template: IndexingTemplate,
-    val requiredFeatures: Set<IndexFeature>,
-    val optionalFeatures: Set<IndexFeature>
+    val template: Query,
+    val keyVariables: Set<Variable>,
+    val storeAdditionally: Set<Variable>
     // TODO sort directions??
 ) {
     init {
-        // none of the optional features may be a required feature
-        optionalFeatures.firstOrNull { it in requiredFeatures }?.let {
-            throw IllegalArgumentException("Optional feature $it is also listed as a required feature.")
+        keyVariables.firstOrNull { it !in template.variables }?.let {
+            throw InvalidIndexDefinitionException("Key variable $it can never be instantiated by the index goal")
+        }
+        storeAdditionally.firstOrNull { it !in template.variables }?.let {
+            throw InvalidIndexDefinitionException("Storage-only variable $it can never be instantiated by the index goal")
         }
     }
 }
