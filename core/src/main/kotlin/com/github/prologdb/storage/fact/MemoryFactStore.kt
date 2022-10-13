@@ -4,11 +4,8 @@ import com.github.prologdb.async.LazySequence
 import com.github.prologdb.async.Principal
 import com.github.prologdb.async.buildLazySequence
 import com.github.prologdb.dbms.DataDirectoryManager
-import com.github.prologdb.runtime.ClauseIndicator
-import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Term
-import com.github.prologdb.storage.AcceleratedStorage
-import com.github.prologdb.storage.VolatileStorage
+import com.github.prologdb.ImplFeature
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
 
@@ -119,8 +116,8 @@ class MemoryFactStore(val arity: Int) : FactStore {
 
         }
 
-        override fun supportsFeature(feature: FactStoreFeature): Boolean {
-            return feature in setOf(FactStoreFeature.VOLATILE, FactStoreFeature.ACCELERATED)
+        override fun supportsFeature(feature: ImplFeature): Boolean {
+            return feature in setOf(ImplFeature.VOLATILE, ImplFeature.ACCELERATED)
         }
     }
 }

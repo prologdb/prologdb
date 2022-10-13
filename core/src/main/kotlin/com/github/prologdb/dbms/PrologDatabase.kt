@@ -2,6 +2,9 @@ package com.github.prologdb.dbms
 
 import com.github.prologdb.execplan.planner.ExecutionPlanner
 import com.github.prologdb.execplan.planner.NaiveExecutionPlanner
+import com.github.prologdb.indexing.DefaultFactIndexLoader
+import com.github.prologdb.indexing.FactIndex
+import com.github.prologdb.indexing.FactIndexLoader
 import com.github.prologdb.runtime.PrologUnsupportedOperationException
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
@@ -9,7 +12,7 @@ import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.MissingFactStoreException
 import com.github.prologdb.storage.fact.DefaultFactStoreLoader
 import com.github.prologdb.storage.fact.FactStore
-import com.github.prologdb.storage.fact.FactStoreFeature
+import com.github.prologdb.ImplFeature
 import com.github.prologdb.storage.fact.FactStoreLoader
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
@@ -21,12 +24,14 @@ private val log = LoggerFactory.getLogger("prologdb.master")
 class PrologDatabase(
     dataDirectory: Path,
     private val factStoreLoader: FactStoreLoader = DefaultFactStoreLoader(),
+    private val factIndexLoader: FactIndexLoader = DefaultFactIndexLoader(),
     val executionPlanner: ExecutionPlanner = NaiveExecutionPlanner()
 ) {
     val dataDirectory = DataDirectoryManager.open(dataDirectory)
 
     private val factStores: MutableMap<UUID, FactStore> = ConcurrentHashMap()
     private val factStoreLoadingMutex = Any()
+    private val factIndexLoadingMutex = Any()
 
     private val runtimeEnvironmentByCatalogRevision: MutableMap<Long, MutableMap<String, DefaultPhysicalKnowledgeBaseRuntimeEnvironment>> = ConcurrentHashMap()
 
@@ -134,9 +139,21 @@ class PrologDatabase(
         }
     }
 
-    fun createFactStore(predicateUuid: UUID, requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStore {
+    fun createFactStore(predicateUuid: UUID, requiredFeatures: Set<ImplFeature>, desiredFeatures: Set<ImplFeature>): FactStore {
         synchronized(factStoreLoadingMutex) {
             return factStoreLoader.create(dataDirectory.scopedForPredicate(predicateUuid), requiredFeatures, desiredFeatures)
+        }
+    }
+
+    fun createFactIndex(indexUuid: UUID, implementationId: String): FactIndex {
+        synchronized(factIndexLoadingMutex) {
+            return factIndexLoader.create(dataDirectory.scopedForIndex(indexUuid), implementationId)
+        }
+    }
+
+    fun createFactIndex(indexUuid: UUID, requiredFeatures: Set<ImplFeature>, desiredFeatures: Set<ImplFeature>): FactIndex {
+        synchronized(factIndexLoadingMutex) {
+            return factIndexLoader.create(dataDirectory.scopedForIndex(indexUuid), requiredFeatures, desiredFeatures)
         }
     }
 

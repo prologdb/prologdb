@@ -4,6 +4,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.prologdb.dbms.catalog.SystemCatalogJacksonModule
 import com.github.prologdb.indexing.IndexDefinition
+import com.github.prologdb.indexing.IndexTemplate
 import com.github.prologdb.util.concurrency.locks.PIDLockFile
 import com.github.prologdb.util.filesystem.setOwnerReadWriteEverybodyElseNoAccess
 import org.slf4j.LoggerFactory
@@ -206,7 +207,7 @@ class DataDirectoryManager private constructor(
 
         val indexDefinition: IndexDefinition = catalogEntry.let { IndexDefinition(
             it.name,
-            it.templateGoal,
+            IndexTemplate(it.unscopedTemplateGoal),
             it.key,
             it.storeAdditionally,
         )}

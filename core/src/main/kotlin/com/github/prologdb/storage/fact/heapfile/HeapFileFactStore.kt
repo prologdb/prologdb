@@ -12,7 +12,7 @@ import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.storage.InvalidPersistenceIDException
 import com.github.prologdb.storage.StorageStrategy
 import com.github.prologdb.storage.fact.FactStore
-import com.github.prologdb.storage.fact.FactStoreFeature
+import com.github.prologdb.ImplFeature
 import com.github.prologdb.storage.fact.PersistenceID
 import com.github.prologdb.storage.fact.FactStoreImplementationLoader
 import com.github.prologdb.storage.heapfile.HeapFile
@@ -122,8 +122,8 @@ class HeapFileFactStore(
             Files.deleteIfExists(directoryManager.heapFilePath)
         }
 
-        override fun supportsFeature(feature: FactStoreFeature): Boolean {
-            return feature == FactStoreFeature.PERSISTENT
+        override fun supportsFeature(feature: ImplFeature): Boolean {
+            return feature == ImplFeature.PERSISTENT
         }
 
         private val DataDirectoryManager.PredicateScope.heapFilePath: Path

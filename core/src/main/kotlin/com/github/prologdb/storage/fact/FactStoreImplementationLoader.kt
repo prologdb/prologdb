@@ -1,6 +1,7 @@
 package com.github.prologdb.storage.fact
 
 import com.github.prologdb.dbms.DataDirectoryManager
+import com.github.prologdb.ImplFeature
 
 /**
  * Creates a new / loads from persistence [FactStore]s of only one particular type.
@@ -32,5 +33,5 @@ interface FactStoreImplementationLoader {
     /**
      * Whether this fact store implementation supports the given feature.
      */
-    fun supportsFeature(feature: FactStoreFeature): Boolean
+    fun supportsFeature(feature: ImplFeature): Boolean
 }

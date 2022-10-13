@@ -1,6 +1,7 @@
 package com.github.prologdb.indexing
 
 import com.github.prologdb.dbms.DataDirectoryManager
+import com.github.prologdb.ImplFeature
 
 /**
  * Creates [FactIndex]s for given [IndexDefinition]s. Each instance of [PhysicalKnowledgeBaseRuntimeEnvironment]
@@ -13,8 +14,8 @@ interface FactIndexLoader {
 
     fun create(
         directoryManager: DataDirectoryManager.IndexScope,
-        requiredFeatures: Set<FactIndexFeature>,
-        desiredFeatures: Set<FactIndexFeature>
+        requiredFeatures: Set<ImplFeature>,
+        desiredFeatures: Set<ImplFeature>
     ): FactIndex
 
     fun create(

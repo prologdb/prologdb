@@ -9,16 +9,11 @@ import com.github.prologdb.runtime.ArgumentError
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.PrologInvocationContractViolationException
-import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
 import com.github.prologdb.runtime.term.Atom
 import com.github.prologdb.runtime.term.CompoundTerm
-import com.github.prologdb.runtime.term.PrologList
 import com.github.prologdb.runtime.term.PrologNumber
-import com.github.prologdb.runtime.term.PrologString
-import com.github.prologdb.runtime.term.Term
 import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
-import com.github.prologdb.storage.fact.FactStoreFeature
 import java.util.UUID
 
 val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicate", 2) { args, ctxt ->
@@ -41,7 +36,7 @@ val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicat
         ?.toInteger()
         ?.toInt()
         ?: throw ArgumentError(0, "must specify an arity beteen 1 and ${Int.MAX_VALUE}")
-    val options = Options.parse(args, 1)
+    val options = ImplSelection.parse(args, 1)
 
     val fqi = FullyQualifiedClauseIndicator(moduleName.name, ClauseIndicator.of(functor.name, arity))
     lateinit var uuid: UUID
@@ -60,8 +55,7 @@ val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicat
         }
 
         uuid = generateSequence { UUID.randomUUID() }
-            .dropWhile { it in systemCatalog.allPredicates }
-            .first()
+            .first { it !in systemCatalog.allPredicates }
 
         systemCatalog.copy(knowledgeBases = (systemCatalog.knowledgeBases - knowledgeBaseCatalog) + knowledgeBaseCatalog.copy(
             modules = (knowledgeBaseCatalog.modules - moduleCatalog) + moduleCatalog.copy(
@@ -76,8 +70,8 @@ val BuiltinCreateDynamicPredicate2 = nativeDatabaseRule("create_dynamic_predicat
     }
 
     when(options) {
-        is Options.FixedImplementation -> runtime.database.createFactStore(uuid, options.id)
-        is Options.SelectByFeatureSupport -> runtime.database.createFactStore(uuid, options.required, options.desired)
+        is ImplSelection.Fixed -> runtime.database.createFactStore(uuid, options.id)
+        is ImplSelection.ByFeatureSupport -> runtime.database.createFactStore(uuid, options.required, options.desired)
     }
 
     Unification.TRUE
@@ -91,59 +85,3 @@ private val FQI_INDICATOR_TEMPLATE = CompoundTerm(":", arrayOf(
     ))
 ))
 
-private sealed interface Options {
-    data class SelectByFeatureSupport(val required: Set<FactStoreFeature> = emptySet(), val desired: Set<FactStoreFeature> = emptySet()) : Options
-    data class FixedImplementation(val id: String) : Options
-
-    companion object {
-        fun parse(args: TypedPredicateArguments, argIndex: Int): Options =
-            args
-            .getTyped<PrologList>(argIndex)
-            .also {
-                if (it.tail != null) {
-                    throw ArgumentError(argIndex, "must not have a tail")
-                }
-            }
-            .elements
-            .fold<Term, Options?>(null) { acc, option ->
-                if (acc is FixedImplementation) {
-                    throw ArgumentError(argIndex, "if a fixed implementation is requested, required&desired features cannot be specified.")
-                }
-
-                if (option !is CompoundTerm) {
-                    throw ArgumentError(3, "all options must be compounds")
-                }
-
-                val accOrDefault = acc as SelectByFeatureSupport? ?: SelectByFeatureSupport()
-                when (option.functor) {
-                    "require" -> {
-                        if (option.arity != 1) {
-                            throw ArgumentError(3, "the option require takes a single argument")
-                        }
-                        accOrDefault.copy(required = accOrDefault.required + FactStoreFeature(option.arguments[0]))
-                    }
-                    "desire" -> {
-                        if (option.arity != 1) {
-                            throw ArgumentError(3, "the option desire takes a single argument")
-                        }
-                        accOrDefault.copy(desired = accOrDefault.required + FactStoreFeature(option.arguments[0]))
-                    }
-                    "impl" -> {
-                        if (option.arity != 1) {
-                            throw ArgumentError(3, "the option impl takes a single argument")
-                        }
-                        val idTerm = option.arguments[0] as? PrologString
-                            ?: throw ArgumentError(3, "the option impl requires a string argument")
-
-                        if (acc == null) {
-                            FixedImplementation(idTerm.toKotlinString())
-                        } else {
-                            throw ArgumentError(argIndex, "if a fixed implementation is requested, required&desired features cannot be specified.")
-                        }
-                    }
-                    else -> throw ArgumentError(3, "Unsupported option: ${option.functor}")
-                }
-            }
-            ?: SelectByFeatureSupport()
-    }
-}

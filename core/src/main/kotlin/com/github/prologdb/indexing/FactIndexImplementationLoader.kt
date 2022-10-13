@@ -1,6 +1,7 @@
 package com.github.prologdb.indexing
 
 import com.github.prologdb.dbms.DataDirectoryManager
+import com.github.prologdb.ImplFeature
 
 interface FactIndexImplementationLoader {
     /**
@@ -26,5 +27,5 @@ interface FactIndexImplementationLoader {
     /**
      * Whether this fact store implementation supports the given feature.
      */
-    fun supportsFeature(feature: FactIndexFeature): Boolean
+    fun supportsFeature(feature: ImplFeature): Boolean
 }

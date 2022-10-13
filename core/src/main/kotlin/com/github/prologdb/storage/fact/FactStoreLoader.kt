@@ -2,6 +2,7 @@ package com.github.prologdb.storage.fact
 
 import com.github.prologdb.dbms.DataDirectoryManager
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
+import com.github.prologdb.ImplFeature
 import com.github.prologdb.storage.StorageException
 
 /**
@@ -29,8 +30,8 @@ interface FactStoreLoader {
      */
     fun create(
         directoryManager: DataDirectoryManager.PredicateScope,
-        requiredFeatures: Set<FactStoreFeature>,
-        desiredFeatures: Set<FactStoreFeature>
+        requiredFeatures: Set<ImplFeature>,
+        desiredFeatures: Set<ImplFeature>
     ) : FactStore
 
     /**

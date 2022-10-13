@@ -1,6 +1,7 @@
 package com.github.prologdb.storage.fact
 
 import com.github.prologdb.dbms.DataDirectoryManager
+import com.github.prologdb.ImplFeature
 import com.github.prologdb.storage.StorageException
 import org.slf4j.LoggerFactory
 import java.util.ServiceLoader
@@ -35,7 +36,7 @@ open class DefaultFactStoreLoader : FactStoreLoader {
         }
     }
 
-    override fun create(directoryManager: DataDirectoryManager.PredicateScope, requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStore {
+    override fun create(directoryManager: DataDirectoryManager.PredicateScope, requiredFeatures: Set<ImplFeature>, desiredFeatures: Set<ImplFeature>): FactStore {
         val loader = selectImplementation(requiredFeatures, desiredFeatures)
         return create(directoryManager, loader)
     }
@@ -90,7 +91,7 @@ open class DefaultFactStoreLoader : FactStoreLoader {
         }
     }
 
-    protected fun selectImplementation(requiredFeatures: Set<FactStoreFeature>, desiredFeatures: Set<FactStoreFeature>): FactStoreImplementationLoader {
+    protected fun selectImplementation(requiredFeatures: Set<ImplFeature>, desiredFeatures: Set<ImplFeature>): FactStoreImplementationLoader {
         val allImplsLocal = knownSpecializedLoadersById.values.toList()
         val implsFittingRequirements = allImplsLocal.filter { loader ->
             requiredFeatures.all(loader::supportsFeature)
@@ -108,7 +109,7 @@ open class DefaultFactStoreLoader : FactStoreLoader {
             }
         }
 
-        val desiredFeaturesWithWeight: Set<Pair<FactStoreFeature, Int>> = desiredFeatures
+        val desiredFeaturesWithWeight: Set<Pair<ImplFeature, Int>> = desiredFeatures
             .mapIndexed { index, loader -> Pair(loader, desiredFeatures.size - index) }
             .toSet()
 

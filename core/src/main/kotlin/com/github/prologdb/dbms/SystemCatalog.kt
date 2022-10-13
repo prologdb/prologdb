@@ -133,7 +133,7 @@ data class SystemCatalog(
     data class Index(
         val name: String,
         val uuid: UUID,
-        val templateGoal: Query,
+        val unscopedTemplateGoal: Query,
         val key: Set<Variable>,
         val storeAdditionally: Set<Variable>,
         val factIndexImplementationId: String?,

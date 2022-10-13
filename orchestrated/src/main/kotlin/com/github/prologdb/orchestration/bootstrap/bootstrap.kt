@@ -2,6 +2,8 @@ package com.github.prologdb.orchestration.bootstrap
 
 import com.github.prologdb.dbms.PrologDatabase
 import com.github.prologdb.execplan.planner.NaiveExecutionPlanner
+import com.github.prologdb.indexing.DefaultFactIndexLoader
+import com.github.prologdb.indexing.FactIndexLoader
 import com.github.prologdb.net.ServerInterface
 import com.github.prologdb.net.negotiation.SemanticVersion
 import com.github.prologdb.net.session.SessionInitializer
@@ -24,6 +26,7 @@ fun runServer(config: ServerConf): ServerHandle {
     val engine = PrologDatabaseToNetworkAdapter(PrologDatabase(
         config.dataDirectory!!,
         FactStoreLoader,
+        FactIndexLoader,
         NaiveExecutionPlanner()
     ))
     log.info("database loaded")
@@ -84,3 +87,4 @@ enum class ShutdownReason {
 }
 
 private val FactStoreLoader: FactStoreLoader = DefaultFactStoreLoader.withServiceLoaderImplementations()
+private val FactIndexLoader: FactIndexLoader = DefaultFactIndexLoader.withServiceLoaderImplementations()

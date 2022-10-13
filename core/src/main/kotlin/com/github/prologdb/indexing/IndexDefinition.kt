@@ -1,6 +1,5 @@
 package com.github.prologdb.indexing
 
-import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Variable
 
 /**
@@ -9,7 +8,7 @@ import com.github.prologdb.runtime.term.Variable
 data class IndexDefinition(
     /** Name of the index, unique per [ClauseIndicator] of the template fact */
     val name: String,
-    val template: Query,
+    val template: IndexTemplate,
     val keyVariables: Set<Variable>,
     val storeAdditionally: Set<Variable>
     // TODO sort directions??

@@ -1,6 +1,7 @@
 package com.github.prologdb.indexing
 
 import com.github.prologdb.dbms.DataDirectoryManager
+import com.github.prologdb.ImplFeature
 import com.github.prologdb.storage.StorageException
 import com.github.prologdb.storage.fact.DuplicateFactStoreImplementationException
 import org.slf4j.LoggerFactory
@@ -36,7 +37,7 @@ open class DefaultFactIndexLoader : FactIndexLoader {
         }
     }
 
-    override fun create(directoryManager: DataDirectoryManager.IndexScope, requiredFeatures: Set<FactIndexFeature>, desiredFeatures: Set<FactIndexFeature>): FactIndex {
+    override fun create(directoryManager: DataDirectoryManager.IndexScope, requiredFeatures: Set<ImplFeature>, desiredFeatures: Set<ImplFeature>): FactIndex {
         val loader = selectImplementation(requiredFeatures, desiredFeatures)
         return create(directoryManager, loader)
     }
@@ -91,7 +92,7 @@ open class DefaultFactIndexLoader : FactIndexLoader {
         }
     }
 
-    protected fun selectImplementation(requiredFeatures: Set<FactIndexFeature>, desiredFeatures: Set<FactIndexFeature>): FactIndexImplementationLoader {
+    protected fun selectImplementation(requiredFeatures: Set<ImplFeature>, desiredFeatures: Set<ImplFeature>): FactIndexImplementationLoader {
         val allImplsLocal = knownSpecializedLoadersById.values.toList()
         val implsFittingRequirements = allImplsLocal.filter { loader ->
             requiredFeatures.all(loader::supportsFeature)
@@ -109,7 +110,7 @@ open class DefaultFactIndexLoader : FactIndexLoader {
             }
         }
 
-        val desiredFeaturesWithWeight: Set<Pair<FactIndexFeature, Int>> = desiredFeatures
+        val desiredFeaturesWithWeight: Set<Pair<ImplFeature, Int>> = desiredFeatures
             .mapIndexed { index, loader -> Pair(loader, desiredFeatures.size - index) }
             .toSet()
 
