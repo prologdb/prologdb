@@ -6,7 +6,7 @@ import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.HasFunctorAndArity
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Variable
-import java.util.UUID
+import java.util.*
 
 data class SystemCatalog(
     @JsonIgnore
@@ -134,7 +134,7 @@ data class SystemCatalog(
         val name: String,
         val uuid: UUID,
         val unscopedTemplateGoal: Query,
-        val key: Set<Variable>,
+        val key: SortedSet<Variable>,
         val storeAdditionally: Set<Variable>,
         val factIndexImplementationId: String?,
     ) {
