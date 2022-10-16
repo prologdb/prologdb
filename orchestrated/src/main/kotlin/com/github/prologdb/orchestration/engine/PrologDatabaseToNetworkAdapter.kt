@@ -23,7 +23,7 @@ import com.github.prologdb.runtime.PrologInternalError
 import com.github.prologdb.runtime.PrologInvocationContractViolationException
 import com.github.prologdb.runtime.PrologUnsupportedOperationException
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
-import com.github.prologdb.runtime.proofsearch.ReadWriteAuthorization
+import com.github.prologdb.runtime.proofsearch.PermitAllAuthorization
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.stdlib.TypedPredicateArguments
 import com.github.prologdb.runtime.term.Atom
@@ -70,7 +70,7 @@ class PrologDatabaseToNetworkAdapter(
             val moduleName = session.module ?: throw ModuleNotSelectedException()
 
             val psc = runtimeEnvironment
-                .newProofSearchContext(moduleName, ReadWriteAuthorization)
+                .newProofSearchContext(moduleName, PermitAllAuthorization)
                 .deriveForModuleContext(session.moduleCatalog.name)
             val plan = database.executionPlanner.planExecution(query, psc)
             val solutionVars = Variable("Plan").unify(plan.explanation, psc.randomVariableScope)
@@ -100,7 +100,7 @@ class PrologDatabaseToNetworkAdapter(
         try {
             val runtimeEnvironment = session.runtimeEnvironment ?: throw KnowledgeBaseNotSelectedException()
             val moduleName = session.module ?: throw ModuleNotSelectedException()
-            val psc = runtimeEnvironment.newProofSearchContext(moduleName, ReadWriteAuthorization)
+            val psc = runtimeEnvironment.newProofSearchContext(moduleName, PermitAllAuthorization)
                 .deriveForModuleContext(session.module ?: throw ModuleNotSelectedException())
 
             return buildLazySequence(psc.principal) {
