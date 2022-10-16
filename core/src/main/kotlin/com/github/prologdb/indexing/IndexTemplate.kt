@@ -1,13 +1,19 @@
 package com.github.prologdb.indexing
 
+import com.github.prologdb.async.LazySequence
+import com.github.prologdb.async.buildLazySequence
+import com.github.prologdb.async.mapRemaining
 import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
+import com.github.prologdb.runtime.proofsearch.ProofSearchContext
+import com.github.prologdb.runtime.proofsearch.ReadOnlyAuthorization
 import com.github.prologdb.runtime.query.AndQuery
 import com.github.prologdb.runtime.query.OrQuery
 import com.github.prologdb.runtime.query.PredicateInvocationQuery
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.CompoundTerm
 import com.github.prologdb.runtime.term.Variable
+import com.github.prologdb.storage.fact.PersistenceID
 
 /**
  * Defines data that should be indexed. Rows for the index are determined
@@ -62,5 +68,34 @@ class IndexTemplate(val moduleName: String, unscopedTemplate: Query) {
                 generator
             ))
         }
+    }
+
+    fun getEntriesFor(baseFact: CompoundTerm, persistenceId: PersistenceID, ctxt: ProofSearchContext): LazySequence<IndexEntry> {
+        require(baseFact.functor == baseFactTemplate.functor)
+        require(baseFact.arity == baseFactTemplate.arity)
+
+        val instantiationsFromBaseFact = baseFactTemplate.unify(baseFact, ctxt.randomVariableScope)
+            ?: return LazySequence.empty()
+
+        if (generator == null) {
+            return LazySequence.of(IndexEntry(
+                persistenceId,
+                instantiationsFromBaseFact
+            ))
+        }
+
+        return buildLazySequence(ctxt.principal) {
+            ctxt.deriveForModuleContext(
+                moduleName = baseFactIndicator.moduleName,
+                restrictAuthorization = ReadOnlyAuthorization,
+            ).fulfillAttach(
+                this@buildLazySequence,
+                generator,
+                instantiationsFromBaseFact,
+            )
+        }
+            .mapRemaining { result ->
+                IndexEntry(persistenceId, result.subset(variables))
+            }
     }
 }

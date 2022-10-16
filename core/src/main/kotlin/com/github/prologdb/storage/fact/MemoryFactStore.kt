@@ -117,7 +117,7 @@ class MemoryFactStore(val arity: Int) : FactStore {
         }
 
         override fun supportsFeature(feature: ImplFeature): Boolean {
-            return feature in setOf(ImplFeature.VOLATILE, ImplFeature.ACCELERATED)
+            return feature in setOf(ImplFeature.ACCELERATED)
         }
     }
 }

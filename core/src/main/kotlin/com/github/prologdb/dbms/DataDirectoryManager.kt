@@ -207,7 +207,7 @@ class DataDirectoryManager private constructor(
 
         val indexDefinition: IndexDefinition = catalogEntry.let { IndexDefinition(
             it.name,
-            IndexTemplate(it.unscopedTemplateGoal),
+            IndexTemplate(catalogEntry.predicate.module.name, it.unscopedTemplateGoal),
             it.key,
             it.storeAdditionally,
         )}

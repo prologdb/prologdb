@@ -43,16 +43,27 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
         knowledgeBaseCatalog.modules.forEach { catalogModule ->
             assureModuleLoaded(ModuleReference(DATABASE_MODULE_PATH_ALIAS, catalogModule.name))
         }
+
+        knowledgeBaseCatalog.modules
+            .flatMap { it.predicates }
+            .flatMap { it.indices }
+            .forEach { indexCatalog ->
+                val factIndex = database.getFactIndex(indexCatalog.uuid)
+                if (factIndex.shouldInitialize()) {
+                    TODO("re-initialization of indices at startup")
+                }
+            }
     }
 
     override fun deriveProofSearchContextForModule(
         deriveFrom: ProofSearchContext,
-        moduleName: String
+        moduleName: String,
+        restrictAuthorization: Authorization,
     ): PhysicalDatabaseProofSearchContext {
         getLoadedModule(moduleName)
 
         if (deriveFrom is DatabaseProofSearchContextWrapper) {
-            return deriveFrom.deriveForModuleContext(moduleName)
+            return deriveFrom.deriveForModuleContext(moduleName, restrictAuthorization)
         }
 
         return DatabaseProofSearchContextWrapper(
@@ -153,8 +164,12 @@ internal class DefaultPhysicalKnowledgeBaseRuntimeEnvironment private constructo
             )
         }
 
-        override fun deriveForModuleContext(moduleName: String): PhysicalDatabaseProofSearchContext {
-            return DatabaseProofSearchContextWrapper(delegate.deriveForModuleContext(moduleName), knowledgeBaseCatalog, runtimeEnvironment)
+        override fun deriveForModuleContext(moduleName: String, restrictAuthorization: Authorization): PhysicalDatabaseProofSearchContext {
+            return DatabaseProofSearchContextWrapper(
+                delegate.deriveForModuleContext(moduleName, restrictAuthorization),
+                knowledgeBaseCatalog,
+                runtimeEnvironment,
+            )
         }
     }
 }

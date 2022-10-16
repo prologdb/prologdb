@@ -6,7 +6,8 @@ import com.github.prologdb.runtime.FullyQualifiedClauseIndicator
 import com.github.prologdb.runtime.HasFunctorAndArity
 import com.github.prologdb.runtime.query.Query
 import com.github.prologdb.runtime.term.Variable
-import java.util.*
+import java.util.SortedSet
+import java.util.UUID
 
 data class SystemCatalog(
     @JsonIgnore

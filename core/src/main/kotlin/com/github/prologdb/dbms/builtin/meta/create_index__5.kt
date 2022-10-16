@@ -15,7 +15,7 @@ import com.github.prologdb.runtime.term.Variable
 import com.github.prologdb.runtime.unification.Unification
 import java.util.*
 
-val BuiltinCreateIndex4 = nativeDatabaseRule("create_index", 5) { args, ctxt ->
+val BuiltinCreateIndex5 = nativeDatabaseRule("create_index", 5) { args, ctxt ->
     val runtime = ctxt.runtimeEnvironment as? MetaKnowledgeBaseRuntimeEnvironment
         ?: throw PrologInvocationContractViolationException("${args.indicator} must be invoked within a meta knowledge base.")
 
@@ -72,7 +72,7 @@ val BuiltinCreateIndex4 = nativeDatabaseRule("create_index", 5) { args, ctxt ->
 }
 
 private data class IndexConfig(
-    val key: Set<Variable>,
+    val key: SortedSet<Variable>,
     val storeAdditionally: Set<Variable>,
 )
 
@@ -82,7 +82,7 @@ private fun TypedPredicateArguments.getIndexConfig(argIndex: Int): IndexConfig {
         throw ArgumentError(argIndex, "Cannot have a tail")
     }
 
-    var key: Set<Variable>? = null
+    var key: SortedSet<Variable>? = null
     var store: Set<Variable>? = null
     for (option in configOptions.elements) {
         if (option !is CompoundTerm) {
@@ -97,7 +97,7 @@ private fun TypedPredicateArguments.getIndexConfig(argIndex: Int): IndexConfig {
 
                 key = option.arguments
                     .map { it as? Variable ?: throw ArgumentError(argIndex, "all entries in the key option must be unbound, got ${it.prologTypeName}") }
-                    .toSet()
+                    .toSortedSet()
             }
             "store" -> {
                 if (store != null) {

@@ -58,7 +58,7 @@ open class DefaultFactIndexLoader : FactIndexLoader {
         lateinit var factStore: FactIndex
         directoryManager.modifyIndexCatalog { catalog ->
             if (catalog.factIndexImplementationId != null) {
-                throw StorageException("A fact store for predicate ${directoryManager.uuid} already exists.")
+                throw StorageException("A store for index ${directoryManager.uuid} already exists.")
             }
 
             factStore = loader.createOrLoad(directoryManager)

@@ -1,5 +1,7 @@
 package com.github.prologdb.dbms
 
+import com.github.prologdb.indexing.FactIndex
+import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.ProofSearchContext
 import com.github.prologdb.storage.fact.FactStore
 
@@ -10,5 +12,9 @@ interface DatabaseProofSearchContext : ProofSearchContext {
         return runtimeEnvironment.database.getFactStore(predicate.uuid)
     }
 
-    override fun deriveForModuleContext(moduleName: String): DatabaseProofSearchContext
+    fun getFactIndex(predicate: SystemCatalog.Index): FactIndex {
+        return runtimeEnvironment.database.getFactIndex(predicate.uuid)
+    }
+
+    override fun deriveForModuleContext(moduleName: String, restrictAuthorization: Authorization): DatabaseProofSearchContext
 }

@@ -1,5 +1,8 @@
 package com.github.prologdb.indexing
 
+import com.github.prologdb.async.LazySequence
+import com.github.prologdb.async.Principal
+import com.github.prologdb.async.WorkableFuture
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.storage.fact.PersistenceID
 
@@ -23,21 +26,28 @@ interface FactIndex {
      * the given [key].
      */
     @Throws(InvalidIndexKeyException::class)
-    fun find(key: IndexKey): IndexLookupResult
+    fun find(key: IndexKey, principal: Principal): LazySequence<IndexEntry>
 
     /**
      * To be called when a fact is [FactStore.store]d into the relating [FactStore]. Updates the index accordingly.
      *
      * Behaviour of duplicate keys is implementation-defined.
      */
-    fun onInserted(entry: IndexEntry)
+    fun onInserted(entry: IndexEntry, principal: Principal): WorkableFuture<Unit>
 
     /**
      * To be called when a fact is removed from the underlying list. Updates the index accordingly.
      *
      * @param persistenceID Index in the source list of predicates from which the term is being removed.
      */
-    fun onRemoved(persistenceID: PersistenceID, key: IndexKey)
+    fun onRemoved(persistenceID: PersistenceID, key: IndexKey, principal: Principal): WorkableFuture<Unit>
+
+    /**
+     * Invoked after the [FactIndex] is created/loaded. If true, the DBMS will iterate through all source
+     * rows of the index and call [onInserted] for every index-entry that needs to exist. This allows
+     * in-memory indexes to re-initialize when the DB server restarts.
+     */
+    fun shouldInitialize(): Boolean = false
 }
 
 /**
@@ -53,5 +63,5 @@ interface RangeQueryFactIndex : FactIndex {
      * @return the [PersistenceID]s of the facts whichs keys are within the given bound
      * @throws IllegalArgumentException If both `lowerBound` and `upperBound` are `null`
      */
-    fun findBetween(lowerBound: IndexKey?, lowerInclusive: Boolean, upperBound: IndexKey?, upperInclusive: Boolean): IndexLookupResult
+    fun findBetween(lowerBound: IndexKey?, lowerInclusive: Boolean, upperBound: IndexKey?, upperInclusive: Boolean, principal: Principal): LazySequence<IndexEntry>
 }

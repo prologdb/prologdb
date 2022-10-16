@@ -23,3 +23,5 @@ class InvalidPersistenceIDException(val invalidID: PersistenceID, message: Strin
 class RecordTooLargeException(val actualSize: Long, val maximumSize: Long, cause: Throwable? = null) : StorageException("This record is too large to be stored: size is $actualSize, maximum possible/allowed is $maximumSize bytes", cause)
 
 class MissingFactStoreException(val predicateUuid: UUID) : PrologException("There is no fact store for predicate $predicateUuid yet")
+
+class MissingFactIndexException(val indexUuid: UUID) : PrologException("there is no store for index $indexUuid yet")

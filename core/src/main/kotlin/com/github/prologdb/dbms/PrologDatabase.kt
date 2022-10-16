@@ -13,6 +13,7 @@ import com.github.prologdb.storage.MissingFactStoreException
 import com.github.prologdb.storage.fact.DefaultFactStoreLoader
 import com.github.prologdb.storage.fact.FactStore
 import com.github.prologdb.ImplFeature
+import com.github.prologdb.storage.MissingFactIndexException
 import com.github.prologdb.storage.fact.FactStoreLoader
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
@@ -30,6 +31,7 @@ class PrologDatabase(
     val dataDirectory = DataDirectoryManager.open(dataDirectory)
 
     private val factStores: MutableMap<UUID, FactStore> = ConcurrentHashMap()
+    private val factIndices: MutableMap<UUID, FactIndex> = ConcurrentHashMap()
     private val factStoreLoadingMutex = Any()
     private val factIndexLoadingMutex = Any()
 
@@ -130,6 +132,18 @@ class PrologDatabase(
                 ?: throw MissingFactStoreException(predicateUuid)
             factStores[predicateUuid] = factStore
             return factStore
+        }
+    }
+
+    @Throws(MissingFactIndexException::class)
+    fun getFactIndex(indexUuid: UUID): FactIndex {
+        factIndices[indexUuid]?.let { return it }
+        synchronized(factIndexLoadingMutex) {
+            factIndices[indexUuid]?.let { return it }
+            val factIndex = factIndexLoader.load(dataDirectory.scopedForIndex(indexUuid))
+                ?: throw MissingFactIndexException(indexUuid)
+            factIndices[indexUuid] = factIndex
+            return factIndex
         }
     }
 

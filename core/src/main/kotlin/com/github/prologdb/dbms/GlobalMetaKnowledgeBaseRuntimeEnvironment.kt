@@ -28,12 +28,13 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
 
     override fun deriveProofSearchContextForModule(
         deriveFrom: ProofSearchContext,
-        moduleName: String
+        moduleName: String,
+        restrictAuthorization: Authorization,
     ): DatabaseProofSearchContext {
         return if (deriveFrom is DatabaseProofSearchContextWrapper) {
-            deriveFrom.deriveForModuleContext(moduleName)
+            deriveFrom.deriveForModuleContext(moduleName, restrictAuthorization)
         } else {
-            DatabaseProofSearchContextWrapper(super.deriveProofSearchContextForModule(deriveFrom, moduleName))
+            DatabaseProofSearchContextWrapper(super.deriveProofSearchContextForModule(deriveFrom, moduleName, restrictAuthorization))
         }
     }
 
@@ -97,12 +98,15 @@ class GlobalMetaKnowledgeBaseRuntimeEnvironment(override val database: PrologDat
             }
         }
 
-        override fun deriveForModuleContext(moduleName: String): DatabaseProofSearchContextWrapper {
+        override fun deriveForModuleContext(moduleName: String, restrictAuthorization: Authorization): DatabaseProofSearchContextWrapper {
             if (delegate.module.declaration.moduleName == moduleName) {
-                return this
+                val newAuthorization = authorization.restrictWith(restrictAuthorization)
+                if (newAuthorization == authorization) {
+                    return this
+                }
             }
 
-            return DatabaseProofSearchContextWrapper(delegate.deriveForModuleContext(moduleName))
+            return DatabaseProofSearchContextWrapper(delegate.deriveForModuleContext(moduleName, restrictAuthorization))
         }
     }
 }

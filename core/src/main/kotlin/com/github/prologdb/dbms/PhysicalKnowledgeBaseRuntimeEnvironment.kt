@@ -8,7 +8,8 @@ interface PhysicalKnowledgeBaseRuntimeEnvironment : DatabaseRuntimeEnvironment {
     override val database: PrologDatabase
     override fun deriveProofSearchContextForModule(
         deriveFrom: ProofSearchContext,
-        moduleName: String
+        moduleName: String,
+        restrictAuthorization: Authorization,
     ): PhysicalDatabaseProofSearchContext
 
     override fun newProofSearchContext(moduleName: String, authorization: Authorization): PhysicalDatabaseProofSearchContext

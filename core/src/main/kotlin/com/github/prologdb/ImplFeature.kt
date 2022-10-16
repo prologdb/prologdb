@@ -17,14 +17,12 @@ value class ImplFeature(val spec: Term) {
         }
     }
 
+    override fun toString() = spec.toString()
+
     companion object {
         /** a fact store or index store persists across restarts of the DB server */
         @JvmStatic
         val PERSISTENT = ImplFeature(Atom("persistent"))
-
-        /** a fact store or index store does not persist across restarts of the DB server */
-        @JvmStatic
-        val VOLATILE = ImplFeature(Atom("volatile"))
 
         /**
          * a fact index that has improved performance on range queries compared to scan+filter on the index

@@ -2,6 +2,7 @@ package com.github.prologdb.dbms
 
 import com.github.prologdb.dbms.builtin.DatabaseStandardLibraryModuleLoader
 import com.github.prologdb.dbms.builtin.meta.BuiltinCreateDynamicPredicate2
+import com.github.prologdb.dbms.builtin.meta.BuiltinCreateIndex5
 import com.github.prologdb.dbms.builtin.meta.BuiltinDynamic2
 import com.github.prologdb.dbms.builtin.meta.BuiltinSource1
 import com.github.prologdb.parser.parser.DefaultModuleSourceFileVisitor
@@ -33,18 +34,19 @@ class MetaKnowledgeBaseRuntimeEnvironment(
         return if (superContext is DatabaseProofSearchContextWrapper) {
             superContext
         } else {
-            deriveProofSearchContextForModule(superContext, ROOT_MODULE_NAME)
+            deriveProofSearchContextForModule(superContext, ROOT_MODULE_NAME, authorization)
         }
     }
 
     override fun deriveProofSearchContextForModule(
         deriveFrom: ProofSearchContext,
-        moduleName: String
+        moduleName: String,
+        restrictAuthorization: Authorization,
     ): DatabaseProofSearchContext {
         return if (deriveFrom is DatabaseProofSearchContextWrapper) {
-            deriveFrom.deriveForModuleContext(moduleName)
+            deriveFrom.deriveForModuleContext(moduleName, restrictAuthorization)
         } else {
-            DatabaseProofSearchContextWrapper(super.deriveProofSearchContextForModule(deriveFrom, moduleName))
+            DatabaseProofSearchContextWrapper(super.deriveProofSearchContextForModule(deriveFrom, moduleName, restrictAuthorization))
         }
     }
 
@@ -56,6 +58,7 @@ class MetaKnowledgeBaseRuntimeEnvironment(
         private val META_MODULE_NATIVE_IMPLEMENTATIONS: Map<ClauseIndicator, NativeCodeRule> = listOf(
             BuiltinSource1,
             BuiltinCreateDynamicPredicate2,
+            BuiltinCreateIndex5,
             BuiltinDynamic2,
         ).associateBy(ClauseIndicator.Companion::of)
         private val PARSER = PrologParser()
@@ -106,8 +109,8 @@ class MetaKnowledgeBaseRuntimeEnvironment(
         private val delegate: ProofSearchContext
     ) : ProofSearchContext by delegate, DatabaseProofSearchContext {
         override val runtimeEnvironment = this@MetaKnowledgeBaseRuntimeEnvironment
-        override fun deriveForModuleContext(moduleName: String): DatabaseProofSearchContext {
-            return DatabaseProofSearchContextWrapper(delegate.deriveForModuleContext(moduleName))
+        override fun deriveForModuleContext(moduleName: String, restrictAuthorization: Authorization): DatabaseProofSearchContext {
+            return DatabaseProofSearchContextWrapper(delegate.deriveForModuleContext(moduleName, restrictAuthorization))
         }
     }
 }
