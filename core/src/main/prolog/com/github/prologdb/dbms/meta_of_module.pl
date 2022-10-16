@@ -4,5 +4,6 @@
 
 :- native(source/1).
 :- native('dynamic'/2).
+:- native(index/4).
 
 dynamic(Indicator) :- dynamic(Indicator, _).

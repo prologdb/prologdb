@@ -3,7 +3,9 @@ package com.github.prologdb.dbms
 import com.github.prologdb.dbms.builtin.DatabaseStandardLibraryModuleLoader
 import com.github.prologdb.dbms.builtin.meta.BuiltinCreateDynamicPredicate2
 import com.github.prologdb.dbms.builtin.meta.BuiltinCreateIndex5
+import com.github.prologdb.dbms.builtin.meta.BuiltinDropIndex2
 import com.github.prologdb.dbms.builtin.meta.BuiltinDynamic2
+import com.github.prologdb.dbms.builtin.meta.BuiltinIndex4
 import com.github.prologdb.dbms.builtin.meta.BuiltinSource1
 import com.github.prologdb.parser.parser.DefaultModuleSourceFileVisitor
 import com.github.prologdb.parser.parser.PrologParser
@@ -11,13 +13,20 @@ import com.github.prologdb.runtime.ClauseIndicator
 import com.github.prologdb.runtime.DefaultPrologRuntimeEnvironment
 import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.builtin.ISOOpsOperatorRegistry
-import com.github.prologdb.runtime.module.*
+import com.github.prologdb.runtime.module.CascadingModuleLoader
+import com.github.prologdb.runtime.module.ModuleDeclaration
+import com.github.prologdb.runtime.module.ModuleImport
+import com.github.prologdb.runtime.module.ModuleLoader
+import com.github.prologdb.runtime.module.ModuleReference
+import com.github.prologdb.runtime.module.PredefinedModuleLoader
 import com.github.prologdb.runtime.proofsearch.Authorization
 import com.github.prologdb.runtime.proofsearch.PrologCallable
 import com.github.prologdb.runtime.proofsearch.ProofSearchContext
 import com.github.prologdb.runtime.stdlib.NativeCodeRule
 import com.github.prologdb.runtime.stdlib.loader.ClasspathPrologSourceModuleLoader
 import com.github.prologdb.runtime.stdlib.loader.NativeCodeSourceFileVisitorDecorator
+import com.github.prologdb.runtime.module.Module
+import com.github.prologdb.runtime.module.ModuleNotFoundException
 
 class MetaKnowledgeBaseRuntimeEnvironment(
     override val database: PrologDatabase,
@@ -59,6 +68,8 @@ class MetaKnowledgeBaseRuntimeEnvironment(
             BuiltinSource1,
             BuiltinCreateDynamicPredicate2,
             BuiltinCreateIndex5,
+            BuiltinIndex4,
+            BuiltinDropIndex2,
             BuiltinDynamic2,
         ).associateBy(ClauseIndicator.Companion::of)
         private val PARSER = PrologParser()
