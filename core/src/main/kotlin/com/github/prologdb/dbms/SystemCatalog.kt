@@ -59,7 +59,7 @@ data class SystemCatalog(
         return withModifiedPredicate(indexBefore.predicate.uuid) { predicate ->
             predicate.copy(
                 indices = predicate.indices.map { index ->
-                    if (index.uuid == predicate.uuid) modifier(index) else index
+                    if (index.uuid == uuid) modifier(index) else index
                 }.toSet()
             )
         }
