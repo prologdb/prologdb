@@ -42,8 +42,8 @@ val BuiltinCreateIndex5 = nativeDatabaseRule("create_index", 5) { args, ctxt ->
             .find { it.indicator == template.baseFactIndicator }
             ?: throw ArgumentError(2, "there is no phyiscal predicate ${template.baseFactIndicator}, can only index on phyical predicates")
 
-        if (predicateCatalog.indices.any { it.name == name }) {
-            throw ArgumentError(0, "an index with name $name is already defined on ${template.baseFactIndicator}")
+        if (moduleCatalog.predicates.flatMap { it.indices }.any { it.name == name }) {
+            throw ArgumentError(0, "an index with name $name is already defined in module ${moduleCatalog.name}")
         }
 
         uuid = generateSequence { UUID.randomUUID() }

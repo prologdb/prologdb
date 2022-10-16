@@ -3,7 +3,6 @@ package com.github.prologdb.dbms
 import com.github.prologdb.dbms.builtin.DatabaseStandardLibraryModuleLoader
 import com.github.prologdb.dbms.builtin.meta.BuiltinCreateDynamicPredicate2
 import com.github.prologdb.dbms.builtin.meta.BuiltinCreateIndex5
-import com.github.prologdb.dbms.builtin.meta.BuiltinDropIndex2
 import com.github.prologdb.dbms.builtin.meta.BuiltinDynamic2
 import com.github.prologdb.dbms.builtin.meta.BuiltinIndex4
 import com.github.prologdb.dbms.builtin.meta.BuiltinSource1
@@ -69,7 +68,6 @@ class MetaKnowledgeBaseRuntimeEnvironment(
             BuiltinCreateDynamicPredicate2,
             BuiltinCreateIndex5,
             BuiltinIndex4,
-            BuiltinDropIndex2,
             BuiltinDynamic2,
         ).associateBy(ClauseIndicator.Companion::of)
         private val PARSER = PrologParser()

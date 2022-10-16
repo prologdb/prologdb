@@ -39,6 +39,6 @@ assert(index(
     GoalTemplate,
     Config
 )) :-
-    default_index_options(Options),
+    module_common:default_index_options(Options),
     assert(index(Name, GoalTemplate, Config, Options))
     .
