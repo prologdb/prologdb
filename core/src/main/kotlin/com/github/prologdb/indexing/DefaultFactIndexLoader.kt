@@ -9,7 +9,7 @@ import java.util.ServiceLoader
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The default implementation to [FactStoreLoader].
+ * The default implementation to [FactIndexLoader].
  *
  * Desired features in [create] are weighed like follows:
  *
@@ -28,7 +28,7 @@ open class DefaultFactIndexLoader : FactIndexLoader {
     private val knownSpecializedLoadersById: MutableMap<String, FactIndexImplementationLoader> = ConcurrentHashMap()
 
     /**
-     * Adds the given [FactStoreImplementationLoader] to the known loaders. The loader will be
+     * Adds the given [FactIndexImplementationLoader] to the known loaders. The loader will be
      * considered for calls to [create] and [load].
      */
     fun registerSpecializedLoader(loader: FactIndexImplementationLoader) {
@@ -150,6 +150,7 @@ open class DefaultFactIndexLoader : FactIndexLoader {
 
     companion object {
         private val log = LoggerFactory.getLogger("prologdb.storage")
+
         @JvmStatic
         fun withServiceLoaderImplementations() : DefaultFactIndexLoader {
             val loader = DefaultFactIndexLoader()
