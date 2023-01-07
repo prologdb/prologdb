@@ -32,8 +32,9 @@ open class DefaultFactIndexLoader : FactIndexLoader {
      * considered for calls to [create] and [load].
      */
     fun registerSpecializedLoader(loader: FactIndexImplementationLoader) {
-        if (knownSpecializedLoadersById.putIfAbsent(loader.implementationId, loader) == null) {
-            throw DuplicateFactStoreImplementationException(loader.implementationId)
+        val existingLoader = knownSpecializedLoadersById.putIfAbsent(loader.implementationId, loader)
+        if (existingLoader != null) {
+            throw DuplicateFactIndexImplementationException(loader.implementationId, existingLoader.javaClass)
         }
     }
 
@@ -158,8 +159,12 @@ open class DefaultFactIndexLoader : FactIndexLoader {
                 try {
                     loader.registerSpecializedLoader(impl)
                 }
-                catch (ex: DuplicateFactStoreImplementationException) {
-                    log.warn("Ignoring fact store implementation ${impl::class.qualifiedName} because another class already provides an implementation for ${ex.id}")
+                catch (ex: DuplicateFactIndexImplementationException) {
+                    if (ex.existingLoaderClass != impl::class.java) {
+                        log.warn("Ignoring fact index implementation ${impl::class.qualifiedName} because another class already provides an implementation for ${ex.id}")
+                    } else {
+                        log.warn("Found fact index implementation ${impl::class.qualifiedName} twice. Are the service loader entries correct?")
+                    }
                 }
             }
 

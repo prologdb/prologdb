@@ -31,8 +31,9 @@ open class DefaultFactStoreLoader : FactStoreLoader {
      * considered for calls to [create] and [load].
      */
     fun registerSpecializedLoader(loader: FactStoreImplementationLoader) {
-        if (knownSpecializedLoadersById.putIfAbsent(loader.implementationId, loader) == null) {
-            throw DuplicateFactStoreImplementationException(loader.implementationId)
+        val existingLoader = knownSpecializedLoadersById.putIfAbsent(loader.implementationId, loader)
+        if (existingLoader != null) {
+            throw DuplicateFactStoreImplementationException(loader.implementationId, existingLoader.javaClass)
         }
     }
 
