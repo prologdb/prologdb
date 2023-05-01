@@ -207,20 +207,20 @@ Like `unify`, except that this one doesn't instantiate anything.
 **Yields:** the fact associated with the persistence id  
 **Instantiates:** nothing
 
-### `* -> lookup(indicator, atom, =) -> +`
+### `* -> index_lookup(indicator, atom, =) -> [+, =]`
 
-An index-lookup
+Obtains all values from an index that exactly match the given key.
 
 **Input**: is discarded  
 **Arguments**:
-1. The indicator whichs facts are being looked up
-2. Name of the index (is unique for the indicator)
-3. The index keys to look up
+1. The indicator of the predicate that is indexed
+2. Name of the index (is unique for the predicate)
+3. The index key to look up
 
-**Action**: Looks up predicate IDs for the given indicator where the indexed values
-match those given in the 3rd argument.  
-**Yields**: the matching persistence IDs.  
-**Instantiates**: ? (how to implement index-only retrievals/scans)
+**Action**: Obtains index entries for which the indexed key
+matches the 3rd argument.  
+**Yields**: The persistence ID and the index entry (key and additionally stored data).  
+**Instantiates**: nothing.
 
 #### Example
 
@@ -238,7 +238,64 @@ And this index used: `:- index(pk, (a(A, _), number(A)), [constant_time_read])`.
 Then this query can be optimized using the index: `a(2, X)`:
 
     lookup(a/2, pk, [A = 2]) | fact_get(a/2) | unify(a(_, X))
-    
+
+### `* -> index_scan(indicator, atom) -> [+, =]`
+
+Obtains all entries from an index.
+
+**Input**: is discarded  
+**Arguments**:
+1. The indicator of the predicate that is indexed
+2. Name of the index (is unique for the predicate)
+
+**Action**: Obtains all entries from the index.
+**Yields**: The persistence ID and the index entry (key and additionally stored data).  
+**Instantiates**: nothing.
+
+### `* -> index_scan_single_bound(indicator, atom, atom, =, atom) -> [+, =]`
+
+**Input**: is discarded  
+**Arguments**:
+1. The indicator of the predicate that is indexed
+2. Name of the index (is unique for the predicate)
+3. Whether the bound is lower or upper: either `gt` or `lt`  
+   in other words: `gt` obtains all entries sorting after the bound, `lt` those sorting before the bound
+4. bound key
+5. inclusivity of the bound: either `incl` or `excl`  
+   in other words: `incl` means "greater than or equal to", `excl` means "strictly greater than"
+
+**Action**: Obtains all entries from the index whose key is (greater|less) than (or equal to) the 4th argument.
+**Yields**: **Yields**: The persistence ID and the index entry (key and additionally stored data).
+**Instantiates**: nothing.
+
+### `* -> index_scan_range(indicator, atom, =, atom, =, atom) -> [+, =]`
+
+**Input**: is discarded  
+**Arguments**:
+1. The indicator of the predicate that is indexed
+2. Name of the index (is unique for the predicate)
+3. lower bound key
+4. inclusivity of the lower bound: either `incl` or `excl`  
+   in other words: `incl` means "greater than or equal to", `excl` means "strictly greater than"
+5. upper bound key
+6. inclusivity of the upper bound: either `incl` or `excl`
+
+**Action**: Obtains all entries from the index whose key is in the given range.
+**Yields**: The persistence ID and the index entry (key and additionally stored data).
+**Instantiates**: nothing.
+
+### `[+, =] -> to_term(fact) -> [+, fact]`
+
+Used to instantiate variables from index entries.
+
+**Input**: a persistence ID and an index entry (in the form of a unification)  
+**Arguments**:
+1. A fact that contains variables from the index-entry scope
+
+**Action**: nothing
+**Yields**: the persistence ID given as input and the fact given in the 1st argument, with variables instantiated from the input
+**Instantiates**: nothing
+
 ### `+ -> fact_delete(indicator) -> void` 
 
 Deletes a fact
