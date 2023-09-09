@@ -292,8 +292,8 @@ Used to instantiate variables from index entries.
 **Arguments**:
 1. A fact that contains variables from the index-entry scope
 
-**Action**: nothing
-**Yields**: the persistence ID given as input and the fact given in the 1st argument, with variables instantiated from the input
+**Action**: nothing    
+**Yields**: the persistence ID given as input and the fact given in the 1st argument, with variables instantiated from the input  
 **Instantiates**: nothing
 
 ### `+ -> fact_delete(indicator) -> void` 
@@ -305,7 +305,7 @@ Deletes a fact
 1. The indicator of the fact to delete
 
 **Action**: deletes the fact associated with the persistence ID from the fact store.  
-**Yields**: one empty element if the fact existed within the fact store, nothing otherwise.  
+**Yields**: one empty element if the fact existed within the fact store, nothing otherwise.    
 **Instantiates**: nothing
 
 #### Overloads
