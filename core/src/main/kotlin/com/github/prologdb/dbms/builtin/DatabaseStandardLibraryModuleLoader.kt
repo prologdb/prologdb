@@ -5,12 +5,14 @@ import com.github.prologdb.runtime.PrologRuntimeEnvironment
 import com.github.prologdb.runtime.module.ModuleLoader
 import com.github.prologdb.runtime.module.ModuleReference
 import com.github.prologdb.runtime.proofsearch.PrologCallable
-import com.github.prologdb.runtime.stdlib.loader.StandardLibraryModuleLoader
+
 import com.github.prologdb.util.OverrideModule
 
 object DatabaseStandardLibraryModuleLoader : ModuleLoader {
+    private val stdlibLoader = ModuleLoader.discoverOnClasspath()
+
     override fun initiateLoading(reference: ModuleReference, runtime: PrologRuntimeEnvironment): ModuleLoader.PrimedStage {
-        val fromDefaultStdlib = StandardLibraryModuleLoader.initiateLoading(reference, runtime)
+        val fromDefaultStdlib = stdlibLoader.initiateLoading(reference, runtime)
         val overrides = overrides[reference] ?: return fromDefaultStdlib
 
         return object : ModuleLoader.PrimedStage {
