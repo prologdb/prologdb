@@ -24,7 +24,7 @@
     </modules>
 
     <properties>
-        <kotlin.version>1.7.10</kotlin.version>
+        <kotlin.version>1.9.0</kotlin.version>
         <kotlin.plugin.version>${kotlin.version}</kotlin.plugin.version>
         <mockito.version>2.0</mockito.version>
         <prolog.runtime.version>1.0.0-SNAPSHOT</prolog.runtime.version>
